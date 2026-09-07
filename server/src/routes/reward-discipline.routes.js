@@ -33,7 +33,7 @@ router.post('/', authorizeRole('Administrator', 'HR Staff'), async (req, res) =>
     try {
         const { employee_id, decision_type, decision_date, effective_date, reason, content, decision_by, attachment_url } = req.body;
         const now = Date.now();
-        const id = 'rd-' + crypto.randomUUID();
+        const id = crypto.randomUUID();
         const prefix = decision_type === 'KHEN_THUONG' ? 'QĐ-KT' : 'QĐ-KL';
         const decisionNo = `${prefix}/${new Date().getFullYear()}/${Math.floor(10 + Math.random() * 90)}`;
 
@@ -81,7 +81,7 @@ router.post('/criteria', authorizeRole('Administrator', 'HR Staff'), async (req,
     try {
         const { criteria_code, criteria_name, weight, description, scales } = req.body;
         const now = Date.now();
-        const id = 'tc-' + crypto.randomUUID();
+        const id = crypto.randomUUID();
 
         await run(
             `INSERT INTO EvaluationCriteria (criteria_id, created_date, last_modified_date, criteria_code, criteria_name, weight, description, status)
@@ -92,7 +92,7 @@ router.post('/criteria', authorizeRole('Administrator', 'HR Staff'), async (req,
         // Insert Scale grades if provided
         if (scales && Array.isArray(scales)) {
             for (const s of scales) {
-                const scaleId = 'sc-' + crypto.randomUUID();
+                const scaleId = crypto.randomUUID();
                 await run(
                     `INSERT INTO EvaluationScale (scale_id, criteria_id, grade_name, min_score, max_score, description)
            VALUES (?, ?, ?, ?, ?, ?)`,
@@ -139,7 +139,7 @@ router.post('/evaluations', authorizeRole('Administrator', 'HR Staff'), async (r
     try {
         const { evaluation_date, year, evaluator_id, employee_id, description, details } = req.body;
         const now = Date.now();
-        const id = 'ev-' + crypto.randomUUID();
+        const id = crypto.randomUUID();
         const code = 'PĐG-' + new Date().getFullYear() + '-' + Math.floor(100 + Math.random() * 900);
         const evalDate = evaluation_date ? (typeof evaluation_date === 'number' ? evaluation_date : new Date(evaluation_date).getTime()) : now;
 
@@ -178,7 +178,7 @@ router.post('/evaluations', authorizeRole('Administrator', 'HR Staff'), async (r
         // Insert Evaluation Details
         if (details && Array.isArray(details)) {
             for (const d of details) {
-                const detailId = 'evd-' + crypto.randomUUID();
+                const detailId = crypto.randomUUID();
                 await run(
                     `INSERT INTO EmployeeEvaluationDetail (detail_id, evaluation_id, criteria_id, criteria_code, criteria_name, weight, score, note)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -214,7 +214,7 @@ router.post('/proposals', authorizeRole('Administrator', 'HR Staff', 'Trưởng 
     try {
         const { record_type, employee_id, proposed_amount, reason, proposed_by } = req.body;
         const now = Date.now();
-        const id = 'rdp-' + crypto.randomUUID();
+        const id = crypto.randomUUID();
         const prefix = record_type === 'KHEN_THUONG' ? 'DXKT' : 'DXKL';
         const code = `${prefix}-${new Date().getFullYear()}-${Math.floor(100 + Math.random() * 900)}`;
 

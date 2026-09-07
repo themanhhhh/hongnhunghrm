@@ -3,6 +3,7 @@ require('dotenv').config();
 const { run, query, queryOne } = require('./connection');
 const { initSchema } = require('./schema');
 const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
 
 const seedData = async (forceClear = false) => {
     console.log('Starting BRAVO HRM Comprehensive System Seeding...');
@@ -18,12 +19,14 @@ const seedData = async (forceClear = false) => {
     if (forceClear) {
         const tablesToClear = [
             'PositionContractPathway', 'ApprovalHistory', 'AuditLog', 'DepartmentQuotaDetail', 'DepartmentQuota',
-            'InterviewEvaluationCriteria', 'InterviewEvaluationScript', 'InterviewEvaluation', 'PreScreeningCriteria',
-            'PreScreening', 'Offer', 'Interview', 'InterviewSchedule', 'Candidate', 'RecruitmentRound',
-            'RecruitmentPlan', 'RecruitmentRequest', 'RewardDisciplineProposal', 'EmployeeEvaluationDetail',
-            'EmployeeEvaluation', 'EvaluationScale', 'EvaluationCriteria', 'LeaveApplication', 'ResignationDecision',
-            'ResignationApplication', 'TransferDecision', 'TransferProposal', 'ContractExtension', 'ContractProposal',
-            'RewardDiscipline', 'WorkHistory', 'EmployeeContract', 'User', 'Employee', 'Position', 'Department', 'Role'
+            'InterviewEvaluationCriteria', 'InterviewEvaluationScript', 'InterviewEvaluation', 'InterviewSchedulePanel',
+            'InterviewScheduleCandidate', 'PreScreeningCriteria', 'PreScreening', 'RecruitmentDecision', 'Offer',
+            'Interview', 'InterviewSchedule', 'CandidateAttachment', 'Candidate', 'RecruitmentRound', 'RecruitmentPlan',
+            'RecruitmentRequest', 'EmployeeEvaluationDetail', 'EmployeeEvaluation', 'EvaluationScale', 'EvaluationCriteria',
+            'RewardDiscipline', 'RewardDisciplineProposal', 'LeaveApplication', 'EmployeeLeaveBalance', 'ResignationDecision',
+            'ResignationApplication', 'TransferDecisionDetail', 'TransferProposalDetail', 'TransferDecision', 'TransferProposal',
+            'ContractAppendix', 'ContractExtension', 'ContractProposal', 'WorkHistory', 'EmployeeContract', 'User', 'Employee',
+            'Position', 'Department', 'Role'
         ];
 
         for (const table of tablesToClear) {
@@ -827,6 +830,20 @@ const seedData = async (forceClear = false) => {
         }
     }
 
+    const recruitmentDecisions = [
+        { id: 'rec-dec-uv10', number: 'QDTD/2026-001', candidateId: 'cand-uv10', date: now - 86400000, result: 'ĐẠT', comment: 'Đủ điều kiện tuyển dụng vị trí Nhân viên Kinh doanh.' },
+        { id: 'rec-dec-uv20', number: 'QDTD/2026-002', candidateId: 'cand-uv20', date: now - 2 * 86400000, result: 'ĐẠT', comment: 'Đủ điều kiện tuyển dụng vị trí Nhân viên Kinh doanh.' },
+        { id: 'rec-dec-uv21', number: 'QDTD/2026-003', candidateId: 'cand-uv21', date: now - 5 * 86400000, result: 'ĐẠT', comment: 'Đủ điều kiện tuyển dụng vị trí Nhân viên Marketing.' },
+        { id: 'rec-dec-uv22', number: 'QDTD/2026-004', candidateId: 'cand-uv22', date: now - 30 * 86400000, result: 'ĐẠT', comment: 'Quyết định trúng tuyển đã được thực hiện.' }
+    ];
+    for (const decision of recruitmentDecisions) {
+        if (!await queryOne('SELECT decision_id FROM RecruitmentDecision WHERE decision_id = ?', [decision.id])) {
+            await run(`INSERT INTO RecruitmentDecision (decision_id, created_date, last_modified_date, decision_number, candidate_id, decision_date, result, overall_comment, decision_by_name, status)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Trần Thị Thu Hà', 'COMPLETED')`,
+                [decision.id, now, now, decision.number, decision.candidateId, decision.date, decision.result, decision.comment]);
+        }
+    }
+
     // Interviews
     const interviews = [
         { id: 'int-01', cand_id: 'cand-uv08', round_id: 'round-04', interviewer_id: 'emp-kd-01', score: 8.5, result: 'PASSED', comment: 'Ứng viên giao tiếp tự tin, có kinh nghiệm tư vấn phần mềm B2B tốt' },
@@ -1122,10 +1139,23 @@ const seedData = async (forceClear = false) => {
     for (const lv of leaveApplications) {
         const existing = await queryOne('SELECT leave_id FROM LeaveApplication WHERE leave_id = ?', [lv.id]);
         if (!existing) {
-            await run(`INSERT INTO LeaveApplication (leave_id, created_date, last_modified_date, leave_code, employee_id, employee_code, employee_name, department_id, department_name, approver_id, approver_name, related_person_id, related_person_name, start_date, end_date, total_days, reason, details_json, approver_note, status)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            await run(`INSERT INTO LeaveApplication (leave_id, created_date, last_modified_date, leave_code, employee_id, employee_code, employee_name, department_id, department_name, approver_id, approver_name, related_person_id, related_person_name, start_date, end_date, total_days, leave_type, leave_year, reason, details_json, approver_note, status)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'ANNUAL', 2026, ?, ?, ?, ?)`,
                 [lv.id, now, now, lv.code, lv.emp_id, lv.emp_code, lv.emp_name, lv.dept_id, lv.dept_name, lv.approver_id, lv.approver_name, lv.related_person_id, lv.related_person_name, lv.start_date, lv.end_date, lv.total_days, lv.reason, lv.details, lv.approverNote, lv.status]);
         }
+    }
+
+    const annualLeaveYear = 2026;
+    const annualLeaveEmployees = await query(`SELECT employee_id, join_date FROM Employee WHERE is_active = 1 AND employment_status = 'WORKING'`);
+    for (const employee of annualLeaveEmployees) {
+        if (await queryOne('SELECT leave_balance_id FROM EmployeeLeaveBalance WHERE employee_id = ? AND leave_year = ?', [employee.employee_id, annualLeaveYear])) continue;
+        const joined = new Date(Number(employee.join_date || now));
+        const entitlement = joined.getFullYear() < annualLeaveYear ? 12 : joined.getFullYear() > annualLeaveYear ? 0 : 12 - joined.getMonth();
+        const used = await queryOne(`SELECT COALESCE(SUM(total_days), 0) AS used_days FROM LeaveApplication WHERE employee_id = ? AND leave_year = ? AND leave_type = 'ANNUAL' AND status = 'APPROVED'`, [employee.employee_id, annualLeaveYear]);
+        const usedDays = Number(used?.used_days || 0);
+        await run(`INSERT INTO EmployeeLeaveBalance (leave_balance_id, employee_id, leave_year, entitled_days, carried_forward_days, used_days, remaining_days, calculation_note, last_calculated_date, created_date, last_modified_date)
+                   VALUES (?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?)`,
+            [crypto.randomUUID(), employee.employee_id, annualLeaveYear, entitlement, usedDays, Math.max(0, entitlement - usedDays), '12 ngày/năm, tính theo tháng vào làm và không chuyển phép sang năm sau.', now, now, now]);
     }
 
     // Offers
@@ -1150,8 +1180,8 @@ const seedData = async (forceClear = false) => {
     const hiredEmployeeId = 'emp-uv22-hired';
     if (!await queryOne('SELECT employee_id FROM Employee WHERE employee_id = ?', [hiredEmployeeId])) {
         const joinTs = now - 20 * 86400000;
-        await run(`INSERT INTO Employee (employee_id, created_date, last_modified_date, employee_code, full_name, gender, date_of_birth, citizen_id, citizen_issue_date, citizen_issue_place, phone, email, address, permanent_address, department_id, position_id, join_date, official_date, employment_status, is_active)
-         VALUES (?, ?, ?, 'NV-2026-201', 'Phan Đức Anh', 'Nam', ?, '001196333444', ?, 'Cục Cảnh sát QLHC về Trật tự xã hội', '0966333444', 'anhpd@gmail.com', 'Hà Nội', 'Hà Nội', 'dept-kt', 'pos-kt-emp', ?, ?, 'WORKING', 1)`,
+        await run(`INSERT INTO Employee (employee_id, created_date, last_modified_date, employee_code, full_name, gender, date_of_birth, citizen_id, citizen_issue_date, citizen_issue_place, phone, email, address, permanent_address, candidate_id, department_id, position_id, join_date, official_date, employment_status, is_active)
+         VALUES (?, ?, ?, 'NV-2026-201', 'Phan Đức Anh', 'Nam', ?, '001196333444', ?, 'Cục Cảnh sát QLHC về Trật tự xã hội', '0966333444', 'anhpd@gmail.com', 'Hà Nội', 'Hà Nội', 'cand-uv22', 'dept-kt', 'pos-kt-emp', ?, ?, 'WORKING', 1)`,
             [hiredEmployeeId, now, now, new Date('1996-04-16').getTime(), new Date('1996-04-16').getTime() + 18 * 365 * 86400000, joinTs, joinTs + 60 * 86400000]);
 
         const hiredContractId = `contract-${hiredEmployeeId}`;

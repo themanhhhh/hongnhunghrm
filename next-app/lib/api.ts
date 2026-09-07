@@ -1,5 +1,6 @@
 import { canAccess, defaultSession, DEMO_USERS, type Action, type Resource, type Session } from "./permissions";
 import { dashboardData, moduleData } from "./mock-data";
+import { isMockMode, mockApiRequest } from "./mock-api";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5000/api";
 
@@ -30,6 +31,21 @@ function toSession(user: Record<string, unknown>): Session {
   };
 }
 
+function storeSession(session: Session, token?: string) {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem("bravo_next_session", JSON.stringify(session));
+  if (token) window.localStorage.setItem("bravo_next_token", token);
+  else window.localStorage.removeItem("bravo_next_token");
+}
+
+function demoLogin(username: string, password: string) {
+  const user = DEMO_USERS.find((item) => item.username.toLowerCase() === username.toLowerCase() && item.password === password);
+  if (!user) return { success: false, message: "Tài khoản demo hoặc mật khẩu không hợp lệ." };
+  const { password: _password, ...session } = user;
+  storeSession(session);
+  return { success: true, session };
+}
+
 function unwrap<T>(response: unknown): T | null {
   if (!response || typeof response !== "object") return null;
   if ("data" in response) return (response as ApiEnvelope<T>).data ?? null;
@@ -47,6 +63,8 @@ export const api = {
       throw new ApiError("Bạn không có quyền thực hiện thao tác này.", 403);
     }
 
+    if (isMockMode()) return mockApiRequest<T>(path, init);
+
     const headers = new Headers(init.headers);
     headers.set("Content-Type", "application/json");
     headers.set("X-HRM-Role", session.role);
@@ -61,7 +79,7 @@ export const api = {
       return response.json() as Promise<T>;
     } catch (error) {
       if (error instanceof ApiError) throw error;
-      return mockRequest<T>(path);
+      return mockApiRequest<T>(path, init);
     }
   },
   async dashboard() {
@@ -89,21 +107,16 @@ export const api = {
     return dashboardData;
   },
   async login(username: string, password: string) {
+    if (isMockMode()) return demoLogin(username, password);
     try {
       const response = await fetch(`${API_URL}/auth/login`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ username, password }) });
       const body = await response.json() as ApiEnvelope<unknown>;
       if (!response.ok || !body.success || !body.user) return { success: false, message: body.message ?? "Đăng nhập thất bại." };
       const session = toSession(body.user);
-      if (typeof window !== "undefined") {
-        window.localStorage.setItem("bravo_next_session", JSON.stringify(session));
-        if (body.token) window.localStorage.setItem("bravo_next_token", body.token);
-      }
+      storeSession(session, body.token);
       return { success: true, session };
     } catch {
-      const user = DEMO_USERS.find((item) => item.username.toLowerCase() === username.toLowerCase() && item.password === password);
-      if (!user) return { success: false, message: "Không kết nối được backend và tài khoản demo không hợp lệ." };
-      const { password: _password, ...session } = user;
-      return { success: true, session };
+      return demoLogin(username, password);
     }
   },
   async module(name: keyof typeof moduleData) {
@@ -157,11 +170,3 @@ export const api = {
     return this.request("/reward-discipline/proposals", { method: "POST", body: JSON.stringify({ record_type: "KHEN_THUONG", employee_id: "emp-hr-02", reason: payload.title, proposed_by: readSession().name }) }, { resource: "rewards", action: "create" });
   },
 };
-
-async function mockRequest<T>(path: string) {
-  await new Promise((resolve) => setTimeout(resolve, 180));
-  if (path.includes("dashboard")) return dashboardData as T;
-  if (path.includes("/recruitment/") || path.includes("/hr/") || path.includes("/reward-discipline/") || path.includes("/reports/")) return { success: true, data: [] } as T;
-  const name = path.split("/").pop() as keyof typeof moduleData;
-  return moduleData[name] as T;
-}

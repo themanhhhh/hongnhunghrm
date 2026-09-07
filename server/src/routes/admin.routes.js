@@ -75,7 +75,7 @@ router.post('/departments', authorizeRole('Administrator'), async (req, res) => 
         }
 
         const now = Date.now();
-        const id = 'dept-' + crypto.randomUUID();
+        const id = crypto.randomUUID();
 
         await run(
             `INSERT INTO Department (department_id, created_date, last_modified_date, department_code, department_name, description, manager_id, parent_department_id, target_headcount, status)
@@ -172,7 +172,7 @@ router.post('/positions/:id/pathway', authorizeRole('Administrator'), async (req
         const { contract_type_id, step_order, note } = req.body;
         const posId = req.params.id;
         const now = Date.now();
-        const id = 'pw-' + crypto.randomUUID();
+        const id = crypto.randomUUID();
 
         await run(
             `INSERT INTO PositionContractPathway (pathway_id, position_id, contract_type_id, step_order, note, created_date)
@@ -208,7 +208,7 @@ router.post('/positions', authorizeRole('Administrator'), async (req, res) => {
         }
 
         const now = Date.now();
-        const id = 'pos-' + crypto.randomUUID();
+        const id = crypto.randomUUID();
 
         await run(
             `INSERT INTO Position (position_id, created_date, last_modified_date, position_code, position_name, department_id, description, target_headcount, is_assistant, salary_grade, status)
@@ -302,7 +302,7 @@ router.post('/contract-types', authorizeRole('Administrator'), async (req, res) 
         }
 
         const now = Date.now();
-        const id = 'cttype-' + crypto.randomUUID();
+        const id = crypto.randomUUID();
 
         await run(
             `INSERT INTO ContractType (contract_type_id, created_date, last_modified_date, contract_type_code, contract_type_name, duration_months, has_probation, probation_days, status)
@@ -401,7 +401,7 @@ router.post('/users', authorizeRole('Administrator'), async (req, res) => {
         }
 
         const now = Date.now();
-        const id = 'usr-' + crypto.randomUUID();
+        const id = crypto.randomUUID();
         const passwordHash = await bcrypt.hash(password || '123456', 10);
         const finalRole = role_id || 'role-hr';
 

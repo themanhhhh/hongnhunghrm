@@ -6,6 +6,58 @@ const { authenticateToken, authorizeRole } = require('../middleware/auth');
 
 router.use(authenticateToken);
 
+async function findDuplicateCandidate({ citizen_id, phone, email }, excludeCandidateId) {
+    const duplicateChecks = [];
+    const params = [];
+    const citizenId = String(citizen_id || '').trim();
+    const phoneNumber = String(phone || '').trim();
+    const emailAddress = String(email || '').trim().toLowerCase();
+
+    if (citizenId) {
+        duplicateChecks.push('citizen_id = ?');
+        params.push(citizenId);
+    }
+    if (phoneNumber) {
+        duplicateChecks.push('phone = ?');
+        params.push(phoneNumber);
+    }
+    if (emailAddress) {
+        duplicateChecks.push('LOWER(LTRIM(RTRIM(email))) = ?');
+        params.push(emailAddress);
+    }
+    if (duplicateChecks.length === 0) return null;
+
+    let sql = `SELECT TOP 1 candidate_code, full_name FROM Candidate WHERE (${duplicateChecks.join(' OR ')})`;
+    if (excludeCandidateId) {
+        sql += ' AND candidate_id <> ?';
+        params.push(excludeCandidateId);
+    }
+    return queryOne(sql, params);
+}
+
+async function replaceCandidateAttachments(candidateId, rawAttachments, now) {
+    let attachments = rawAttachments;
+    if (typeof attachments === 'string') {
+        try {
+            attachments = JSON.parse(attachments);
+        } catch {
+            return;
+        }
+    }
+    if (!Array.isArray(attachments)) return;
+
+    await run('DELETE FROM CandidateAttachment WHERE candidate_id = ?', [candidateId]);
+    for (const attachment of attachments) {
+        const fileName = String(attachment?.name || attachment?.file_name || '').trim();
+        if (!fileName) continue;
+        await run(
+            `INSERT INTO CandidateAttachment (attachment_id, candidate_id, file_name, file_url, note, uploaded_date, created_date)
+             VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            [crypto.randomUUID(), candidateId, fileName, attachment?.url || attachment?.file_url || null, attachment?.note || null, now, now]
+        );
+    }
+}
+
 // --- 1. YÊU CẦU TUYỂN DỤNG ---
 router.get('/requests', async (req, res) => {
     let sql = `
@@ -29,9 +81,9 @@ router.get('/requests', async (req, res) => {
 
 router.post('/requests', authorizeRole('Administrator', 'HR Staff', 'Trưởng Khối', 'Trưởng Phòng'), async (req, res) => {
     try {
-        const { request_code, created_date, department_id, position_id, requested_by, quantity, reason, expected_date, priority, is_outside_headcount, note } = req.body;
+        const { request_code, created_date, department_id, position_id, quota_id, requested_by, quantity, reason, expected_date, priority, is_outside_headcount, note } = req.body;
         const now = Date.now();
-        const id = 'req-' + crypto.randomUUID();
+        const id = crypto.randomUUID();
 
         const yy = String(new Date().getFullYear()).slice(-2);
         const countReq = (await queryOne('SELECT COUNT(*) as cnt FROM RecruitmentRequest'))?.cnt || 0;
@@ -42,9 +94,9 @@ router.post('/requests', authorizeRole('Administrator', 'HR Staff', 'Trưởng K
         const expDate = expected_date ? (typeof expected_date === 'number' ? expected_date : new Date(expected_date).getTime()) : now + 30 * 86400000;
 
         await run(
-            `INSERT INTO RecruitmentRequest (recruitment_request_id, created_date, last_modified_date, request_code, department_id, position_id, requested_by, quantity, reason, expected_date, priority, status, is_outside_headcount, note)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'PENDING', ?, ?)`,
-            [id, reqCreatedDate, now, finalRequestCode, department_id, position_id, requested_by || null, Number(quantity) || 1, reason || '', expDate, priority || 'MEDIUM', Number(is_outside_headcount) || 0, note || '']
+            `INSERT INTO RecruitmentRequest (recruitment_request_id, created_date, last_modified_date, request_code, department_id, position_id, quota_id, requested_by, quantity, reason, expected_date, priority, status, is_outside_headcount, note)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'PENDING', ?, ?)`,
+            [id, reqCreatedDate, now, finalRequestCode, department_id, position_id, quota_id || null, requested_by || null, Number(quantity) || 1, reason || '', expDate, priority || 'MEDIUM', Number(is_outside_headcount) || 0, note || '']
         );
 
         res.json({ success: true, message: 'Đề xuất nhu cầu tuyển dụng thành công!' });
@@ -55,12 +107,12 @@ router.post('/requests', authorizeRole('Administrator', 'HR Staff', 'Trưởng K
 
 router.put('/requests/:id', authorizeRole('Administrator', 'HR Staff', 'Trưởng Khối', 'Trưởng Phòng'), async (req, res) => {
     try {
-        const { request_code, created_date, department_id, position_id, requested_by, quantity, reason, expected_date, priority, is_outside_headcount, note, status } = req.body;
+        const { request_code, created_date, department_id, position_id, quota_id, requested_by, quantity, reason, expected_date, priority, is_outside_headcount, note, status } = req.body;
         const now = Date.now();
         const expDate = expected_date ? (typeof expected_date === 'number' ? expected_date : new Date(expected_date).getTime()) : now + 30 * 86400000;
 
-        let sql = `UPDATE RecruitmentRequest SET department_id = ?, position_id = ?, requested_by = ?, quantity = ?, reason = ?, expected_date = ?, priority = ?, is_outside_headcount = ?, note = ?, last_modified_date = ?`;
-        let params = [department_id, position_id, requested_by || null, Number(quantity) || 1, reason || '', expDate, priority || 'MEDIUM', Number(is_outside_headcount) || 0, note || '', now];
+        let sql = `UPDATE RecruitmentRequest SET department_id = ?, position_id = ?, quota_id = ?, requested_by = ?, quantity = ?, reason = ?, expected_date = ?, priority = ?, is_outside_headcount = ?, note = ?, last_modified_date = ?`;
+        let params = [department_id, position_id, quota_id || null, requested_by || null, Number(quantity) || 1, reason || '', expDate, priority || 'MEDIUM', Number(is_outside_headcount) || 0, note || '', now];
 
         if (request_code) {
             sql += `, request_code = ?`;
@@ -135,7 +187,7 @@ router.post('/plans', authorizeRole('Administrator', 'HR Staff'), async (req, re
     try {
         const { recruitment_request_id, plan_name, start_date, end_date, budget, note } = req.body;
         const now = Date.now();
-        const id = 'plan-' + crypto.randomUUID();
+        const id = crypto.randomUUID();
 
         const sDate = start_date ? (typeof start_date === 'number' ? start_date : new Date(start_date).getTime()) : now;
         const eDate = end_date ? (typeof end_date === 'number' ? end_date : new Date(end_date).getTime()) : now + 60 * 86400000;
@@ -147,11 +199,11 @@ router.post('/plans', authorizeRole('Administrator', 'HR Staff'), async (req, re
         );
 
         await run(`INSERT INTO RecruitmentRound (recruitment_round_id, created_date, last_modified_date, recruitment_plan_id, round_name, round_order, description, status)
-         VALUES (?, ?, ?, ?, 'Vòng 1: Sàng lọc CV', 1, 'HR Specialist sàng lọc hồ sơ', 'ACTIVE')`, ['round-' + crypto.randomUUID(), now, now, id]);
+         VALUES (?, ?, ?, ?, 'Vòng 1: Sàng lọc CV', 1, 'HR Specialist sàng lọc hồ sơ', 'ACTIVE')`, [crypto.randomUUID(), now, now, id]);
         await run(`INSERT INTO RecruitmentRound (recruitment_round_id, created_date, last_modified_date, recruitment_plan_id, round_name, round_order, description, status)
-         VALUES (?, ?, ?, ?, 'Vòng 2: Bài Test Chuyên môn', 2, 'Kiểm tra kỹ năng & tư duy chuyên môn', 'ACTIVE')`, ['round-' + crypto.randomUUID(), now, now, id]);
+         VALUES (?, ?, ?, ?, 'Vòng 2: Bài Test Chuyên môn', 2, 'Kiểm tra kỹ năng & tư duy chuyên môn', 'ACTIVE')`, [crypto.randomUUID(), now, now, id]);
         await run(`INSERT INTO RecruitmentRound (recruitment_round_id, created_date, last_modified_date, recruitment_plan_id, round_name, round_order, description, status)
-         VALUES (?, ?, ?, ?, 'Vòng 3: Phỏng vấn Trưởng phòng & HR', 3, 'Trưởng phòng & HR Manager phỏng vấn trực tiếp', 'ACTIVE')`, ['round-' + crypto.randomUUID(), now, now, id]);
+         VALUES (?, ?, ?, ?, 'Vòng 3: Phỏng vấn Trưởng phòng & HR', 3, 'Trưởng phòng & HR Manager phỏng vấn trực tiếp', 'ACTIVE')`, [crypto.randomUUID(), now, now, id]);
 
         res.json({ success: true, message: 'Lập kế hoạch tuyển dụng thành công!' });
     } catch (error) {
@@ -205,32 +257,49 @@ router.post('/candidates', authorizeRole('Administrator', 'HR Staff'), async (re
     try {
         const {
             candidate_code, full_name, gender, date_of_birth, citizen_id, phone, email, address,
-            culture_level, education_level, education_school, major, experience,
-            recruitment_plan_id, position_id, source, recruitment_unit, referrer, received_date,
+            culture_level, education_level, education_school, major, gpa, experience,
+            recruitment_plan_id, recruitment_request_id, department_id, position_id, source, recruitment_unit, referrer, referrer_employee_id, received_date,
             status, rejection_reason, note, attachments_json
         } = req.body;
 
         const now = Date.now();
-        const id = 'cand-' + crypto.randomUUID();
+        const id = crypto.randomUUID();
 
         const parseDate = (d) => (d ? (typeof d === 'number' ? d : new Date(d).getTime()) : null);
         const dob = parseDate(date_of_birth);
         const rDate = parseDate(received_date) || now;
+        const plan = recruitment_plan_id
+            ? await queryOne(`SELECT request.department_id, request.recruitment_request_id
+                               FROM RecruitmentPlan plan JOIN RecruitmentRequest request ON request.recruitment_request_id = plan.recruitment_request_id
+                               WHERE plan.recruitment_plan_id = ?`, [recruitment_plan_id])
+            : null;
+        const position = position_id ? await queryOne('SELECT department_id FROM Position WHERE position_id = ?', [position_id]) : null;
+        const finalRequestId = recruitment_request_id || plan?.recruitment_request_id || null;
+        const finalDepartmentId = department_id || position?.department_id || plan?.department_id || null;
+        const gpaValue = gpa === '' || gpa === null || gpa === undefined || Number.isNaN(Number(gpa)) ? null : Number(gpa);
 
         const attJson = Array.isArray(attachments_json) ? JSON.stringify(attachments_json) : (typeof attachments_json === 'string' ? attachments_json : '[]');
+        const duplicate = await findDuplicateCandidate({ citizen_id, phone, email });
+        if (duplicate) {
+            return res.status(409).json({
+                success: false,
+                message: `Thông tin ứng viên trùng với hồ sơ ${duplicate.candidate_code || duplicate.full_name}.`
+            });
+        }
 
         await run(
             `INSERT INTO Candidate (
         candidate_id, created_date, last_modified_date, candidate_code, full_name, gender, date_of_birth, citizen_id, phone, email, address,
-        culture_level, education_level, education_school, major, experience, recruitment_plan_id, position_id, source, recruitment_unit, referrer,
+        culture_level, education_level, education_school, major, gpa, experience, recruitment_plan_id, recruitment_request_id, department_id, position_id, source, recruitment_unit, referrer, referrer_employee_id,
         received_date, status, rejection_reason, note, attachments_json
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
                 id, now, now, candidate_code, full_name, gender || 'Nam', dob, citizen_id || '', phone || '', email || '', address || '',
-                culture_level || '12/12', education_level || '', education_school || '', major || '', experience || '', recruitment_plan_id || '', position_id || null,
-                source || 'TopCV', recruitment_unit || 'Công ty CP Phần mềm BRAVO', referrer || '', rDate, status || 'Đã tiếp nhận hồ sơ', rejection_reason || '', note || '', attJson
+                culture_level || '12/12', education_level || '', education_school || '', major || '', gpaValue, experience || '', recruitment_plan_id || '', finalRequestId, finalDepartmentId, position_id || null,
+                source || 'TopCV', recruitment_unit || 'Công ty CP Phần mềm BRAVO', referrer || '', referrer_employee_id || null, rDate, status || 'Đã tiếp nhận hồ sơ', rejection_reason || '', note || '', attJson
             ]
         );
+        await replaceCandidateAttachments(id, attachments_json, now);
 
         res.json({ success: true, message: 'Tiếp nhận hồ sơ ứng viên thành công!' });
     } catch (error) {
@@ -242,8 +311,8 @@ router.put('/candidates/:id', authorizeRole('Administrator', 'HR Staff'), async 
     try {
         const {
             candidate_code, full_name, gender, date_of_birth, citizen_id, phone, email, address,
-            culture_level, education_level, education_school, major, experience,
-            recruitment_plan_id, position_id, source, recruitment_unit, referrer, received_date, eval_date,
+            culture_level, education_level, education_school, major, gpa, experience,
+            recruitment_plan_id, recruitment_request_id, department_id, position_id, source, recruitment_unit, referrer, referrer_employee_id, received_date, eval_date,
             status, rejection_reason, note, attachments_json
         } = req.body;
 
@@ -253,21 +322,38 @@ router.put('/candidates/:id', authorizeRole('Administrator', 'HR Staff'), async 
         const dob = parseDate(date_of_birth);
         const rDate = parseDate(received_date);
         const evDate = parseDate(eval_date);
+        const plan = recruitment_plan_id
+            ? await queryOne(`SELECT request.department_id, request.recruitment_request_id
+                               FROM RecruitmentPlan plan JOIN RecruitmentRequest request ON request.recruitment_request_id = plan.recruitment_request_id
+                               WHERE plan.recruitment_plan_id = ?`, [recruitment_plan_id])
+            : null;
+        const position = position_id ? await queryOne('SELECT department_id FROM Position WHERE position_id = ?', [position_id]) : null;
+        const finalRequestId = recruitment_request_id || plan?.recruitment_request_id || null;
+        const finalDepartmentId = department_id || position?.department_id || plan?.department_id || null;
+        const gpaValue = gpa === '' || gpa === null || gpa === undefined || Number.isNaN(Number(gpa)) ? null : Number(gpa);
 
         const attJson = Array.isArray(attachments_json) ? JSON.stringify(attachments_json) : (typeof attachments_json === 'string' ? attachments_json : '[]');
+        const duplicate = await findDuplicateCandidate({ citizen_id, phone, email }, req.params.id);
+        if (duplicate) {
+            return res.status(409).json({
+                success: false,
+                message: `Thông tin ứng viên trùng với hồ sơ ${duplicate.candidate_code || duplicate.full_name}.`
+            });
+        }
 
         await run(
             `UPDATE Candidate 
        SET candidate_code = ?, full_name = ?, gender = ?, date_of_birth = ?, citizen_id = ?, phone = ?, email = ?, address = ?,
-           culture_level = ?, education_level = ?, education_school = ?, major = ?, experience = ?, recruitment_plan_id = ?, position_id = ?,
-           source = ?, recruitment_unit = ?, referrer = ?, received_date = ?, eval_date = ?, status = ?, rejection_reason = ?, note = ?, attachments_json = ?, last_modified_date = ?
+           culture_level = ?, education_level = ?, education_school = ?, major = ?, gpa = ?, experience = ?, recruitment_plan_id = ?, recruitment_request_id = ?, department_id = ?, position_id = ?,
+           source = ?, recruitment_unit = ?, referrer = ?, referrer_employee_id = ?, received_date = ?, eval_date = ?, status = ?, rejection_reason = ?, note = ?, attachments_json = ?, last_modified_date = ?
        WHERE candidate_id = ?`,
             [
                 candidate_code, full_name, gender, dob, citizen_id, phone, email, address,
-                culture_level, education_level, education_school, major, experience, recruitment_plan_id, position_id,
-                source, recruitment_unit, referrer, rDate, evDate, status, rejection_reason, note, attJson, now, req.params.id
+                culture_level, education_level, education_school, major, gpaValue, experience, recruitment_plan_id, finalRequestId, finalDepartmentId, position_id,
+                source, recruitment_unit, referrer, referrer_employee_id || null, rDate, evDate, status, rejection_reason, note, attJson, now, req.params.id
             ]
         );
+        await replaceCandidateAttachments(req.params.id, attachments_json, now);
 
         res.json({ success: true, message: 'Cập nhật hồ sơ ứng viên thành công!' });
     } catch (error) {
@@ -346,7 +432,7 @@ router.post('/pre-screenings', authorizeRole('Administrator', 'HR Staff'), async
         } = req.body;
 
         const now = Date.now();
-        const id = 'ps-' + crypto.randomUUID();
+        const id = crypto.randomUUID();
         const countRow = await queryOne(`SELECT COUNT(*) as count FROM PreScreening`);
         const code = `PSL/${new Date().getFullYear().toString().slice(-2)}-${String((countRow?.count || 0) + 1).padStart(3, '0')}`;
 
@@ -370,7 +456,7 @@ router.post('/pre-screenings', authorizeRole('Administrator', 'HR Staff'), async
                     `INSERT INTO PreScreeningCriteria (criteria_detail_id, pre_screening_id, row_order, criteria_type, required_from, required_description, candidate_value, candidate_description, is_passed, note)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
                     [
-                        'psc-' + crypto.randomUUID(), id, idx + 1, c.criteria_type || 'Năng lực chuyên môn',
+                        crypto.randomUUID(), id, idx + 1, c.criteria_type || 'Năng lực chuyên môn',
                         c.required_from || '', c.required_description || '', c.candidate_value || '', c.candidate_description || '',
                         c.is_passed ? 1 : 0, c.note || ''
                     ]
@@ -413,7 +499,7 @@ router.put('/pre-screenings/:id', authorizeRole('Administrator', 'HR Staff'), as
                     `INSERT INTO PreScreeningCriteria (criteria_detail_id, pre_screening_id, row_order, criteria_type, required_from, required_description, candidate_value, candidate_description, is_passed, note)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
                     [
-                        'psc-' + crypto.randomUUID(), req.params.id, idx + 1, c.criteria_type || 'Năng lực chuyên môn',
+                        crypto.randomUUID(), req.params.id, idx + 1, c.criteria_type || 'Năng lực chuyên môn',
                         c.required_from || '', c.required_description || '', c.candidate_value || '', c.candidate_description || '',
                         c.is_passed ? 1 : 0, c.note || ''
                     ]
@@ -460,10 +546,11 @@ async function checkInterviewPanelAccess(req, candidate_id) {
 router.get('/interview-evaluations', async (req, res) => {
     try {
         const list = await query(
-            `SELECT ie.*, c.full_name as candidate_name, c.candidate_code, sch.schedule_code
+            `SELECT ie.*, c.full_name as candidate_name, c.candidate_code, sch.schedule_code, evaluator.full_name AS evaluator_name
        FROM InterviewEvaluation ie
        JOIN Candidate c ON ie.candidate_id = c.candidate_id
        LEFT JOIN InterviewSchedule sch ON ie.schedule_id = sch.schedule_id
+       LEFT JOIN Employee evaluator ON evaluator.employee_id = ie.evaluator_id
        ORDER BY ie.created_date DESC`
         );
         res.json({ success: true, data: list });
@@ -475,10 +562,11 @@ router.get('/interview-evaluations', async (req, res) => {
 router.get('/interview-evaluations/:id', async (req, res) => {
     try {
         const item = await queryOne(
-            `SELECT ie.*, c.full_name as candidate_name, c.candidate_code, sch.schedule_code
+            `SELECT ie.*, c.full_name as candidate_name, c.candidate_code, sch.schedule_code, evaluator.full_name AS evaluator_name
        FROM InterviewEvaluation ie
        JOIN Candidate c ON ie.candidate_id = c.candidate_id
        LEFT JOIN InterviewSchedule sch ON ie.schedule_id = sch.schedule_id
+       LEFT JOIN Employee evaluator ON evaluator.employee_id = ie.evaluator_id
        WHERE ie.interview_eval_id = ?`,
             [req.params.id]
         );
@@ -496,7 +584,7 @@ router.get('/interview-evaluations/:id', async (req, res) => {
 router.post('/interview-evaluations', async (req, res) => {
     try {
         const {
-            evaluation_date, schedule_id, candidate_id, duration_minutes,
+            evaluation_date, schedule_id, candidate_id, evaluator_id, duration_minutes,
             level_score, overall_result, overall_comment, script, criteria
         } = req.body;
 
@@ -506,7 +594,7 @@ router.post('/interview-evaluations', async (req, res) => {
         }
 
         const now = Date.now();
-        const id = 'ie-' + crypto.randomUUID();
+        const id = crypto.randomUUID();
         const countRow = await queryOne(`SELECT COUNT(*) as count FROM InterviewEvaluation`);
         const code = `PDGPV/${new Date().getFullYear().toString().slice(-2)}-${String((countRow?.count || 0) + 1).padStart(3, '0')}`;
 
@@ -514,10 +602,10 @@ router.post('/interview-evaluations', async (req, res) => {
 
         await run(
             `INSERT INTO InterviewEvaluation (
-        interview_eval_id, eval_code, evaluation_date, schedule_id, candidate_id, duration_minutes,
+        interview_eval_id, eval_code, evaluation_date, schedule_id, candidate_id, evaluator_id, duration_minutes,
         level_score, overall_result, overall_comment, created_date, last_modified_date
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [id, code, parseDate(evaluation_date) || now, schedule_id || null, candidate_id, Number(duration_minutes) || 30,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [id, code, parseDate(evaluation_date) || now, schedule_id || null, candidate_id, evaluator_id || req.user.employeeId || null, Number(duration_minutes) || 30,
                 Number(level_score) || 5, overall_result || 'ĐẠT', overall_comment || '', now, now]
         );
 
@@ -526,7 +614,7 @@ router.post('/interview-evaluations', async (req, res) => {
                 await run(
                     `INSERT INTO InterviewEvaluationScript (script_id, interview_eval_id, row_order, question, expectation, answer)
            VALUES (?, ?, ?, ?, ?, ?)`,
-                    ['ies-' + crypto.randomUUID(), id, idx + 1, s.question || '', s.expectation || '', s.answer || '']
+                    [crypto.randomUUID(), id, idx + 1, s.question || '', s.expectation || '', s.answer || '']
                 );
             }
         }
@@ -536,7 +624,7 @@ router.post('/interview-evaluations', async (req, res) => {
                 await run(
                     `INSERT INTO InterviewEvaluationCriteria (criteria_detail_id, interview_eval_id, row_order, criteria_type, required_from, required_description, candidate_value, candidate_description, is_passed, note)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-                    ['iec-' + crypto.randomUUID(), id, idx + 1, c.criteria_type || 'Năng lực chuyên môn',
+                    [crypto.randomUUID(), id, idx + 1, c.criteria_type || 'Năng lực chuyên môn',
                     c.required_from || '', c.required_description || '', c.candidate_value || '', c.candidate_description || '',
                     c.is_passed ? 1 : 0, c.note || '']
                 );
@@ -552,7 +640,7 @@ router.post('/interview-evaluations', async (req, res) => {
 router.put('/interview-evaluations/:id', async (req, res) => {
     try {
         const {
-            evaluation_date, schedule_id, candidate_id, duration_minutes,
+            evaluation_date, schedule_id, candidate_id, evaluator_id, duration_minutes,
             level_score, overall_result, overall_comment, script, criteria
         } = req.body;
 
@@ -566,10 +654,10 @@ router.put('/interview-evaluations/:id', async (req, res) => {
 
         await run(
             `UPDATE InterviewEvaluation SET
-        evaluation_date = ?, schedule_id = ?, candidate_id = ?, duration_minutes = ?,
+         evaluation_date = ?, schedule_id = ?, candidate_id = ?, evaluator_id = COALESCE(?, evaluator_id), duration_minutes = ?,
         level_score = ?, overall_result = ?, overall_comment = ?, last_modified_date = ?
        WHERE interview_eval_id = ?`,
-            [parseDate(evaluation_date), schedule_id || null, candidate_id, Number(duration_minutes) || 30,
+            [parseDate(evaluation_date), schedule_id || null, candidate_id, evaluator_id || null, Number(duration_minutes) || 30,
             Number(level_score) || 5, overall_result || 'ĐẠT', overall_comment || '', now, req.params.id]
         );
 
@@ -579,7 +667,7 @@ router.put('/interview-evaluations/:id', async (req, res) => {
                 await run(
                     `INSERT INTO InterviewEvaluationScript (script_id, interview_eval_id, row_order, question, expectation, answer)
            VALUES (?, ?, ?, ?, ?, ?)`,
-                    ['ies-' + crypto.randomUUID(), req.params.id, idx + 1, s.question || '', s.expectation || '', s.answer || '']
+                    [crypto.randomUUID(), req.params.id, idx + 1, s.question || '', s.expectation || '', s.answer || '']
                 );
             }
         }
@@ -590,7 +678,7 @@ router.put('/interview-evaluations/:id', async (req, res) => {
                 await run(
                     `INSERT INTO InterviewEvaluationCriteria (criteria_detail_id, interview_eval_id, row_order, criteria_type, required_from, required_description, candidate_value, candidate_description, is_passed, note)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-                    ['iec-' + crypto.randomUUID(), req.params.id, idx + 1, c.criteria_type || 'Năng lực chuyên môn',
+                    [crypto.randomUUID(), req.params.id, idx + 1, c.criteria_type || 'Năng lực chuyên môn',
                     c.required_from || '', c.required_description || '', c.candidate_value || '', c.candidate_description || '',
                     c.is_passed ? 1 : 0, c.note || '']
                 );
@@ -628,7 +716,7 @@ router.post('/interview-schedules', async (req, res) => {
     try {
         const { schedule_code, round_type, format_type, location, start_time, end_time, note, candidate_note, candidates, council, tests } = req.body;
         const now = Date.now();
-        const id = 'sch-' + crypto.randomUUID();
+        const id = crypto.randomUUID();
 
         const yy = String(new Date().getFullYear()).slice(-2);
         const countSch = (await queryOne('SELECT COUNT(*) as cnt FROM InterviewSchedule'))?.cnt || 0;
@@ -725,7 +813,7 @@ router.post('/interviews', async (req, res) => {
         }
 
         const now = Date.now();
-        const id = 'int-' + crypto.randomUUID();
+        const id = crypto.randomUUID();
 
         const iDate = interview_date ? (typeof interview_date === 'number' ? interview_date : new Date(interview_date).getTime()) : now;
 
@@ -776,7 +864,7 @@ router.post('/offers', authorizeRole('Administrator', 'HR Staff'), async (req, r
     try {
         const { candidate_id, offer_date, expected_start_date, probation_salary, official_salary, salary_offer, note, offer_status } = req.body;
         const now = Date.now();
-        const id = 'off-' + crypto.randomUUID();
+        const id = crypto.randomUUID();
 
         const oDate = offer_date ? (typeof offer_date === 'number' ? offer_date : new Date(offer_date).getTime()) : now;
         const sDate = expected_start_date ? (typeof expected_start_date === 'number' ? expected_start_date : new Date(expected_start_date).getTime()) : now + 14 * 86400000;
@@ -828,7 +916,94 @@ router.delete('/offers/:id', authorizeRole('Administrator', 'HR Staff'), async (
     }
 });
 
-// --- 6. WORKFLOW: CHUYỂN ỨNG VIÊN THÀNH NHÂN VIÊN ---
+// --- 6. QUYẾT ĐỊNH TRÚNG TUYỂN ---
+router.get('/decisions', async (req, res) => {
+    try {
+        const decisions = await query(
+            `SELECT decision.*, candidate.candidate_code, candidate.full_name AS candidate_name,
+                    candidate.status AS candidate_status, evaluation.eval_code
+             FROM RecruitmentDecision decision
+             JOIN Candidate candidate ON candidate.candidate_id = decision.candidate_id
+             LEFT JOIN InterviewEvaluation evaluation ON evaluation.interview_eval_id = decision.interview_eval_id
+             ORDER BY decision.decision_date DESC, decision.created_date DESC`
+        );
+        res.json({ success: true, data: decisions });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+router.post('/decisions', authorizeRole('Administrator', 'HR Staff'), async (req, res) => {
+    try {
+        const {
+            decision_number,
+            candidate_id,
+            interview_eval_id,
+            decision_date,
+            result,
+            rejection_reason,
+            overall_comment,
+            attachment_url
+        } = req.body;
+        const normalizedResult = String(result || '').trim().toLocaleUpperCase();
+        if (!['ĐẠT', 'KHÔNG ĐẠT'].includes(normalizedResult)) {
+            return res.status(400).json({ success: false, message: 'Kết quả quyết định phải là Đạt hoặc Không đạt.' });
+        }
+        if (normalizedResult === 'KHÔNG ĐẠT' && !String(rejection_reason || '').trim()) {
+            return res.status(400).json({ success: false, message: 'Phải nhập lý do bị loại khi quyết định Không đạt.' });
+        }
+
+        const candidate = await queryOne('SELECT candidate_id FROM Candidate WHERE candidate_id = ?', [candidate_id]);
+        if (!candidate) {
+            return res.status(404).json({ success: false, message: 'Không tìm thấy thông tin ứng viên.' });
+        }
+        if (interview_eval_id) {
+            const evaluation = await queryOne('SELECT interview_eval_id FROM InterviewEvaluation WHERE interview_eval_id = ? AND candidate_id = ?', [interview_eval_id, candidate_id]);
+            if (!evaluation) {
+                return res.status(400).json({ success: false, message: 'Phiếu đánh giá phỏng vấn không thuộc ứng viên đã chọn.' });
+            }
+        }
+        const previousDecision = await queryOne(
+            `SELECT decision_id FROM RecruitmentDecision
+             WHERE candidate_id = ? AND status <> 'CANCELLED'`,
+            [candidate_id]
+        );
+        if (previousDecision) {
+            return res.status(409).json({ success: false, message: 'Ứng viên này đã có quyết định tuyển dụng.' });
+        }
+
+        const now = Date.now();
+        const id = crypto.randomUUID();
+        const count = (await queryOne('SELECT COUNT(*) AS count FROM RecruitmentDecision'))?.count || 0;
+        const defaultNumber = `QDTD/${String(new Date().getFullYear()).slice(-2)}-${String(Number(count) + 1).padStart(4, '0')}`;
+        const finalNumber = String(decision_number || '').trim() || defaultNumber;
+        const decisionDate = decision_date ? new Date(decision_date).getTime() : now;
+
+        await run(
+            `INSERT INTO RecruitmentDecision (
+                decision_id, created_date, last_modified_date, decision_number, candidate_id,
+                interview_eval_id, decision_date, result, rejection_reason, overall_comment,
+                decision_by_id, decision_by_name, status, attachment_url
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'COMPLETED', ?)`,
+            [
+                id, now, now, finalNumber, candidate_id, interview_eval_id || null,
+                Number.isNaN(decisionDate) ? now : decisionDate, normalizedResult,
+                normalizedResult === 'KHÔNG ĐẠT' ? String(rejection_reason).trim() : null,
+                overall_comment || '', req.user.employeeId || null, req.user.fullName || '', attachment_url || null
+            ]
+        );
+        await run(
+            `UPDATE Candidate SET status = ?, rejection_reason = ?, last_modified_date = ? WHERE candidate_id = ?`,
+            [normalizedResult === 'ĐẠT' ? 'S5: Trúng tuyển' : 'S7: Loại', normalizedResult === 'KHÔNG ĐẠT' ? String(rejection_reason).trim() : null, now, candidate_id]
+        );
+
+        res.json({ success: true, message: 'Đã lập quyết định tuyển dụng.', data: { id, decision_number: finalNumber } });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// --- 7. WORKFLOW: CHUYỂN ỨNG VIÊN THÀNH NHÂN VIÊN ---
 router.post('/convert-to-employee', authorizeRole('Administrator', 'HR Staff'), async (req, res) => {
     try {
         const { candidate_id } = req.body;
@@ -838,17 +1013,32 @@ router.post('/convert-to-employee', authorizeRole('Administrator', 'HR Staff'), 
         if (!candidate) {
             return res.status(404).json({ success: false, message: 'Không tìm thấy thông tin ứng viên.' });
         }
+        if (candidate.status === 'HIRED') {
+            return res.status(400).json({ success: false, message: 'Ứng viên này đã được chuyển thành nhân viên.' });
+        }
+        const hiringDecision = await queryOne(
+            `SELECT TOP 1 decision_id FROM RecruitmentDecision
+             WHERE candidate_id = ? AND result = N'ĐẠT' AND status = 'COMPLETED'
+             ORDER BY decision_date DESC, created_date DESC`,
+            [candidate_id]
+        );
+        if (!hiringDecision) {
+            return res.status(400).json({
+                success: false,
+                message: 'Chỉ ứng viên có quyết định trúng tuyển kết quả Đạt mới được chuyển thành nhân viên.'
+            });
+        }
 
         const offer = await queryOne(`SELECT * FROM Offer WHERE candidate_id = ?`, [candidate_id]);
 
-        const empId = 'emp-' + crypto.randomUUID();
+        const empId = crypto.randomUUID();
         const empCode = 'NV-' + new Date().getFullYear() + '-' + Math.floor(100 + Math.random() * 900);
 
         const joinDate = offer ? offer.expected_start_date : now;
 
         await run(
-            `INSERT INTO Employee (employee_id, created_date, last_modified_date, employee_code, full_name, gender, date_of_birth, citizen_id, phone, email, address, department_id, position_id, join_date, employment_status, is_active)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'WORKING', 1)`,
+            `INSERT INTO Employee (employee_id, created_date, last_modified_date, employee_code, full_name, gender, date_of_birth, citizen_id, phone, email, address, candidate_id, department_id, position_id, join_date, initial_contract_date, employment_status, is_active)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'WORKING', 1)`,
             [
                 empId,
                 now,
@@ -861,22 +1051,26 @@ router.post('/convert-to-employee', authorizeRole('Administrator', 'HR Staff'), 
                 candidate.phone,
                 candidate.email,
                 candidate.address || 'Hà Nội',
+                candidate_id,
                 candidate.department_id,
                 candidate.position_id,
+                joinDate,
                 joinDate
             ]
         );
 
         await run(`UPDATE Candidate SET status = 'HIRED', last_modified_date = ? WHERE candidate_id = ?`, [now, candidate_id]);
 
-        const contractId = 'ct-' + crypto.randomUUID();
+        const contractId = crypto.randomUUID();
         const contractNum = 'HDTV/BRAVO/' + new Date().getFullYear() + '/' + Math.floor(100 + Math.random() * 900);
         const salary = offer ? offer.salary_offer : 15000000;
+        const probationEnd = new Date(Number(joinDate));
+        probationEnd.setMonth(probationEnd.getMonth() + 2);
 
         await run(
-            `INSERT INTO EmployeeContract (contract_id, created_date, last_modified_date, contract_no, employee_id, contract_type, sign_date, start_date, salary, status, note)
-       VALUES (?, ?, ?, ?, ?, 'Hợp đồng Thử việc (2 tháng)', ?, ?, ?, 'ACTIVE', 'Tự động tạo khi chuyển từ Ứng viên')`,
-            [contractId, now, now, contractNum, empId, joinDate, joinDate, salary]
+            `INSERT INTO EmployeeContract (contract_id, created_date, last_modified_date, contract_no, contract_date, employee_id, contract_type, start_date, end_date, has_probation, probation_from_date, probation_to_date, probation_salary_rate, salary, status, note)
+       VALUES (?, ?, ?, ?, ?, ?, 'Hợp đồng Thử việc (2 tháng)', ?, ?, 1, ?, ?, 100, ?, 'ACTIVE', 'Tự động tạo khi chuyển từ Ứng viên')`,
+            [contractId, now, now, contractNum, joinDate, empId, joinDate, probationEnd.getTime(), joinDate, probationEnd.getTime(), salary]
         );
 
         res.json({

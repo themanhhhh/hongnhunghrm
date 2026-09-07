@@ -16,6 +16,39 @@ const parseDate = (d) => {
     return isNaN(t) ? null : t;
 };
 
+const hasOwn = (value, key) => Object.prototype.hasOwnProperty.call(value, key);
+
+async function updateExtendedEmployeeFields(employeeId, input, now) {
+    const dateFields = new Set(['citizen_expiry_date', 'initial_contract_date']);
+    const numberFields = new Set(['gpa', 'graduation_year']);
+    const fields = [
+        'candidate_id', 'blood_type', 'tax_code', 'citizen_expiry_date',
+        'emergency_contact_name', 'emergency_contact_relationship', 'emergency_contact_phone',
+        'bank_account_number', 'bank_account_holder', 'bank_name', 'bank_branch',
+        'culture_level', 'education_level', 'education_school', 'major', 'gpa',
+        'graduation_year', 'initial_contract_date'
+    ];
+    const assignments = [];
+    const values = [];
+
+    for (const field of fields) {
+        if (!hasOwn(input, field)) continue;
+        let value = input[field];
+        if (dateFields.has(field)) value = parseDate(value);
+        if (numberFields.has(field)) {
+            const number = Number(value);
+            value = value === '' || value === null || value === undefined || Number.isNaN(number) ? null : number;
+        }
+        assignments.push(`${field} = ?`);
+        values.push(value ?? null);
+    }
+
+    if (assignments.length === 0) return;
+    assignments.push('last_modified_date = ?');
+    values.push(now, employeeId);
+    await run(`UPDATE Employee SET ${assignments.join(', ')} WHERE employee_id = ?`, values);
+}
+
 
 // Multer upload config
 const storage = multer.diskStorage({
@@ -98,6 +131,7 @@ async function getEmployeeDetail(req, res) {
         [req.params.id]
     );
     const rewards = await query(`SELECT * FROM RewardDiscipline WHERE employee_id = ? ORDER BY decision_date DESC`, [req.params.id]);
+    const leaveBalances = await query(`SELECT * FROM EmployeeLeaveBalance WHERE employee_id = ? ORDER BY leave_year DESC`, [req.params.id]);
 
     res.json({
         success: true,
@@ -105,7 +139,8 @@ async function getEmployeeDetail(req, res) {
             ...employee,
             contracts,
             workHistory,
-            rewards
+            rewards,
+            leaveBalances
         }
     });
 }
@@ -122,7 +157,7 @@ router.post('/employees', authorizeRole('Administrator', 'HR Staff'), async (req
         } = req.body;
 
         const now = Date.now();
-        const id = 'emp-' + crypto.randomUUID();
+        const id = crypto.randomUUID();
         const empCode = employee_code || short_name || ('NV-' + new Date().getFullYear() + '-' + Math.floor(100 + Math.random() * 900));
 
         const dob = parseDate(date_of_birth);
@@ -145,6 +180,7 @@ router.post('/employees', authorizeRole('Administrator', 'HR Staff'), async (req
                 department_id || null, position_id || null, manager_id || null, level || 'Nhân viên', jDate, oDate, resDate, employment_status || 'WORKING', note || ''
             ]
         );
+        await updateExtendedEmployeeFields(id, req.body, now);
 
         res.json({ success: true, message: 'Tạo hồ sơ nhân viên thành công!', data: { id, empCode } });
     } catch (error) {
@@ -188,6 +224,7 @@ router.put('/employees/:id', authorizeRole('Administrator', 'HR Staff'), async (
                 jDate, oDate, resDate, employment_status, note, now, req.params.id
             ]
         );
+        await updateExtendedEmployeeFields(req.params.id, req.body, now);
 
         res.json({ success: true, message: 'Cập nhật hồ sơ nhân viên thành công!' });
     } catch (error) {
@@ -280,8 +317,10 @@ router.post('/contracts', authorizeRole('Administrator', 'HR Staff'), async (req
             contract_type,
             start_date,
             end_date,
+            has_probation,
             probation_from_date,
             probation_to_date,
+            probation_salary_rate,
             job_description,
             salary_scale,
             salary_grade,
@@ -294,7 +333,7 @@ router.post('/contracts', authorizeRole('Administrator', 'HR Staff'), async (req
         } = req.body;
 
         const now = Date.now();
-        const id = 'ct-' + crypto.randomUUID();
+        const id = crypto.randomUUID();
 
         // Auto-generate standard contract_no format HĐLĐ/yy-000 if not provided
         const yr = new Date().getFullYear().toString().slice(-2);
@@ -310,6 +349,7 @@ router.post('/contracts', authorizeRole('Administrator', 'HR Staff'), async (req
         const eDate = parseDate(end_date);
         const pFrom = parseDate(probation_from_date);
         const pTo = parseDate(probation_to_date);
+        const hasProbation = has_probation === true || Number(has_probation) === 1 || /thử việc/i.test(contract_type || '');
 
         const allowanceJson = Array.isArray(allowance_details) ? JSON.stringify(allowance_details) : (typeof allowance_details === 'string' ? allowance_details : '[]');
         const finalSalary = Number(base_salary || salary || 0);
@@ -318,14 +358,14 @@ router.post('/contracts', authorizeRole('Administrator', 'HR Staff'), async (req
             `INSERT INTO EmployeeContract (
         contract_id, created_date, last_modified_date, contract_no, contract_date,
         signer_id, signer_name, signer_position, employee_id, employee_position,
-        contract_type, start_date, end_date, probation_from_date, probation_to_date,
-        job_description, salary_scale, salary_grade, allowance_details, base_salary,
-        social_insurance_salary, salary, status, note
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         contract_type, start_date, end_date, has_probation, probation_from_date, probation_to_date, probation_salary_rate,
+         job_description, salary_scale, salary_grade, allowance_details, base_salary,
+         social_insurance_salary, salary, status, note
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
                 id, now, now, finalContractNo, cDate,
                 signer_id || null, signer_name || '', signer_position || '', employee_id, employee_position || '',
-                contract_type || 'Hợp đồng thử việc', sDate, eDate, pFrom, pTo,
+                 contract_type || 'Hợp đồng thử việc', sDate, eDate, hasProbation ? 1 : 0, pFrom, pTo, hasProbation ? Number(probation_salary_rate || 0) : null,
                 job_description || '', salary_scale || '', salary_grade || '', allowanceJson, Number(base_salary || 0),
                 Number(social_insurance_salary || 0), finalSalary, status || 'ACTIVE', note || ''
             ]
@@ -350,8 +390,10 @@ router.put('/contracts/:id', authorizeRole('Administrator', 'HR Staff'), async (
             contract_type,
             start_date,
             end_date,
+            has_probation,
             probation_from_date,
             probation_to_date,
+            probation_salary_rate,
             job_description,
             salary_scale,
             salary_grade,
@@ -373,6 +415,7 @@ router.put('/contracts/:id', authorizeRole('Administrator', 'HR Staff'), async (
         const eDate = parseDate(end_date);
         const pFrom = parseDate(probation_from_date);
         const pTo = parseDate(probation_to_date);
+        const hasProbation = has_probation === true || Number(has_probation) === 1 || /thử việc/i.test(contract_type || '');
 
         const allowanceJson = Array.isArray(allowance_details) ? JSON.stringify(allowance_details) : (typeof allowance_details === 'string' ? allowance_details : '[]');
         const finalSalary = Number(base_salary || salary || 0);
@@ -380,15 +423,15 @@ router.put('/contracts/:id', authorizeRole('Administrator', 'HR Staff'), async (
         await run(
             `UPDATE EmployeeContract SET
         contract_no = ?, contract_date = ?, signer_id = ?, signer_name = ?, signer_position = ?,
-        employee_id = ?, employee_position = ?, contract_type = ?, start_date = ?, end_date = ?,
-        probation_from_date = ?, probation_to_date = ?, job_description = ?, salary_scale = ?, salary_grade = ?,
+         employee_id = ?, employee_position = ?, contract_type = ?, start_date = ?, end_date = ?, has_probation = ?,
+         probation_from_date = ?, probation_to_date = ?, probation_salary_rate = ?, job_description = ?, salary_scale = ?, salary_grade = ?,
         allowance_details = ?, base_salary = ?, social_insurance_salary = ?, salary = ?, status = ?,
         note = ?, last_modified_date = ?
        WHERE contract_id = ?`,
             [
                 contract_no, cDate, signer_id || null, signer_name || '', signer_position || '',
-                employee_id, employee_position || '', contract_type, sDate, eDate,
-                pFrom, pTo, job_description || '', salary_scale || '', salary_grade || '',
+                 employee_id, employee_position || '', contract_type, sDate, eDate, hasProbation ? 1 : 0,
+                 pFrom, pTo, hasProbation ? Number(probation_salary_rate || 0) : null, job_description || '', salary_scale || '', salary_grade || '',
                 allowanceJson, Number(base_salary || 0), Number(social_insurance_salary || 0), finalSalary, status || 'ACTIVE',
                 note || '', now, contractId
             ]
@@ -404,6 +447,58 @@ router.delete('/contracts/:id', authorizeRole('Administrator', 'HR Staff'), asyn
     try {
         await run(`DELETE FROM EmployeeContract WHERE contract_id = ?`, [req.params.id]);
         res.json({ success: true, message: 'Đã xóa Hợp đồng lao động thành công!' });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+router.get('/contracts/:id/appendices', async (req, res) => {
+    try {
+        const appendices = await query(
+            `SELECT appendix.*, signer.full_name AS signer_full_name
+             FROM ContractAppendix appendix
+             LEFT JOIN Employee signer ON signer.employee_id = appendix.signer_id
+             WHERE appendix.contract_id = ?
+             ORDER BY appendix.effective_date DESC, appendix.created_date DESC`,
+            [req.params.id]
+        );
+        res.json({ success: true, data: appendices });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+router.post('/contracts/:id/appendices', authorizeRole('Administrator', 'HR Staff'), async (req, res) => {
+    try {
+        const {
+            appendix_no,
+            signed_date,
+            appendix_type,
+            effective_date,
+            changed_content,
+            signer_id,
+            signer_name,
+            attachment_url,
+            note
+        } = req.body;
+        if (!String(appendix_type || '').trim()) {
+            return res.status(400).json({ success: false, message: 'Phải chọn loại phụ lục hợp đồng.' });
+        }
+        const contract = await queryOne('SELECT contract_id FROM EmployeeContract WHERE contract_id = ?', [req.params.id]);
+        if (!contract) {
+            return res.status(404).json({ success: false, message: 'Không tìm thấy hợp đồng lao động.' });
+        }
+
+        const now = Date.now();
+        const count = (await queryOne('SELECT COUNT(*) AS count FROM ContractAppendix'))?.count || 0;
+        const appendixNo = String(appendix_no || '').trim() || `PLHĐ/${String(new Date().getFullYear()).slice(-2)}-${String(Number(count) + 1).padStart(4, '0')}`;
+        const toDate = (value) => value ? (typeof value === 'number' ? value : new Date(value).getTime()) : null;
+        await run(
+            `INSERT INTO ContractAppendix (appendix_id, contract_id, appendix_no, signed_date, appendix_type, effective_date, changed_content, signer_id, signer_name, attachment_url, note, status, created_date, last_modified_date)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'ACTIVE', ?, ?)`,
+            [crypto.randomUUID(), req.params.id, appendixNo, toDate(signed_date), appendix_type, toDate(effective_date), changed_content || '', signer_id || null, signer_name || '', attachment_url || null, note || '', now, now]
+        );
+        res.json({ success: true, message: 'Đã thêm phụ lục hợp đồng.' });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }
@@ -427,7 +522,7 @@ router.post('/work-history', authorizeRole('Administrator', 'HR Staff'), async (
     try {
         const { employee_id, department_id, position_id, decision_type, effective_date, reason, note } = req.body;
         const now = Date.now();
-        const id = 'wh-' + crypto.randomUUID();
+        const id = crypto.randomUUID();
 
         const effDate = effective_date ? (typeof effective_date === 'number' ? effective_date : new Date(effective_date).getTime()) : now;
 
@@ -491,7 +586,7 @@ router.post('/contract-proposals', async (req, res) => {
     try {
         const { employee_id, contract_type, proposed_salary, proposed_start_date, reason } = req.body;
         const now = Date.now();
-        const id = 'cp-' + crypto.randomUUID();
+        const id = crypto.randomUUID();
         const code = 'DXHD-' + new Date().getFullYear() + '-' + Math.floor(100 + Math.random() * 900);
         const stDate = proposed_start_date ? (typeof proposed_start_date === 'number' ? proposed_start_date : new Date(proposed_start_date).getTime()) : now;
 
@@ -532,7 +627,7 @@ router.post('/contract-extensions', async (req, res) => {
     try {
         const { contract_id, employee_id, new_end_date, new_salary, extension_term, reason } = req.body;
         const now = Date.now();
-        const id = 'ce-' + crypto.randomUUID();
+        const id = crypto.randomUUID();
         const code = 'GHHD-' + new Date().getFullYear() + '-' + Math.floor(100 + Math.random() * 900);
         const eDate = new_end_date ? (typeof new_end_date === 'number' ? new_end_date : new Date(new_end_date).getTime()) : now + 365 * 86400000;
 
@@ -606,7 +701,7 @@ router.post('/transfer-proposals', async (req, res) => {
         } = req.body;
 
         const now = Date.now();
-        const id = 'tp-' + crypto.randomUUID();
+        const id = crypto.randomUUID();
 
         const yr = new Date().getFullYear().toString().slice(-2);
         const countRow = await queryOne(`SELECT COUNT(*) as count FROM TransferProposal`);
@@ -627,7 +722,7 @@ router.post('/transfer-proposals', async (req, res) => {
         await run(
             `INSERT INTO TransferProposal (
         proposal_id, created_date, last_modified_date, proposal_code, employee_id,
-        proposal_date, effective_date, decision_type, proposer_id, proposer_name,
+         proposal_date, proposed_effective_date, decision_type, proposer_id, proposer_name,
         proposer_position, proposer_department, detail_items, note, status
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
@@ -674,7 +769,7 @@ router.put('/transfer-proposals/:id', async (req, res) => {
 
         await run(
             `UPDATE TransferProposal SET
-        proposal_code = ?, employee_id = ?, proposal_date = ?, effective_date = ?, decision_type = ?,
+         proposal_code = ?, employee_id = ?, proposal_date = ?, proposed_effective_date = ?, decision_type = ?,
         proposer_id = ?, proposer_name = ?, proposer_position = ?, proposer_department = ?,
         detail_items = ?, note = ?, status = ?, last_modified_date = ?
        WHERE proposal_id = ?`,
@@ -716,24 +811,41 @@ router.get('/transfer-decisions', async (req, res) => {
 
 router.post('/transfer-decisions', async (req, res) => {
     try {
-        const { proposal_id, employee_id, target_department_id, target_position_id, effective_date, signed_by, reason } = req.body;
+        const {
+            proposal_id,
+            employee_id,
+            target_department_id,
+            target_position_id,
+            manager_id,
+            decision_date,
+            decision_type,
+            creator_id,
+            creator_name,
+            effective_date,
+            signed_by,
+            description,
+            reason,
+            note
+        } = req.body;
         const now = Date.now();
-        const id = 'td-' + crypto.randomUUID();
+        const id = crypto.randomUUID();
         const decNo = 'QĐ-TCBN/' + new Date().getFullYear() + '/' + Math.floor(100 + Math.random() * 900);
         const effDate = effective_date ? (typeof effective_date === 'number' ? effective_date : new Date(effective_date).getTime()) : now;
+        const decisionDate = decision_date ? (typeof decision_date === 'number' ? decision_date : new Date(decision_date).getTime()) : now;
 
         await run(
-            `INSERT INTO TransferDecision (decision_id, created_date, last_modified_date, decision_number, proposal_id, employee_id, target_department_id, target_position_id, effective_date, signed_by, reason, status)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'EXECUTED')`,
-            [id, now, now, decNo, proposal_id || null, employee_id, target_department_id || null, target_position_id || null, effDate, signed_by || 'Ban Giám Đốc', reason || '', 'EXECUTED']
+            `INSERT INTO TransferDecision (decision_id, created_date, last_modified_date, decision_number, proposal_id, employee_id, target_department_id, target_position_id, manager_id, decision_date, effective_date, decision_type, creator_id, creator_name, signed_by, description, reason, note, status)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'EXECUTED')`,
+            [id, now, now, decNo, proposal_id || null, employee_id, target_department_id || null, target_position_id || null, manager_id || null, decisionDate, effDate, decision_type || 'Thuyên chuyển', creator_id || req.user.employeeId || null, creator_name || req.user.fullName || '', signed_by || 'Ban Giám Đốc', description || '', reason || '', note || '']
         );
 
-        // Cập nhật tự động Phòng ban & Chức vụ mới cho nhân viên
-        if (target_department_id || target_position_id) {
+        // Quyết định hoàn thiện đồng bộ bộ phận, vị trí và quản lý trực tiếp vào hồ sơ nhân sự.
+        if (target_department_id || target_position_id || manager_id) {
             const updates = [];
             const params = [];
             if (target_department_id) { updates.push('department_id = ?'); params.push(target_department_id); }
             if (target_position_id) { updates.push('position_id = ?'); params.push(target_position_id); }
+            if (manager_id) { updates.push('manager_id = ?'); params.push(manager_id); }
             updates.push('last_modified_date = ?'); params.push(now);
             params.push(employee_id);
 
@@ -776,7 +888,7 @@ router.post('/resignation-applications', async (req, res) => {
     try {
         const { employee_id, desired_resign_date, reason, handover_notes } = req.body;
         const now = Date.now();
-        const id = 'ra-' + crypto.randomUUID();
+        const id = crypto.randomUUID();
         const code = 'DXNV-' + new Date().getFullYear() + '-' + Math.floor(100 + Math.random() * 900);
         const rDate = desired_resign_date ? (typeof desired_resign_date === 'number' ? desired_resign_date : new Date(desired_resign_date).getTime()) : now + 30 * 86400000;
 
@@ -818,7 +930,7 @@ router.post('/resignation-decisions', async (req, res) => {
     try {
         const { application_id, employee_id, official_resign_date, handover_status, signed_by, reason } = req.body;
         const now = Date.now();
-        const id = 'rd-' + crypto.randomUUID();
+        const id = crypto.randomUUID();
         const decNo = 'QĐ-TV/' + new Date().getFullYear() + '/' + Math.floor(100 + Math.random() * 900);
         const rDate = official_resign_date ? (typeof official_resign_date === 'number' ? official_resign_date : new Date(official_resign_date).getTime()) : now;
 
@@ -854,7 +966,7 @@ router.delete('/resignation-decisions/:id', authorizeRole('Administrator', 'HR S
 // --- Audit Log Helper ---
 const recordAuditLog = async (req, action, entity_type, entity_id, entity_name, details = '') => {
     try {
-        const auditId = 'audit-' + crypto.randomUUID();
+        const auditId = crypto.randomUUID();
         const userId = req.user ? req.user.id : null;
         const username = req.user ? (req.user.username || req.user.fullName) : 'Hệ thống';
         const now = Date.now();
@@ -984,7 +1096,7 @@ router.post('/quotas', authorizeRole('Administrator', 'HR Staff'), async (req, r
         } = req.body;
 
         const now = Date.now();
-        const id = 'quota-' + crypto.randomUUID();
+        const id = crypto.randomUUID();
 
         const effDate = effective_date ? (typeof effective_date === 'number' ? effective_date : new Date(effective_date).getTime()) : now;
 
@@ -1028,7 +1140,7 @@ router.post('/quotas', authorizeRole('Administrator', 'HR Staff'), async (req, r
 
         if (Array.isArray(details)) {
             for (const d of details) {
-                const detId = 'qdet-' + crypto.randomUUID();
+                const detId = crypto.randomUUID();
                 const target = Number(d.target_headcount) || 0;
                 const resign = Number(d.resignation_count) || 0;
                 const mat = Number(d.maternity_count) || 0;
@@ -1101,7 +1213,7 @@ router.put('/quotas/:id', authorizeRole('Administrator', 'HR Staff'), async (req
             await run(`DELETE FROM DepartmentQuotaDetail WHERE quota_id = ?`, [req.params.id]);
 
             for (const d of details) {
-                const detId = 'qdet-' + crypto.randomUUID();
+                const detId = crypto.randomUUID();
                 const target = Number(d.target_headcount) || 0;
                 const resign = Number(d.resignation_count) || 0;
                 const mat = Number(d.maternity_count) || 0;
@@ -1181,6 +1293,61 @@ router.delete('/quotas/:id', authorizeRole('Administrator', 'HR Staff'), async (
 
 
 // --- 12. ĐƠN XIN NGHỈ PHÉP (LEAVE APPLICATIONS) ---
+function leaveDaysFromInput(totalDays, details) {
+    const detailDays = Array.isArray(details)
+        ? details.reduce((sum, item) => sum + (Number(item?.days) || 0), 0)
+        : 0;
+    return detailDays || Number(totalDays) || 1;
+}
+
+function annualLeaveEntitlement(joinDate, leaveYear) {
+    const joined = new Date(Number(joinDate));
+    if (Number.isNaN(joined.getTime()) || joined.getFullYear() < leaveYear) return 12;
+    if (joined.getFullYear() > leaveYear) return 0;
+    return 12 - joined.getMonth();
+}
+
+async function ensureAnnualLeaveBalance(employeeId, leaveYear, now) {
+    const employee = await queryOne('SELECT join_date FROM Employee WHERE employee_id = ?', [employeeId]);
+    if (!employee) throw new Error('Không tìm thấy hồ sơ nhân viên để tính phép năm.');
+
+    let balance = await queryOne(
+        'SELECT * FROM EmployeeLeaveBalance WHERE employee_id = ? AND leave_year = ?',
+        [employeeId, leaveYear]
+    );
+    if (!balance) {
+        const entitlement = annualLeaveEntitlement(employee.join_date, leaveYear);
+        await run(
+            `INSERT INTO EmployeeLeaveBalance (leave_balance_id, employee_id, leave_year, entitled_days, carried_forward_days, used_days, remaining_days, calculation_note, last_calculated_date, created_date, last_modified_date)
+             VALUES (?, ?, ?, ?, 0, 0, ?, ?, ?, ?, ?)`,
+            [crypto.randomUUID(), employeeId, leaveYear, entitlement, entitlement, '12 ngày/năm, tính theo tháng vào làm và không chuyển phép sang năm sau.', now, now, now]
+        );
+        balance = { entitled_days: entitlement, used_days: 0, remaining_days: entitlement };
+    }
+    return balance;
+}
+
+async function refreshAnnualLeaveBalance(employeeId, leaveYear, now) {
+    const balance = await ensureAnnualLeaveBalance(employeeId, leaveYear, now);
+    const yearStart = new Date(leaveYear, 0, 1).getTime();
+    const nextYearStart = new Date(leaveYear + 1, 0, 1).getTime();
+    const usage = await queryOne(
+        `SELECT COALESCE(SUM(total_days), 0) AS used_days FROM LeaveApplication
+         WHERE employee_id = ? AND leave_type = 'ANNUAL' AND status = 'APPROVED'
+           AND (leave_year = ? OR (leave_year IS NULL AND start_date >= ? AND start_date < ?))`,
+        [employeeId, leaveYear, yearStart, nextYearStart]
+    );
+    const usedDays = Number(usage?.used_days || 0);
+    const remainingDays = Math.max(0, Number(balance.entitled_days) - usedDays);
+    await run(
+        `UPDATE EmployeeLeaveBalance
+         SET used_days = ?, remaining_days = ?, last_calculated_date = ?, last_modified_date = ?
+         WHERE employee_id = ? AND leave_year = ?`,
+        [usedDays, remainingDays, now, now, employeeId, leaveYear]
+    );
+    return { ...balance, used_days: usedDays, remaining_days: remainingDays };
+}
+
 router.get('/leave-applications', async (req, res) => {
     try {
         const apps = await query(`SELECT * FROM LeaveApplication ORDER BY created_date DESC`);
@@ -1192,9 +1359,9 @@ router.get('/leave-applications', async (req, res) => {
 
 router.post('/leave-applications', async (req, res) => {
     try {
-        const { leave_code, employee_id, employee_code, employee_name, department_id, department_name, approver_id, approver_name, related_person_id, related_person_name, start_date, end_date, total_days, reason, details_json } = req.body;
+        const { leave_code, employee_id, employee_code, employee_name, department_id, department_name, approver_id, approver_name, related_person_id, related_person_name, start_date, end_date, total_days, leave_type, reason, details_json } = req.body;
         const now = Date.now();
-        const id = 'lv-' + crypto.randomUUID();
+        const id = crypto.randomUUID();
 
         const yy = String(new Date().getFullYear()).slice(-2);
         const countLv = (await queryOne('SELECT COUNT(*) as cnt FROM LeaveApplication'))?.cnt || 0;
@@ -1204,17 +1371,45 @@ router.post('/leave-applications', async (req, res) => {
         const startTs = start_date ? (typeof start_date === 'number' ? start_date : new Date(start_date).getTime()) : now;
         const endTs = end_date ? (typeof end_date === 'number' ? end_date : new Date(end_date).getTime()) : startTs;
         const detailsStr = Array.isArray(details_json) ? JSON.stringify(details_json) : (typeof details_json === 'string' ? details_json : '[]');
+        let details = details_json;
+        if (typeof details === 'string') {
+            try { details = JSON.parse(details); } catch { details = []; }
+        }
+        const requestedDays = leaveDaysFromInput(total_days, details);
 
         // Người nộp đơn thực tế: ưu tiên hồ sơ nhân viên của chính người đăng nhập, nếu HR lập hộ thì dùng employee_id gửi lên
         const subjectEmployeeId = employee_id || req.user.employeeId || '';
+        if (!subjectEmployeeId) {
+            return res.status(400).json({ success: false, message: 'Phải chọn nhân viên lập đơn nghỉ phép.' });
+        }
+        const leaveType = leave_type || 'ANNUAL';
+        const leaveYear = new Date(startTs).getFullYear();
+        let entitlement = null;
+        let usedDaysBefore = null;
+        let remainingDaysBefore = null;
+        if (leaveType === 'ANNUAL') {
+            const balance = await refreshAnnualLeaveBalance(subjectEmployeeId, leaveYear, now);
+            const pendingUsage = await queryOne(
+                `SELECT COALESCE(SUM(total_days), 0) AS pending_days FROM LeaveApplication
+                 WHERE employee_id = ? AND leave_type = 'ANNUAL' AND status NOT IN ('REJECTED', 'CANCELLED')
+                   AND (leave_year = ? OR (leave_year IS NULL AND start_date >= ? AND start_date < ?))`,
+                [subjectEmployeeId, leaveYear, new Date(leaveYear, 0, 1).getTime(), new Date(leaveYear + 1, 0, 1).getTime()]
+            );
+            entitlement = Number(balance.entitled_days);
+            usedDaysBefore = Number(pendingUsage?.pending_days || 0);
+            remainingDaysBefore = Math.max(0, entitlement - usedDaysBefore);
+            if (requestedDays > remainingDaysBefore) {
+                return res.status(400).json({ success: false, message: `Số ngày phép yêu cầu vượt quá số phép còn lại (${remainingDaysBefore} ngày).` });
+            }
+        }
         const initialStatus = subjectEmployeeId
             ? await approvalWorkflow.initApprovalChain('LeaveApplication', id, subjectEmployeeId)
             : 'PENDING_LEVEL_1';
 
         await run(
-            `INSERT INTO LeaveApplication (leave_id, created_date, last_modified_date, leave_code, employee_id, employee_code, employee_name, department_id, department_name, approver_id, approver_name, related_person_id, related_person_name, start_date, end_date, total_days, reason, details_json, approver_note, status)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '', ?)`,
-            [id, now, now, finalCode, subjectEmployeeId, employee_code || '', employee_name || '', department_id || '', department_name || '', approver_id || '', approver_name || '', related_person_id || '', related_person_name || '', startTs, endTs, Number(total_days) || 1.0, reason || '', detailsStr, initialStatus]
+            `INSERT INTO LeaveApplication (leave_id, created_date, last_modified_date, leave_code, employee_id, employee_code, employee_name, department_id, department_name, approver_id, approver_name, related_person_id, related_person_name, start_date, end_date, total_days, leave_type, leave_year, entitled_days, used_days_before, remaining_days_before, remaining_days_after, reason, details_json, approver_note, status)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '', ?)`,
+            [id, now, now, finalCode, subjectEmployeeId, employee_code || '', employee_name || '', department_id || '', department_name || '', approver_id || '', approver_name || '', related_person_id || '', related_person_name || '', startTs, endTs, requestedDays, leaveType, leaveYear, entitlement, usedDaysBefore, remainingDaysBefore, remainingDaysBefore === null ? null : remainingDaysBefore - requestedDays, reason || '', detailsStr, initialStatus]
         );
 
         res.json({ success: true, message: 'Tạo Đơn xin nghỉ phép thành công! Đơn đã được gửi tới cấp duyệt đầu tiên.' });
@@ -1249,6 +1444,17 @@ router.put('/leave-applications/:id/approve', authorizeRole('Administrator', 'HR
             `UPDATE LeaveApplication SET status = ?, approver_note = ?, approver_id = ?, approver_name = ?, last_modified_date = ? WHERE leave_id = ?`,
             [result.newDocumentStatus, approver_note || '', req.user.id, req.user.fullName, now, req.params.id]
         );
+
+        if (result.newDocumentStatus === 'APPROVED') {
+            const application = await queryOne('SELECT employee_id, leave_type, leave_year FROM LeaveApplication WHERE leave_id = ?', [req.params.id]);
+            if (application?.leave_type === 'ANNUAL' && application.leave_year) {
+                const balance = await refreshAnnualLeaveBalance(application.employee_id, Number(application.leave_year), now);
+                await run(
+                    `UPDATE LeaveApplication SET remaining_days_after = ?, last_modified_date = ? WHERE leave_id = ?`,
+                    [balance.remaining_days, now, req.params.id]
+                );
+            }
+        }
 
         const message = result.newDocumentStatus === 'REJECTED'
             ? 'Đã từ chối Đơn xin nghỉ phép!'
