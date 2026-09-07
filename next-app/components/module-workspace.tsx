@@ -193,20 +193,44 @@ const detailLabels: Record<string, string> = {
   priority: "Mức ưu tiên",
   is_outside_headcount: "Ngoài định biên",
   screening_code: "Mã phiếu sơ loại",
+  pre_screening_id: "Mã phiếu sơ loại",
+  criteria_detail_id: "Mã chi tiết tiêu chí",
+  row_order: "Thứ tự",
   screening_date: "Ngày sơ loại",
   screening_result: "Kết quả sơ loại",
   level_score: "Điểm phù hợp",
   comment: "Nhận xét",
+  required_from: "Nguồn yêu cầu",
+  required_description: "Yêu cầu cần đáp ứng",
+  candidate_value: "Thông tin ứng viên",
+  candidate_description: "Mô tả ứng viên",
   schedule_id: "Mã lịch phỏng vấn",
   schedule_code: "Mã lịch phỏng vấn",
+  schedule_candidate_id: "Mã ứng viên trong lịch",
+  panel_member_id: "Mã thành viên hội đồng",
   round_type: "Vòng tuyển dụng",
   format_type: "Hình thức phỏng vấn",
   location: "Địa điểm / Link họp",
   start_time: "Thời điểm bắt đầu",
   end_time: "Thời điểm kết thúc",
   candidate_note: "Lưu ý ứng viên",
+  candidates: "Danh sách ứng viên",
+  candidates_json: "Danh sách ứng viên",
+  council: "Hội đồng phỏng vấn",
+  council_json: "Hội đồng phỏng vấn",
+  tests: "Bài thi",
+  tests_json: "Bài thi",
+  is_decision_maker: "Người quyết định",
+  test_name: "Tên bài thi",
+  expected_score: "Điểm yêu cầu",
+  duration_minutes: "Thời lượng (phút)",
+  exam_file: "Tệp đề thi",
+  exam_file_name: "Tệp đề thi",
+  answer_file: "Tệp đáp án",
+  answer_file_name: "Tệp đáp án",
   evaluator_id: "Mã người đánh giá",
   evaluator_name: "Người đánh giá",
+  interview_eval_id: "Mã phiếu đánh giá phỏng vấn",
   evaluation_id: "Mã phiếu đánh giá",
   evaluation_code: "Mã phiếu đánh giá",
   evaluation_date: "Ngày đánh giá",
@@ -331,7 +355,8 @@ const detailTermLabels: Record<string, string> = {
 
 function detailLabel(tab: WorkspaceTab, key: string) {
   const configuredField = tab.fields.find((field) => field.name === key);
-  if (configuredField) return configuredField.label;
+  if (configuredField)
+    return configuredField.label.replace(/\s+\(JSON\)$/, "");
   const configuredColumn = tab.columns.find((column) => column.key === key);
   if (configuredColumn) return configuredColumn.label;
   if (detailLabels[key]) return detailLabels[key];
@@ -1095,6 +1120,7 @@ function OperationalWorkspace({
         "quota",
         "quotas",
         "screenings",
+        "schedules",
         "interview-evaluations",
         "employees",
         "leave",
@@ -1757,6 +1783,7 @@ function OperationalWorkspace({
                     <WorkspaceInput
                       key={field.name}
                       field={inputField}
+                      tabId={tab.id}
                       value={formValues[field.name] ?? ""}
                       onChange={(value) =>
                         setFormValues((current) => ({
@@ -1862,15 +1889,309 @@ function OperationalWorkspace({
   );
 }
 
-function WorkspaceInput({
+type JsonItemField = {
+  key: string;
+  label: string;
+  type?: "text" | "number" | "checkbox";
+};
+
+type JsonListSchema = {
+  itemLabel: string;
+  fields: JsonItemField[];
+};
+
+const jsonListSchemas: Record<string, JsonListSchema> = {
+  "quota.details": {
+    itemLabel: "vị trí",
+    fields: [
+      { key: "position_id", label: "Mã vị trí" },
+      { key: "target_headcount", label: "Định biên", type: "number" },
+      { key: "resignation_count", label: "Số lao động nghỉ việc", type: "number" },
+      { key: "maternity_count", label: "Số lao động nghỉ thai sản", type: "number" },
+      { key: "note", label: "Ghi chú" },
+    ],
+  },
+  "quota.budget_details": {
+    itemLabel: "khoản ngân sách",
+    fields: [
+      { key: "cost_type", label: "Loại chi phí" },
+      { key: "source", label: "Nguồn chi" },
+      { key: "estimated_cost", label: "Chi phí dự kiến", type: "number" },
+    ],
+  },
+  "quotas.details": {
+    itemLabel: "vị trí",
+    fields: [
+      { key: "position_id", label: "Mã vị trí" },
+      { key: "target_headcount", label: "Định biên", type: "number" },
+      { key: "resignation_count", label: "Số lao động nghỉ việc", type: "number" },
+      { key: "maternity_count", label: "Số lao động nghỉ thai sản", type: "number" },
+      { key: "note", label: "Ghi chú" },
+    ],
+  },
+  "quotas.budget_details": {
+    itemLabel: "khoản ngân sách",
+    fields: [
+      { key: "cost_type", label: "Loại chi phí" },
+      { key: "source", label: "Nguồn chi" },
+      { key: "estimated_cost", label: "Chi phí dự kiến", type: "number" },
+    ],
+  },
+  "candidates.attachments_json": {
+    itemLabel: "tài liệu",
+    fields: [
+      { key: "name", label: "Tên tài liệu" },
+      { key: "url", label: "Đường dẫn tài liệu" },
+    ],
+  },
+  "screenings.criteria": {
+    itemLabel: "tiêu chí",
+    fields: [
+      { key: "criteria_type", label: "Tiêu chí" },
+      { key: "required_from", label: "Nguồn yêu cầu" },
+      { key: "required_description", label: "Yêu cầu cần đáp ứng" },
+      { key: "candidate_value", label: "Thông tin ứng viên" },
+      { key: "candidate_description", label: "Mô tả ứng viên" },
+      { key: "is_passed", label: "Đạt yêu cầu", type: "checkbox" },
+      { key: "note", label: "Ghi chú" },
+    ],
+  },
+  "schedules.candidates": {
+    itemLabel: "ứng viên",
+    fields: [
+      { key: "candidate_id", label: "Mã ứng viên" },
+      { key: "note", label: "Lưu ý" },
+    ],
+  },
+  "schedules.council": {
+    itemLabel: "thành viên hội đồng",
+    fields: [
+      { key: "employee_id", label: "Mã nhân viên" },
+      { key: "is_decision_maker", label: "Người quyết định", type: "checkbox" },
+    ],
+  },
+  "schedules.tests": {
+    itemLabel: "bài thi",
+    fields: [
+      { key: "test_name", label: "Tên bài thi" },
+      { key: "expected_score", label: "Điểm yêu cầu", type: "number" },
+      { key: "duration_minutes", label: "Thời lượng (phút)", type: "number" },
+      { key: "exam_file", label: "Tệp đề thi" },
+      { key: "answer_file", label: "Tệp đáp án" },
+    ],
+  },
+  "interview-evaluations.script": {
+    itemLabel: "câu hỏi",
+    fields: [
+      { key: "question", label: "Câu hỏi" },
+      { key: "expectation", label: "Kỳ vọng" },
+      { key: "answer", label: "Câu trả lời" },
+    ],
+  },
+  "interview-evaluations.criteria": {
+    itemLabel: "tiêu chí",
+    fields: [
+      { key: "criteria_type", label: "Tiêu chí" },
+      { key: "required_from", label: "Nguồn yêu cầu" },
+      { key: "required_description", label: "Yêu cầu cần đáp ứng" },
+      { key: "candidate_value", label: "Đánh giá ứng viên" },
+      { key: "candidate_description", label: "Mô tả ứng viên" },
+      { key: "is_passed", label: "Đạt yêu cầu", type: "checkbox" },
+      { key: "note", label: "Ghi chú" },
+    ],
+  },
+  "contracts.allowance_details": {
+    itemLabel: "phụ cấp",
+    fields: [
+      { key: "allowance_type", label: "Loại phụ cấp" },
+      { key: "amount", label: "Số tiền", type: "number" },
+    ],
+  },
+  "leave.details_json": {
+    itemLabel: "ngày nghỉ",
+    fields: [
+      { key: "date", label: "Ngày nghỉ" },
+      { key: "time_option", label: "Buổi nghỉ" },
+      { key: "days", label: "Số ngày", type: "number" },
+      { key: "note", label: "Ghi chú" },
+    ],
+  },
+  "transfer-proposals.detail_items": {
+    itemLabel: "nhân sự",
+    fields: [
+      { key: "employee_id", label: "Mã nhân viên" },
+      { key: "current_department_id", label: "Mã bộ phận hiện tại" },
+      { key: "current_position_id", label: "Mã vị trí hiện tại" },
+      { key: "target_department_id", label: "Mã bộ phận mới" },
+      { key: "target_position_id", label: "Mã vị trí mới" },
+      { key: "manager_id", label: "Mã quản lý mới" },
+    ],
+  },
+  "criteria.scales": {
+    itemLabel: "mức xếp loại",
+    fields: [
+      { key: "grade_name", label: "Tên mức xếp loại" },
+      { key: "min_score", label: "Điểm tối thiểu", type: "number" },
+      { key: "max_score", label: "Điểm tối đa", type: "number" },
+      { key: "description", label: "Mô tả" },
+    ],
+  },
+  "evaluations.details": {
+    itemLabel: "tiêu chí đánh giá",
+    fields: [
+      { key: "criteria_id", label: "Mã tiêu chí" },
+      { key: "criteria_code", label: "Mã tiêu chí" },
+      { key: "criteria_name", label: "Tên tiêu chí" },
+      { key: "weight", label: "Trọng số", type: "number" },
+      { key: "score", label: "Điểm", type: "number" },
+      { key: "note", label: "Ghi chú" },
+    ],
+  },
+};
+
+function parseJsonList(value: string) {
+  if (!value.trim()) return { items: [] as Array<Record<string, unknown>> };
+  try {
+    const parsed = JSON.parse(value);
+    if (!Array.isArray(parsed)) throw new Error();
+    return {
+      items: parsed.filter(
+        (item): item is Record<string, unknown> =>
+          Boolean(item) && typeof item === "object" && !Array.isArray(item),
+      ),
+    };
+  } catch {
+    return {
+      items: [] as Array<Record<string, unknown>>,
+      error: "Dữ liệu chi tiết cũ không hợp lệ. Vui lòng nhập lại các dòng bên dưới.",
+    };
+  }
+}
+
+function JsonListInput({
   field,
   value,
   onChange,
+  schema,
 }: {
   field: WorkspaceField;
   value: string;
   onChange: (value: string) => void;
+  schema: JsonListSchema;
 }) {
+  const { items, error } = parseJsonList(value);
+  const updateItems = (nextItems: Array<Record<string, unknown>>) =>
+    onChange(JSON.stringify(nextItems));
+  const addItem = () =>
+    updateItems([
+      ...items,
+      Object.fromEntries(
+        schema.fields.map((itemField) => [
+          itemField.key,
+          itemField.type === "number" ? 0 : itemField.type === "checkbox" ? false : "",
+        ]),
+      ),
+    ]);
+
+  return (
+    <div className={field.span === 2 ? "md:col-span-2" : ""}>
+      <div className="mb-2 flex items-center justify-between gap-3">
+        <label className="text-xs font-bold text-slate-600">
+          {field.label.replace(/\s+\(JSON\)$/, "")}
+          {field.required ? " *" : ""}
+        </label>
+        <Button type="button" variant="secondary" size="sm" onClick={addItem}>
+          <Plus size={14} /> Thêm {schema.itemLabel}
+        </Button>
+      </div>
+      {error && <p className="mb-2 text-xs text-rose-700">{error}</p>}
+      <div className="space-y-3">
+        {items.map((item, index) => (
+          <div key={index} className="rounded-xl border border-slate-200 bg-slate-50/70 p-3">
+            <div className="mb-3 flex items-center justify-between">
+              <span className="text-xs font-bold text-slate-500">
+                {schema.itemLabel.charAt(0).toUpperCase() + schema.itemLabel.slice(1)} {index + 1}
+              </span>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => updateItems(items.filter((_, itemIndex) => itemIndex !== index))}
+              >
+                <Trash2 size={14} /> Xóa
+              </Button>
+            </div>
+            <div className="grid gap-3 md:grid-cols-2">
+              {schema.fields.map((itemField) => (
+                <label key={itemField.key} className="block text-xs font-bold text-slate-600">
+                  {itemField.type === "checkbox" ? (
+                    <span className="flex h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 font-medium">
+                      <input
+                        type="checkbox"
+                        checked={Boolean(item[itemField.key])}
+                        onChange={(event) => {
+                          const nextItems = [...items];
+                          nextItems[index] = { ...item, [itemField.key]: event.target.checked };
+                          updateItems(nextItems);
+                        }}
+                      />
+                      {itemField.label}
+                    </span>
+                  ) : (
+                    <>
+                      <span className="mb-1.5 block">{itemField.label}</span>
+                      <input
+                        type={itemField.type === "number" ? "number" : "text"}
+                        value={String(item[itemField.key] ?? "")}
+                        onChange={(event) => {
+                          const nextValue =
+                            itemField.type === "number" && event.target.value !== ""
+                              ? Number(event.target.value)
+                              : event.target.value;
+                          const nextItems = [...items];
+                          nextItems[index] = { ...item, [itemField.key]: nextValue };
+                          updateItems(nextItems);
+                        }}
+                        className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-normal outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-100"
+                      />
+                    </>
+                  )}
+                </label>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+      {items.length === 0 && (
+        <div className="rounded-xl border border-dashed border-slate-200 px-3 py-4 text-center text-xs text-slate-400">
+          Chưa có {schema.itemLabel}. Chọn “Thêm {schema.itemLabel}” để khai báo.
+        </div>
+      )}
+    </div>
+  );
+}
+
+function WorkspaceInput({
+  field,
+  tabId,
+  value,
+  onChange,
+}: {
+  field: WorkspaceField;
+  tabId: string;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  const jsonSchema = jsonListSchemas[`${tabId}.${field.name}`];
+  if (field.type === "json" && jsonSchema)
+    return (
+      <JsonListInput
+        field={field}
+        value={value}
+        onChange={onChange}
+        schema={jsonSchema}
+      />
+    );
   const onInputChange = (
     event: ChangeEvent<
       HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement

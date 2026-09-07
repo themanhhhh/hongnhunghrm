@@ -712,6 +712,38 @@ router.get('/interview-schedules', async (req, res) => {
     }
 });
 
+router.get('/interview-schedules/:id', async (req, res) => {
+    try {
+        const schedule = await queryOne(
+            'SELECT * FROM InterviewSchedule WHERE schedule_id = ?',
+            [req.params.id]
+        );
+        if (!schedule) {
+            return res.status(404).json({ success: false, message: 'Không tìm thấy lịch phỏng vấn.' });
+        }
+        const parseList = (value) => {
+            try {
+                const parsed = JSON.parse(value || '[]');
+                return Array.isArray(parsed) ? parsed : [];
+            } catch {
+                return [];
+            }
+        };
+        const { candidates_json, council_json, tests_json, ...scheduleDetail } = schedule;
+        res.json({
+            success: true,
+            data: {
+                ...scheduleDetail,
+                candidates: parseList(candidates_json),
+                council: parseList(council_json),
+                tests: parseList(tests_json)
+            }
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
 router.post('/interview-schedules', async (req, res) => {
     try {
         const { schedule_code, round_type, format_type, location, start_time, end_time, note, candidate_note, candidates, council, tests } = req.body;
