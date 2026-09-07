@@ -2,6 +2,8 @@
 
 import {
   CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
   Download,
   Eye,
   Filter,
@@ -566,6 +568,7 @@ function ReportsWorkspace() {
     queryFn: () => api.module("reports"),
   });
   const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
   if (isLoading || !data)
     return (
       <div className="grid min-h-[500px] place-items-center text-sm text-slate-400">
@@ -575,6 +578,11 @@ function ReportsWorkspace() {
   const rows = data.rows.filter((row) =>
     row.join(" ").toLowerCase().includes(search.toLowerCase()),
   );
+  const pageSize = 10;
+  const totalPages = Math.max(1, Math.ceil(rows.length / pageSize));
+  const currentPage = Math.min(page, totalPages);
+  const pageOffset = (currentPage - 1) * pageSize;
+  const visibleRows = rows.slice(pageOffset, pageOffset + pageSize);
   return (
     <div className="space-y-7">
       <section className="flex flex-col justify-between gap-5 lg:flex-row lg:items-end">
@@ -616,7 +624,10 @@ function ReportsWorkspace() {
                 className="h-10 pl-9"
                 placeholder="Tìm kiếm báo cáo..."
                 value={search}
-                onChange={(event) => setSearch(event.target.value)}
+                onChange={(event) => {
+                  setSearch(event.target.value);
+                  setPage(1);
+                }}
               />
             </div>
             <div className="flex gap-2">
@@ -648,13 +659,13 @@ function ReportsWorkspace() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {rows.map((row, index) => (
+                {visibleRows.map((row, index) => (
                   <tr
                     key={`${row[0]}-${index}`}
                     className="hover:bg-teal-50/30"
                   >
                     <td className="px-5 py-4 text-xs text-slate-400">
-                      {String(index + 1).padStart(2, "0")}
+                      {String(pageOffset + index + 1).padStart(2, "0")}
                     </td>
                     {row.map((cell, cellIndex) => (
                       <td
@@ -673,6 +684,34 @@ function ReportsWorkspace() {
               </tbody>
             </table>
           </div>
+          {rows.length > 0 && (
+            <div className="flex flex-col gap-3 border-t border-slate-100 px-5 py-4 text-xs sm:flex-row sm:items-center sm:justify-between">
+              <span className="text-slate-500">
+                Hiển thị {pageOffset + 1}-{Math.min(pageOffset + pageSize, rows.length)} trên {rows.length} bản ghi
+              </span>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => setPage((current) => Math.max(1, current - 1))}
+                  disabled={currentPage === 1}
+                >
+                  <ChevronLeft size={14} /> Trước
+                </Button>
+                <span className="min-w-20 text-center font-bold text-slate-700">
+                  Trang {currentPage} / {totalPages}
+                </span>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
+                  disabled={currentPage === totalPages}
+                >
+                  Sau <ChevronRight size={14} />
+                </Button>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
@@ -720,6 +759,7 @@ function OperationalWorkspace({
       )
     : workspaceTabs[name];
   const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
   const [showForm, setShowForm] = useState(false);
   const [showDetail, setShowDetail] = useState<Row | null>(null);
   const [editingRow, setEditingRow] = useState<Row | null>(null);
@@ -963,6 +1003,11 @@ function OperationalWorkspace({
         tab.id !== "history" ||
         String(row.employee_id) === historyEmployeeId),
   );
+  const pageSize = 10;
+  const totalPages = Math.max(1, Math.ceil(rows.length / pageSize));
+  const currentPage = Math.min(page, totalPages);
+  const pageOffset = (currentPage - 1) * pageSize;
+  const visibleRows = rows.slice(pageOffset, pageOffset + pageSize);
   const catalogNeedsAdmin = tab.id === "departments" || tab.id === "positions";
   const restrictedRewardAction =
     name === "rewards" &&
@@ -1341,6 +1386,7 @@ function OperationalWorkspace({
               onClick={() => {
                 setTabId(item.id);
                 setSearch("");
+                setPage(1);
                 setNotice("");
                 setHistoryEmployeeId("");
               }}
@@ -1371,14 +1417,20 @@ function OperationalWorkspace({
                   className="h-10 pl-9"
                   placeholder="Tìm kiếm trong danh sách..."
                   value={search}
-                  onChange={(event) => setSearch(event.target.value)}
+                  onChange={(event) => {
+                    setSearch(event.target.value);
+                    setPage(1);
+                  }}
                 />
               </div>
               {tab.id === "history" && (
                 <select
                   className="h-10 max-w-xs rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-600"
                   value={historyEmployeeId}
-                  onChange={(event) => setHistoryEmployeeId(event.target.value)}
+                  onChange={(event) => {
+                    setHistoryEmployeeId(event.target.value);
+                    setPage(1);
+                  }}
                 >
                   <option value="">Tất cả nhân viên</option>
                   {lookupQuery.data?.employees.map((employee) => (
@@ -1442,13 +1494,13 @@ function OperationalWorkspace({
                     </td>
                   </tr>
                 ) : (
-                  rows.map((row, index) => (
+                  visibleRows.map((row, index) => (
                     <tr
                       key={`${rowId(tab, row)}-${index}`}
                       className="group hover:bg-teal-50/30"
                     >
                       <td className="px-5 py-4 text-xs text-slate-400">
-                        {String(index + 1).padStart(2, "0")}
+                        {String(pageOffset + index + 1).padStart(2, "0")}
                       </td>
                       {tab.columns.map((column) => (
                         <td
@@ -1606,6 +1658,36 @@ function OperationalWorkspace({
               </tbody>
             </table>
           </div>
+          {rows.length > 0 && (
+            <div className="flex flex-col gap-3 border-t border-slate-100 px-5 py-4 text-xs sm:flex-row sm:items-center sm:justify-between">
+              <span className="text-slate-500">
+                Hiển thị {pageOffset + 1}-{Math.min(pageOffset + pageSize, rows.length)} trên {rows.length} bản ghi
+              </span>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => setPage((current) => Math.max(1, current - 1))}
+                  disabled={currentPage === 1}
+                  aria-label="Trang trước"
+                >
+                  <ChevronLeft size={14} /> Trước
+                </Button>
+                <span className="min-w-20 text-center font-bold text-slate-700">
+                  Trang {currentPage} / {totalPages}
+                </span>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
+                  disabled={currentPage === totalPages}
+                  aria-label="Trang sau"
+                >
+                  Sau <ChevronRight size={14} />
+                </Button>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 
