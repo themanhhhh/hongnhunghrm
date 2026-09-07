@@ -608,7 +608,7 @@ function ReportsWorkspace() {
               <div className="font-display text-2xl font-bold text-slate-950">
                 {stat.value}
               </div>
-              <div className="mt-1 text-xs text-slate-400">{stat.meta}</div>
+              {/* <div className="mt-1 text-xs text-slate-400">{stat.meta}</div> */}
             </CardContent>
           </Card>
         ))}
@@ -1384,7 +1384,7 @@ function OperationalWorkspace({
               <div className="truncate font-display text-2xl font-bold text-slate-950">
                 {value}
               </div>
-              <div className="mt-1 text-xs text-slate-400">{meta}</div>
+              {/* <div className="mt-1 text-xs text-slate-400">{meta}</div> */}
             </CardContent>
           </Card>
         ))}
@@ -1413,10 +1413,10 @@ function OperationalWorkspace({
               <div className="font-display text-base font-bold text-slate-950">
                 {tab.label}
               </div>
-              <div className="mt-1 text-xs text-slate-400">
+              {/* <div className="mt-1 text-xs text-slate-400">
                 Các thao tác trên tab được kết nối với quy trình cũ và
                 permission matrix.
-              </div>
+              </div> */}
             </div>
             <div className="flex w-full gap-2 sm:w-auto">
               <div className="relative min-w-0 flex-1 sm:w-72">
@@ -1675,10 +1675,10 @@ function OperationalWorkspace({
                   {editingRow ? "Cập nhật" : "Tạo mới"}{" "}
                   {tab.label.toLowerCase()}
                 </div>
-                <div className="mt-1 text-xs text-slate-400">
+                {/* <div className="mt-1 text-xs text-slate-400">
                   Nhập đủ thông tin bắt buộc. Các trường JSON giữ nguyên cấu
                   trúc chi tiết của giao diện cũ.
-                </div>
+                </div> */}
               </div>
               <button
                 onClick={() => setShowForm(false)}
@@ -1772,9 +1772,9 @@ function OperationalWorkspace({
                 <div className="font-display text-lg font-bold text-slate-950">
                   Chi tiết {tab.label.toLowerCase()}
                 </div>
-                <div className="mt-1 text-xs text-slate-400">
+                {/* <div className="mt-1 text-xs text-slate-400">
                   {rowId(tab, showDetail)}
-                </div>
+                </div> */}
               </div>
               <button
                 onClick={() => setShowDetail(null)}

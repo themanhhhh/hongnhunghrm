@@ -142,9 +142,9 @@ function Pipeline({ data }: { data: DashboardData }) {
             <span className="size-1.5 rounded-full bg-teal-500" /> Tuyển dụng
           </div>
           <CardTitle>Nhịp tuyển dụng</CardTitle>
-          <p className="mt-1 text-xs text-slate-400">
+          {/* <p className="mt-1 text-xs text-slate-400">
             Ứng viên theo từng điểm chạm của pipeline.
-          </p>
+          </p> */}
         </div>
         <Link
           href="/recruitment?tab=candidates"
@@ -221,9 +221,9 @@ function DepartmentStructure({ data }: { data: DashboardData }) {
           <span className="size-1.5 rounded-full bg-violet-500" /> Tổ chức
         </div>
         <CardTitle>Cơ cấu nhân sự</CardTitle>
-        <p className="mt-1 text-xs text-slate-400">
+        {/* <p className="mt-1 text-xs text-slate-400">
           Phân bổ nhân sự đang hoạt động theo đơn vị.
-        </p>
+        </p> */}
       </CardHeader>
       {data.departments.length === 0 ? (
         <EmptyPanel
@@ -291,9 +291,9 @@ function ApprovalQueue({ data }: { data: DashboardData }) {
             <span className="size-1.5 rounded-full bg-rose-500" /> Workflow
           </div>
           <CardTitle>Hàng đợi phê duyệt</CardTitle>
-          <p className="mt-1 text-xs text-slate-400">
+          {/* <p className="mt-1 text-xs text-slate-400">
             Các chứng từ đang chờ được xử lý trong luồng công việc.
-          </p>
+          </p> */}
         </div>
         <Link
           href="/recruitment?tab=requests"
