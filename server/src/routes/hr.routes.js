@@ -5,6 +5,7 @@ const multer = require('multer');
 const { query, queryOne, run } = require('../db/connection');
 const { authenticateToken, authorizeRole } = require('../middleware/auth');
 const approvalWorkflow = require('../services/approvalWorkflow');
+const { PinataService } = require('../services/pinata.service');
 
 router.use(authenticateToken);
 
@@ -72,10 +73,7 @@ function uploadAvatar(req, res, next) {
     });
 }
 
-function pinataGatewayUrl(cid) {
-    const gateway = (process.env.PINATA_GATEWAY_URL || 'https://gateway.pinata.cloud').replace(/\/+$/, '');
-    return `${gateway}/ipfs/${cid}`;
-}
+const pinataService = new PinataService();
 
 // --- 0. DANH MỤC PHÒNG BÀN (DEPARTMENTS) ---
 router.get('/departments', async (req, res) => {
@@ -285,35 +283,25 @@ router.post('/employees/:id/avatar', authorizeRole('Administrator', 'HR Staff'),
         if (!req.file) {
             return res.status(400).json({ success: false, message: 'Chưa chọn file ảnh đại diện.' });
         }
-        if (!process.env.PINATA_JWT) {
-            return res.status(503).json({ success: false, message: 'Chưa cấu hình PINATA_JWT trên máy chủ.' });
+        if (!pinataService.isConfigured()) {
+            return res.status(503).json({ success: false, message: 'Chưa cấu hình Pinata trên máy chủ.' });
         }
         const employee = await queryOne('SELECT employee_id FROM Employee WHERE employee_id = ?', [req.params.id]);
         if (!employee) {
             return res.status(404).json({ success: false, message: 'Hồ sơ nhân viên không tồn tại.' });
         }
 
-        const formData = new FormData();
-        formData.append('file', new Blob([req.file.buffer], { type: req.file.mimetype }), req.file.originalname);
-        formData.append('network', 'public');
-        formData.append('name', `employee-avatar-${req.params.id}`);
-        formData.append('keyvalues', JSON.stringify({ keyvalues: { employee_id: req.params.id, resource: 'employee-avatar' } }));
-
-        const pinataResponse = await fetch('https://uploads.pinata.cloud/v3/files', {
-            method: 'POST',
-            headers: { Authorization: `Bearer ${process.env.PINATA_JWT}` },
-            body: formData
-        });
-        const pinataBody = await pinataResponse.json().catch(() => null);
-        const cid = pinataBody?.data?.cid;
-        if (!pinataResponse.ok || !cid) {
-            return res.status(502).json({
-                success: false,
-                message: pinataBody?.error?.message || pinataBody?.message || 'Pinata không thể lưu ảnh hồ sơ.'
-            });
+        let avatarUrl;
+        try {
+            avatarUrl = await pinataService.uploadFile(
+                req.file.buffer,
+                req.file.originalname,
+                req.file.mimetype
+            );
+        } catch (error) {
+            return res.status(502).json({ success: false, message: error.message });
         }
-
-        const avatarUrl = pinataGatewayUrl(cid);
+        const cid = pinataService.extractCid(avatarUrl);
         const now = Date.now();
 
         await run(`UPDATE Employee SET avatar_url = ?, last_modified_date = ? WHERE employee_id = ?`, [avatarUrl, now, req.params.id]);
