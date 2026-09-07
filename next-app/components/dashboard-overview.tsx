@@ -15,7 +15,7 @@ import {
   UsersRound,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useSyncExternalStore } from "react";
 import { api, type DashboardData } from "@/lib/api";
 import { type Session } from "@/lib/permissions";
 import { getStoredSession, subscribeToSession } from "@/lib/session";
@@ -366,22 +366,15 @@ export function DashboardOverview() {
     queryKey: ["dashboard", session?.role],
     queryFn: api.dashboard,
   });
-  const [welcome, setWelcome] = useState("Chào bạn");
-  const [today, setToday] = useState("Hôm nay");
+  const now = new Date();
+  const welcome = greetingHour(now.getHours());
+  const today = new Intl.DateTimeFormat("vi-VN", {
+    weekday: "long",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  }).format(now);
   const action = primaryAction(session);
-
-  useEffect(() => {
-    const now = new Date();
-    setWelcome(greetingHour(now.getHours()));
-    setToday(
-      new Intl.DateTimeFormat("vi-VN", {
-        weekday: "long",
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
-      }).format(now),
-    );
-  }, []);
 
   if (isLoading && !data) return <DashboardSkeleton />;
   if (!data)
@@ -404,9 +397,13 @@ export function DashboardOverview() {
         <div className="relative flex flex-col justify-between gap-6 xl:flex-row xl:items-end">
           <div>
             <div className="mb-3 flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.18em] text-teal-200">
-              <span className="size-1.5 rounded-full bg-teal-300" /> {today}
+              <span className="size-1.5 rounded-full bg-teal-300" />{" "}
+              <span suppressHydrationWarning>{today}</span>
             </div>
-            <h1 className="max-w-2xl font-display text-3xl font-bold tracking-tight lg:text-4xl">
+            <h1
+              className="max-w-2xl font-display text-3xl font-bold tracking-tight lg:text-4xl"
+              suppressHydrationWarning
+            >
               {welcome}, {session?.name?.split(/\s+/).at(-1) ?? "bạn"}.
             </h1>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-300">
