@@ -537,7 +537,7 @@ const primaryKeyColumns = {
 
 const foreignKeys = [
     ['User', 'role_id', 'Role', 'role_id'], ['User', 'department_id', 'Department', 'department_id'], ['User', 'employee_id', 'Employee', 'employee_id', 'SET NULL'],
-    ['Department', 'manager_id', 'Employee', 'employee_id', 'SET NULL'], ['Department', 'parent_department_id', 'Department', 'department_id', 'SET NULL'],
+    ['Department', 'manager_id', 'Employee', 'employee_id', 'SET NULL'], ['Department', 'parent_department_id', 'Department', 'department_id'],
     ['Position', 'department_id', 'Department', 'department_id', 'SET NULL'], ['Employee', 'department_id', 'Department', 'department_id'],
     ['Employee', 'position_id', 'Position', 'position_id'], ['Employee', 'manager_id', 'Employee', 'employee_id'],
     ['EmployeeContract', 'employee_id', 'Employee', 'employee_id', 'CASCADE'], ['EmployeeContract', 'signer_id', 'Employee', 'employee_id', 'SET NULL'],
