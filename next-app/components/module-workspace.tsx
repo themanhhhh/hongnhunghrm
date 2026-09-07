@@ -73,6 +73,257 @@ const labels: Record<string, string> = {
   COMPLETED: "Hoàn tất",
 };
 
+const detailLabels: Record<string, string> = {
+  id: "Mã định danh",
+  created_date: "Ngày tạo",
+  last_modified_date: "Ngày cập nhật",
+  status: "Trạng thái",
+  note: "Ghi chú",
+  description: "Mô tả",
+  reason: "Lý do",
+  content: "Nội dung",
+  employee_id: "Mã nhân viên",
+  employee_code: "Mã nhân viên",
+  employee_name: "Nhân viên",
+  full_name: "Họ và tên",
+  short_name: "Tên viết tắt",
+  avatar_url: "URL ảnh hồ sơ",
+  employment_status: "Trạng thái làm việc",
+  department_id: "Mã bộ phận",
+  department_code: "Mã bộ phận",
+  department_name: "Bộ phận",
+  parent_department_id: "Mã bộ phận cha",
+  parent_department_name: "Bộ phận cha",
+  position_id: "Mã vị trí",
+  position_code: "Mã vị trí",
+  position_name: "Vị trí công việc",
+  manager_id: "Mã quản lý trực tiếp",
+  manager_name: "Quản lý trực tiếp",
+  level: "Cấp bậc",
+  join_date: "Ngày vào làm",
+  official_date: "Ngày chính thức",
+  resignation_date: "Ngày nghỉ việc",
+  date_of_birth: "Ngày sinh",
+  place_of_birth: "Nơi sinh",
+  hometown: "Nguyên quán",
+  gender: "Giới tính",
+  nationality: "Quốc tịch",
+  ethnicity: "Dân tộc",
+  religion: "Tôn giáo",
+  marital_status: "Tình trạng hôn nhân",
+  citizen_id: "Số CCCD",
+  citizen_issue_date: "Ngày cấp CCCD",
+  citizen_issue_place: "Nơi cấp CCCD",
+  citizen_expiry_date: "Ngày hết hạn CCCD",
+  phone: "Số điện thoại",
+  email: "Email",
+  personal_email: "Email cá nhân",
+  company_email: "Email công ty",
+  address: "Địa chỉ hiện tại",
+  permanent_address: "Địa chỉ thường trú",
+  blood_type: "Nhóm máu",
+  tax_code: "Mã số thuế",
+  emergency_contact_name: "Người liên hệ khẩn cấp",
+  emergency_contact_relationship: "Quan hệ người liên hệ",
+  emergency_contact_phone: "SĐT liên hệ khẩn cấp",
+  bank_account_number: "Số tài khoản ngân hàng",
+  bank_account_holder: "Chủ tài khoản",
+  bank_name: "Ngân hàng",
+  bank_branch: "Chi nhánh ngân hàng",
+  culture_level: "Trình độ văn hóa",
+  education_level: "Trình độ đào tạo",
+  education_school: "Trường đào tạo",
+  major: "Chuyên ngành",
+  gpa: "Điểm trung bình",
+  graduation_year: "Năm tốt nghiệp",
+  candidate_id: "Mã ứng viên",
+  candidate_code: "Mã ứng viên",
+  candidate_name: "Ứng viên",
+  apply_position_name: "Vị trí ứng tuyển",
+  recruitment_plan_id: "Mã kế hoạch tuyển dụng",
+  recruitment_request_id: "Mã yêu cầu tuyển dụng",
+  request_code: "Mã yêu cầu tuyển dụng",
+  plan_name: "Tên kế hoạch tuyển dụng",
+  source: "Nguồn tuyển dụng",
+  referrer: "Người giới thiệu",
+  referrer_employee_id: "Mã nhân viên giới thiệu",
+  received_date: "Ngày tiếp nhận",
+  expected_date: "Ngày cần người",
+  expected_start_date: "Ngày dự kiến đi làm",
+  quantity: "Số lượng",
+  priority: "Mức ưu tiên",
+  is_outside_headcount: "Ngoài định biên",
+  screening_code: "Mã phiếu sơ loại",
+  screening_date: "Ngày sơ loại",
+  screening_result: "Kết quả sơ loại",
+  level_score: "Điểm phù hợp",
+  comment: "Nhận xét",
+  schedule_id: "Mã lịch phỏng vấn",
+  schedule_code: "Mã lịch phỏng vấn",
+  round_type: "Vòng tuyển dụng",
+  format_type: "Hình thức phỏng vấn",
+  location: "Địa điểm / Link họp",
+  start_time: "Thời điểm bắt đầu",
+  end_time: "Thời điểm kết thúc",
+  candidate_note: "Lưu ý ứng viên",
+  evaluator_id: "Mã người đánh giá",
+  evaluator_name: "Người đánh giá",
+  evaluation_id: "Mã phiếu đánh giá",
+  evaluation_code: "Mã phiếu đánh giá",
+  evaluation_date: "Ngày đánh giá",
+  evaluation_quarter: "Quý đánh giá",
+  total_score: "Tổng điểm",
+  grade_result: "Xếp loại",
+  manager_comment: "Nhận xét quản lý",
+  recommendation: "Đề xuất",
+  criteria_id: "Mã tiêu chí",
+  criteria_code: "Mã tiêu chí",
+  criteria_name: "Tên tiêu chí",
+  criteria_type: "Loại tiêu chí",
+  weight: "Trọng số",
+  score: "Điểm",
+  offer_id: "Mã offer",
+  offer_date: "Ngày offer",
+  offer_status: "Trạng thái offer",
+  probation_salary: "Lương thử việc",
+  official_salary: "Lương chính thức",
+  salary_offer: "Lương đề nghị",
+  contract_id: "Mã hợp đồng",
+  contract_no: "Số hợp đồng",
+  contract_type: "Loại hợp đồng",
+  contract_date: "Ngày ký hợp đồng",
+  start_date: "Ngày bắt đầu",
+  end_date: "Ngày kết thúc",
+  signer_id: "Mã người ký",
+  signer_name: "Người ký",
+  signer_position: "Chức vụ người ký",
+  employee_position: "Vị trí nhân viên",
+  base_salary: "Lương cơ sở",
+  social_insurance_salary: "Lương đóng BHXH",
+  salary_scale: "Thang lương",
+  salary_grade: "Bậc lương",
+  allowance_details: "Chi tiết phụ cấp",
+  job_description: "Mô tả công việc",
+  proposal_id: "Mã đề xuất",
+  proposal_code: "Mã đề xuất",
+  proposal_date: "Ngày lập đề xuất",
+  proposed_salary: "Lương đề xuất",
+  proposed_amount: "Số tiền đề xuất",
+  proposed_by: "Người đề xuất",
+  proposed_by_employee_id: "Mã nhân viên đề xuất",
+  effective_date: "Ngày hiệu lực",
+  decision_id: "Mã quyết định",
+  decision_no: "Số quyết định",
+  decision_number: "Số quyết định",
+  decision_date: "Ngày ban hành",
+  decision_type: "Loại quyết định",
+  decision_by: "Người ký quyết định",
+  signed_by: "Người ký",
+  target_department_id: "Mã bộ phận mới",
+  target_dept_name: "Bộ phận mới",
+  target_position_id: "Mã vị trí mới",
+  target_pos_name: "Vị trí mới",
+  transfer_type: "Loại điều chuyển",
+  leave_id: "Mã đơn nghỉ phép",
+  leave_code: "Mã đơn nghỉ phép",
+  leave_type: "Loại nghỉ phép",
+  total_days: "Tổng số ngày nghỉ",
+  approver_id: "Mã người duyệt",
+  approver_name: "Người duyệt",
+  approver_note: "Ghi chú người duyệt",
+  approval_history: "Lịch sử phê duyệt",
+  related_person_id: "Mã người liên quan",
+  application_id: "Mã đơn xin nghỉ việc",
+  application_code: "Mã đơn xin nghỉ việc",
+  desired_resign_date: "Ngày nghỉ dự kiến",
+  official_resign_date: "Ngày nghỉ chính thức",
+  handover_notes: "Nội dung bàn giao",
+  handover_status: "Trạng thái bàn giao",
+  work_history_id: "Mã quá trình công tác",
+  kind: "Loại hồ sơ",
+  code: "Mã / Số",
+  date: "Ngày",
+  quota_id: "Mã định biên",
+  quota_code: "Mã phiếu định biên",
+  target_headcount: "Định biên",
+  current_headcount: "Nhân sự hiện tại",
+  needed_headcount: "Số lượng cần tuyển",
+  max_capacity: "Sức chứa tối đa",
+  budget: "Ngân sách",
+  budget_details: "Chi tiết ngân sách",
+  detail_items: "Danh sách nhân sự",
+  details: "Chi tiết",
+  details_json: "Chi tiết dữ liệu",
+  attachments: "Tài liệu đính kèm",
+  attachments_json: "Tài liệu đính kèm",
+  attachment_id: "Mã tài liệu",
+  file_name: "Tên tệp",
+  file_url: "Đường dẫn tệp",
+  uploaded_date: "Ngày tải lên",
+  is_active: "Đang hoạt động",
+  is_foreign: "Nhân sự nước ngoài",
+};
+
+const detailTermLabels: Record<string, string> = {
+  id: "Mã",
+  name: "tên",
+  code: "mã",
+  date: "ngày",
+  time: "thời gian",
+  type: "loại",
+  status: "trạng thái",
+  employee: "nhân viên",
+  candidate: "ứng viên",
+  department: "bộ phận",
+  position: "vị trí",
+  manager: "quản lý",
+  created: "tạo",
+  modified: "cập nhật",
+  updated: "cập nhật",
+  result: "kết quả",
+  amount: "số tiền",
+  count: "số lượng",
+  number: "số",
+  file: "tệp",
+  url: "đường dẫn",
+  image: "ảnh",
+  avatar: "ảnh hồ sơ",
+};
+
+function detailLabel(tab: WorkspaceTab, key: string) {
+  const configuredField = tab.fields.find((field) => field.name === key);
+  if (configuredField) return configuredField.label;
+  const configuredColumn = tab.columns.find((column) => column.key === key);
+  if (configuredColumn) return configuredColumn.label;
+  if (detailLabels[key]) return detailLabels[key];
+  return key
+    .replace(/([a-z])([A-Z])/g, "$1_$2")
+    .split("_")
+    .filter(Boolean)
+    .map((term) => detailTermLabels[term.toLowerCase()] ?? term)
+    .join(" ")
+    .replace(/^./, (value) => value.toUpperCase());
+}
+
+function localizeDetailObject(value: unknown, tab: WorkspaceTab): unknown {
+  if (Array.isArray(value))
+    return value.map((item) => localizeDetailObject(item, tab));
+  if (value && typeof value === "object")
+    return Object.fromEntries(
+      Object.entries(value).map(([key, item]) => [
+        detailLabel(tab, key),
+        localizeDetailObject(item, tab),
+      ]),
+    );
+  return value;
+}
+
+function displayDetailValue(tab: WorkspaceTab, key: string, value: unknown) {
+  if (value && typeof value === "object")
+    return JSON.stringify(localizeDetailObject(value, tab), null, 2);
+  return displayCell(key, value);
+}
+
 function displayValue(value: unknown) {
   if (value === null || value === undefined || value === "") return "-";
   if (typeof value === "object") return JSON.stringify(value);
@@ -1529,15 +1780,15 @@ function OperationalWorkspace({
                     className="rounded-xl border border-slate-100 bg-slate-50/70 p-3"
                   >
                     <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                      {key}
+                      {detailLabel(tab, key)}
                     </div>
                     <div className="mt-1 break-words text-sm text-slate-700">
                       {typeof value === "object" ? (
                         <pre className="whitespace-pre-wrap text-xs">
-                          {JSON.stringify(value, null, 2)}
+                          {displayDetailValue(tab, key, value)}
                         </pre>
                       ) : (
-                        displayValue(value)
+                        displayDetailValue(tab, key, value)
                       )}
                     </div>
                   </div>
