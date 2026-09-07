@@ -593,26 +593,7 @@ function ReportsWorkspace() {
           <Download size={16} /> In / lưu PDF
         </Button>
       </section>
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        {data.stats.map((stat, i) => (
-          <Card key={stat.label}>
-            <CardContent className="p-4">
-              <div className="mb-4 flex items-center justify-between">
-                <span className="text-xs font-bold uppercase tracking-wide text-slate-400">
-                  {stat.label}
-                </span>
-                <div
-                  className={`size-2 rounded-full ${["bg-teal-500", "bg-amber-500", "bg-violet-500", "bg-rose-500"][i]}`}
-                />
-              </div>
-              <div className="font-display text-2xl font-bold text-slate-950">
-                {stat.value}
-              </div>
-              {/* <div className="mt-1 text-xs text-slate-400">{stat.meta}</div> */}
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+      
       <Card>
         <div className="flex gap-1 overflow-x-auto border-b border-slate-100 px-4 pt-3">
           {data.tabs.map((item) => (
@@ -1350,45 +1331,7 @@ function OperationalWorkspace({
         </div>
       </section>
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        {[
-          [
-            "Tab nghiệp vụ",
-            String(visibleTabs.length),
-            "Mở rộng theo quy trình",
-          ],
-          ["Bản ghi hiện tại", String(rows.length), "Theo bộ lọc đang chọn"],
-          [
-            "Đang chờ xử lý",
-            String(
-              rows.filter(
-                (row) =>
-                  String(row.status).includes("PENDING") ||
-                  String(row.status).includes("Chờ"),
-              ).length,
-            ),
-            "Cần được theo dõi",
-          ],
-          ["Vai trò", session?.role ?? "-", "Theo ma trận phân quyền"],
-        ].map(([label, value, meta], index) => (
-          <Card key={label}>
-            <CardContent className="p-4">
-              <div className="mb-4 flex items-center justify-between">
-                <span className="text-xs font-bold uppercase tracking-wide text-slate-400">
-                  {label}
-                </span>
-                <div
-                  className={`size-2 rounded-full ${["bg-teal-500", "bg-amber-500", "bg-violet-500", "bg-rose-500"][index]}`}
-                />
-              </div>
-              <div className="truncate font-display text-2xl font-bold text-slate-950">
-                {value}
-              </div>
-              {/* <div className="mt-1 text-xs text-slate-400">{meta}</div> */}
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+      
 
       <Card>
         <div className="flex gap-1 overflow-x-auto border-b border-slate-100 px-4 pt-3">
