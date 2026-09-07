@@ -10,7 +10,8 @@ const seedData = async (forceClear = false) => {
     // Re-initialize schema & columns
     await initSchema();
 
-    const now = Date.now();
+    // A fixed snapshot keeps clean installs and demos reproducible over time.
+    const now = new Date('2026-09-01T09:00:00.000Z').getTime();
     const passwordHash = await bcrypt.hash('123456', 10);
 
     // Clear existing tables ONLY if forceClear is true (manual CLI run)
@@ -319,9 +320,9 @@ const seedData = async (forceClear = false) => {
         { id: 'emp-kt-09', code: 'NV-2024-112', name: 'Lâm Bích Ngọc', gender: 'Nữ', dob: '1998-07-23', phone: '0922776655', email: 'ngoc.lb@bravo.com.vn', dept: 'dept-kt', pos: 'pos-kt-emp', salary: 11000000 },
 
         // PBH (8/8)
-        { id: 'emp-bh-01', code: 'NV-2024-113', name: 'Cao Văn Cường', gender: 'Nam', dob: '1989-02-28', phone: '0933887766', email: 'cuong.cv@bravo.com.vn', dept: 'dept-bh', pos: 'pos-bh-mgr', salary: 27000000 },
-        { id: 'emp-bh-02', code: 'NV-2024-114', name: 'Mai Thị Hồng', gender: 'Nữ', dob: '1993-08-16', phone: '0944998877', email: 'hong.mt@bravo.com.vn', dept: 'dept-bh', pos: 'pos-bh-lead', salary: 19000000 },
-        { id: 'emp-bh-03', code: 'NV-2024-115', name: 'Hồ Văn Nam', gender: 'Nam', dob: '1992-12-03', phone: '0955009988', email: 'nam.hv@bravo.com.vn', dept: 'dept-bh', pos: 'pos-bh-emp', salary: 15000000 },
+        { id: 'emp-bh-01', code: 'NV-2024-113', name: 'Nguyễn Mạnh Cường', gender: 'Nam', dob: '1989-02-28', phone: '0933887766', email: 'cuong.nm@bravo.com.vn', dept: 'dept-bh', pos: 'pos-bh-mgr', salary: 27000000 },
+        { id: 'emp-bh-02', code: 'NV-2024-114', name: 'Trần Thu Hồng', gender: 'Nữ', dob: '1993-08-16', phone: '0944998877', email: 'hong.tt2@bravo.com.vn', dept: 'dept-bh', pos: 'pos-bh-lead', salary: 19000000 },
+        { id: 'emp-bh-03', code: 'NV-2024-115', name: 'Lê Quốc Nam', gender: 'Nam', dob: '1992-12-03', phone: '0955009988', email: 'nam.lq@bravo.com.vn', dept: 'dept-bh', pos: 'pos-bh-emp', salary: 15000000 },
         { id: 'emp-bh-04', code: 'NV-2024-116', name: 'Đinh Thu Trang', gender: 'Nữ', dob: '1995-04-21', phone: '0966110099', email: 'trang.dt2@bravo.com.vn', dept: 'dept-bh', pos: 'pos-bh-emp', salary: 14500000 },
         { id: 'emp-bh-05', code: 'NV-2024-117', name: 'Vũ Thành Đạt', gender: 'Nam', dob: '1996-09-09', phone: '0977221100', email: 'dat.vt2@bravo.com.vn', dept: 'dept-bh', pos: 'pos-bh-emp', salary: 14000000 },
         { id: 'emp-bh-06', code: 'NV-2024-118', name: 'Nguyễn Thị Ngọc', gender: 'Nữ', dob: '1997-01-11', phone: '0988332211', email: 'ngoc.nt2@bravo.com.vn', dept: 'dept-bh', pos: 'pos-bh-emp', salary: 14000000 },
@@ -329,12 +330,12 @@ const seedData = async (forceClear = false) => {
         { id: 'emp-bh-08', code: 'NV-2024-120', name: 'Bùi Thị Hà', gender: 'Nữ', dob: '1999-03-30', phone: '0922554433', email: 'ha.bt@bravo.com.vn', dept: 'dept-bh', pos: 'pos-bh-emp', salary: 11000000 }
     ];
 
-    for (const e of employeeSeedSpecs) {
+    for (const [index, e] of employeeSeedSpecs.entries()) {
         const existing = await queryOne('SELECT employee_id FROM Employee WHERE employee_id = ?', [e.id]);
         if (!existing) {
             const dobTs = new Date(e.dob).getTime();
             const joinTs = new Date('2023-01-15').getTime();
-            const citizenId = '001' + (1980 + Math.floor(Math.random() * 20)) + '' + Math.floor(100000 + Math.random() * 899999);
+            const citizenId = `001${String(240000000 + index).padStart(9, '0')}`;
             await run(`INSERT INTO Employee (employee_id, created_date, last_modified_date, employee_code, full_name, gender, date_of_birth, citizen_id, citizen_issue_date, citizen_issue_place, phone, email, address, permanent_address, department_id, position_id, join_date, official_date, employment_status, is_active)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'Cục Cảnh sát QLHC về Trật tự xã hội', ?, ?, 'Hà Nội', 'Hà Nội', ?, ?, ?, ?, 'WORKING', 1)`,
                 [e.id, now, now, e.code, e.name, e.gender, dobTs, citizenId, dobTs + 18 * 365 * 86400000, e.phone, e.email, e.dept, e.pos, joinTs, joinTs + 60 * 86400000]);
@@ -408,12 +409,12 @@ const seedData = async (forceClear = false) => {
 
         { id: 'emp-ptnv-01', level: 'Trưởng phòng', mgr: 'emp-bgd-03' },
         { id: 'emp-ptnv-02', level: 'Trưởng nhóm', mgr: 'emp-ptnv-01' },
-        { id: 'emp-ptnv-03', level: 'Trưởng nhóm', mgr: 'emp-ptnv-01' },
+        { id: 'emp-ptnv-03', level: 'Nhân viên', mgr: 'emp-ptnv-02' },
         { id: 'emp-ptnv-04', level: 'Nhân viên', mgr: 'emp-ptnv-02' },
 
         { id: 'emp-ptsp-01', level: 'Trưởng phòng', mgr: 'emp-bgd-03' },
         { id: 'emp-ptsp-02', level: 'Trưởng nhóm', mgr: 'emp-ptsp-01' },
-        { id: 'emp-ptsp-03', level: 'Trưởng nhóm', mgr: 'emp-ptsp-01' },
+        { id: 'emp-ptsp-03', level: 'Nhân viên', mgr: 'emp-ptsp-02' },
         { id: 'emp-ptsp-04', level: 'Nhân viên', mgr: 'emp-ptsp-02' },
 
         { id: 'emp-kcn-01', level: 'Trưởng phòng', mgr: 'emp-bgd-01' },
@@ -421,17 +422,17 @@ const seedData = async (forceClear = false) => {
 
         { id: 'emp-cloud-01', level: 'Trưởng phòng', mgr: 'emp-kcn-01' },
         { id: 'emp-cloud-02', level: 'Trưởng nhóm', mgr: 'emp-cloud-01' },
-        { id: 'emp-cloud-03', level: 'Trưởng nhóm', mgr: 'emp-cloud-01' },
+        { id: 'emp-cloud-03', level: 'Nhân viên', mgr: 'emp-cloud-02' },
         { id: 'emp-cloud-04', level: 'Nhân viên', mgr: 'emp-cloud-02' },
 
         { id: 'emp-kt-01', level: 'Trưởng phòng', mgr: 'emp-kcn-01' },
         { id: 'emp-kt-02', level: 'Trưởng nhóm', mgr: 'emp-kt-01' },
-        { id: 'emp-kt-03', level: 'Trưởng nhóm', mgr: 'emp-kt-01' },
+        { id: 'emp-kt-03', level: 'Nhân viên', mgr: 'emp-kt-02' },
         { id: 'emp-kt-04', level: 'Nhân viên', mgr: 'emp-kt-02' },
 
         { id: 'emp-bh-01', level: 'Trưởng phòng', mgr: 'emp-kd-01' },
         { id: 'emp-bh-02', level: 'Trưởng nhóm', mgr: 'emp-bh-01' },
-        { id: 'emp-bh-03', level: 'Trưởng nhóm', mgr: 'emp-bh-01' },
+        { id: 'emp-bh-03', level: 'Nhân viên', mgr: 'emp-bh-02' },
         { id: 'emp-bh-04', level: 'Nhân viên', mgr: 'emp-bh-02' }
     ];
 
@@ -448,8 +449,8 @@ const seedData = async (forceClear = false) => {
         { user_id: 'usr-nhung-nh', username: 'NHUNGNH', full_name: 'Nguyễn Hồng Nhung', email: 'hongnhung188888@gmail.com', phone: '0988666888', role_id: 'role-admin', department_id: null, employee_id: null },
         { user_id: 'usr-ceo', username: 'ceo', full_name: 'Bùi Xuân Thức', email: 'ceo@bravo.com.vn', phone: '0988111222', role_id: 'role-ceo', department_id: 'dept-bgd', employee_id: 'emp-bgd-01' },
         { user_id: 'usr-mgr-kd', username: 'mgr_kd', full_name: 'Phạm Quốc Tuấn', email: 'tuan.pq@bravo.com.vn', phone: '0977222333', role_id: 'role-manager', department_id: 'dept-kd', employee_id: 'emp-kd-01' },
-        { user_id: 'usr-emp-kd', username: 'emp_kd', full_name: 'Đặng Đình Hùng', email: 'nam.nv@bravo.com.vn', phone: '0977333444', role_id: 'role-employee', department_id: 'dept-kd', employee_id: 'emp-kd-02' },
-        { user_id: 'usr-ha', username: 'HANT', full_name: 'Nguyễn Thùy Linh', email: 'ha.nt@bravo.com.vn', phone: '0977333444', role_id: 'role-hr', department_id: 'dept-hr', employee_id: 'emp-hr-02' },
+        { user_id: 'usr-emp-kd', username: 'emp_kd', full_name: 'Đặng Đình Hùng', email: 'hung.dd@bravo.com.vn', phone: '0933445566', role_id: 'role-employee', department_id: 'dept-kd', employee_id: 'emp-kd-02' },
+        { user_id: 'usr-ha', username: 'HANT', full_name: 'Nguyễn Thùy Linh', email: 'linh.nt@bravo.com.vn', phone: '0966123456', role_id: 'role-hr', department_id: 'dept-hr', employee_id: 'emp-hr-02' },
 
         // --- Tài khoản demo bổ sung theo mục 21 của yêu cầu RBAC ---
         { user_id: 'usr-sonnd', username: 'SONND', full_name: 'Phạm Thị Thanh Vân', email: 'sonnd@bravo.com.vn', phone: '0911000001', role_id: 'role-ceo', department_id: 'dept-bgd', employee_id: 'emp-bgd-02' },
@@ -480,10 +481,12 @@ const seedData = async (forceClear = false) => {
         const cid = `contract-${e.id}`;
         const existing = await queryOne('SELECT contract_id FROM EmployeeContract WHERE contract_id = ?', [cid]);
         if (!existing) {
-            const cno = `HĐLĐ/2024/${(i + 1).toString().padStart(4, '0')}`;
-            const signDate = new Date('2023-01-15').getTime();
-            const endDate = new Date('2026-01-15').getTime();
-            const ctype = i % 3 === 0 ? 'HĐLĐ Không xác định thời hạn' : (i % 2 === 0 ? 'HĐLĐ Xác định thời hạn 3 năm' : 'HĐLĐ Xác định thời hạn 1 năm');
+            const cno = `HĐLĐ/2026/${(i + 1).toString().padStart(4, '0')}`;
+            const signDate = new Date('2026-01-15').getTime();
+            const ctype = i % 3 === 0 ? 'HĐLĐ Không xác định thời hạn' : (i % 3 === 1 ? 'HĐLĐ Xác định thời hạn 3 năm' : 'HĐLĐ Xác định thời hạn 1 năm');
+            const endDate = ctype === 'HĐLĐ Không xác định thời hạn'
+                ? null
+                : new Date(ctype.includes('3 năm') ? '2029-01-14' : '2027-01-14').getTime();
             await run(`INSERT INTO EmployeeContract (contract_id, created_date, last_modified_date, contract_no, employee_id, contract_type, sign_date, start_date, end_date, salary, status, note)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'ACTIVE', 'Hợp đồng lao động chính thức ký kết theo đúng quy định bộ luật lao động')`,
                 [cid, now, now, cno, e.id, ctype, signDate, signDate, endDate, e.salary]);
@@ -612,8 +615,8 @@ const seedData = async (forceClear = false) => {
     }
 
     const contractExtensions = [
-        { id: 'ext-c-01', code: 'GHHD/0726-0001', contract_id: 'contract-emp-mkt-04', emp_id: 'emp-mkt-04', term: '2 năm', new_end: now + 730 * 86400000, salary: 18500000, reason: 'Gia hạn HĐLĐ thêm 2 năm cho Chuyên viên Digital Marketing' },
-        { id: 'ext-c-02', code: 'GHHD/0726-0002', contract_id: 'contract-emp-kd-04', emp_id: 'emp-kd-04', term: '3 năm', new_end: now + 1095 * 86400000, salary: 20000000, reason: 'Gia hạn HĐLĐ 3 năm cho Chuyên viên Tư vấn ERP đạt thành tích xuất sắc' }
+        { id: 'ext-c-01', code: 'GHHD/0726-0001', contract_id: 'contract-emp-mkt-04', emp_id: 'emp-mkt-04', term: '2 năm', new_end: new Date('2029-01-14').getTime(), salary: 18500000, reason: 'Gia hạn HĐLĐ thêm 2 năm cho Chuyên viên Digital Marketing' },
+        { id: 'ext-c-02', code: 'GHHD/0726-0002', contract_id: 'contract-emp-kd-04', emp_id: 'emp-kd-04', term: '3 năm', new_end: new Date('2030-01-14').getTime(), salary: 20000000, reason: 'Gia hạn HĐLĐ 3 năm cho Chuyên viên Tư vấn ERP đạt thành tích xuất sắc' }
     ];
 
     for (const ce of contractExtensions) {
@@ -736,7 +739,9 @@ const seedData = async (forceClear = false) => {
         { id: 'plan-rne-01', req_id: 'req-rne-01', name: 'KHTD/0726-01: Tuyển bổ sung Chuyên viên Kiểm thử QA (Trong định biên)', budget: 35000000 },
         { id: 'plan-rne-02', req_id: 'req-rne-02', name: 'KHTD/0726-02: Tuyển bổ sung Chuyên viên Kinh doanh ERP (Trong định biên)', budget: 50000000 },
         { id: 'plan-rne-03', req_id: 'req-rne-03', name: 'KHTD/0826-01: Tuyển Senior Growth Marketing (Ngoài định biên phát sinh)', budget: 40000000 },
-        { id: 'plan-rne-04', req_id: 'req-rne-04', name: 'KHTD/0826-02: Tuyển bổ sung Chuyên viên Cloud & Security (Trong định biên)', budget: 45000000 }
+        { id: 'plan-rne-04', req_id: 'req-rne-04', name: 'KHTD/0826-02: Tuyển bổ sung Chuyên viên Cloud & Security (Trong định biên)', budget: 45000000 },
+        { id: 'plan-rne-05', req_id: 'req-rne-05', name: 'KHTD/0826-03: Tuyển Chuyên viên Triển khai ERP Miền Nam', budget: 42000000 },
+        { id: 'plan-rne-06', req_id: 'req-rne-06', name: 'KHTD/0826-04: Tuyển Kỹ sư Phát triển sản phẩm ERP', budget: 60000000 }
     ];
 
     for (const pl of plans) {
@@ -755,7 +760,9 @@ const seedData = async (forceClear = false) => {
         { id: 'round-03', plan_id: 'plan-rne-01', name: 'Vòng 3: Phỏng vấn Ban Giám đốc & Offer', order: 3 },
         { id: 'round-04', plan_id: 'plan-rne-02', name: 'Vòng 1: Phỏng vấn Chuyên môn Kinh doanh', order: 1 },
         { id: 'round-05', plan_id: 'plan-rne-03', name: 'Vòng 1: Phỏng vấn Chuyên môn Marketing', order: 1 },
-        { id: 'round-06', plan_id: 'plan-rne-04', name: 'Vòng 1: Phỏng vấn Chuyên môn Cloud & Security', order: 1 }
+        { id: 'round-06', plan_id: 'plan-rne-04', name: 'Vòng 1: Phỏng vấn Chuyên môn Cloud & Security', order: 1 },
+        { id: 'round-07', plan_id: 'plan-rne-05', name: 'Vòng 1: Kiểm tra Nghiệp vụ Triển khai ERP', order: 1 },
+        { id: 'round-08', plan_id: 'plan-rne-06', name: 'Vòng 1: Phỏng vấn Kỹ thuật Phát triển Sản phẩm', order: 1 }
     ];
 
     for (const rnd of rounds) {
@@ -794,8 +801,19 @@ const seedData = async (forceClear = false) => {
         { id: 'cand-uv19', code: 'UV19', name: 'Đinh Thị Mỹ Duyên', dob: '2000-10-17', gender: 'Nữ', phone: '0977999000', email: 'duyendtm@gmail.com', received: '2026-08-05', plan_id: 'plan-rne-04', cid: '001200999000', edu: 'Đại học', major: 'CNTT', school: 'Học viện Bưu chính Viễn thông', source: 'TopCV', status: 'S7: Loại', rejection: 'Kết quả phỏng vấn kỹ thuật chưa đạt yêu cầu vị trí Cloud' },
         { id: 'cand-uv20', code: 'UV20', name: 'Trịnh Anh Quân', dob: '1997-03-22', gender: 'Nam', phone: '0966111222', email: 'quanta@gmail.com', received: '2026-07-20', plan_id: 'plan-rne-02', cid: '001197111222', edu: 'Đại học', major: 'Kinh tế', school: 'Đại học Ngoại thương', source: 'Referral', status: 'S5: Trúng tuyển' },
         { id: 'cand-uv21', code: 'UV21', name: 'Lương Thị Hồng Nhung', dob: '1998-11-09', gender: 'Nữ', phone: '0966222333', email: 'nhunglth@gmail.com', received: '2026-08-02', plan_id: 'plan-rne-03', cid: '001198222333', edu: 'Đại học', major: 'Marketing', school: 'Học viện Báo chí và Tuyên truyền', source: 'LinkedIn', status: 'S5: Trúng tuyển' },
-        { id: 'cand-uv22', code: 'UV22', name: 'Phan Đức Anh', dob: '1996-04-16', gender: 'Nam', phone: '0966333444', email: 'anhpd@gmail.com', received: '2026-07-05', plan_id: 'plan-rne-01', cid: '001196333444', edu: 'Đại học', major: 'CNTT', school: 'Đại học Bách Khoa Hà Nội', source: 'TopCV', status: 'HIRED' }
+        { id: 'cand-uv22', code: 'UV22', name: 'Phan Đức Anh', dob: '1996-04-16', gender: 'Nam', phone: '0966333444', email: 'anhpd@gmail.com', received: '2026-07-05', plan_id: 'plan-rne-01', cid: '001196333444', edu: 'Đại học', major: 'CNTT', school: 'Đại học Bách Khoa Hà Nội', source: 'TopCV', status: 'HIRED' },
+        { id: 'cand-uv23', code: 'UV23', name: 'Vũ Minh Khôi', dob: '1998-06-08', gender: 'Nam', phone: '0903812345', email: 'khoi.vm@example.test', received: '2026-08-20', plan_id: 'plan-rne-05', cid: '001198234567', edu: 'Đại học', major: 'Hệ thống thông tin quản lý', school: 'Đại học Kinh tế Quốc dân', source: 'Referral', status: 'SCREENED' },
+        { id: 'cand-uv24', code: 'UV24', name: 'Lê Bảo Trâm', dob: '2000-02-28', gender: 'Nữ', phone: '0909123456', email: 'tram.lb@example.test', received: '2026-08-26', plan_id: 'plan-rne-06', cid: '001200345678', edu: 'Đại học', major: 'Kỹ thuật phần mềm', school: 'Đại học Công nghệ - ĐHQGHN', source: 'LinkedIn', status: 'SUBMITTED' }
     ];
+
+    const candidatePositionByPlan = {
+        'plan-rne-01': 'pos-kt-emp',
+        'plan-rne-02': 'pos-kd-emp',
+        'plan-rne-03': 'pos-mkt-emp',
+        'plan-rne-04': 'pos-cloud-emp',
+        'plan-rne-05': 'pos-kttk2-emp',
+        'plan-rne-06': 'pos-ptsp-emp'
+    };
 
     for (const c of candidates) {
         const existing = await queryOne('SELECT candidate_id FROM Candidate WHERE candidate_id = ?', [c.id]);
@@ -803,26 +821,27 @@ const seedData = async (forceClear = false) => {
             const dobTs = new Date(c.dob).getTime();
             const recTs = new Date(c.received).getTime();
 
-            await run(`INSERT INTO Candidate (candidate_id, created_date, last_modified_date, candidate_code, full_name, gender, date_of_birth, citizen_id, phone, email, address, culture_level, education_level, education_school, major, recruitment_plan_id, source, received_date, status, rejection_reason)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Hà Nội', '12/12', ?, ?, ?, ?, ?, ?, ?, ?)`,
-                [c.id, now, now, c.code, c.name, c.gender, dobTs, c.cid, c.phone, c.email, c.edu, c.school, c.major, c.plan_id, c.source, recTs, c.status, c.rejection || null]);
+            await run(`INSERT INTO Candidate (candidate_id, created_date, last_modified_date, candidate_code, full_name, gender, date_of_birth, citizen_id, phone, email, address, culture_level, education_level, education_school, major, recruitment_plan_id, position_id, source, received_date, status, rejection_reason)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Hà Nội', '12/12', ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                [c.id, now, now, c.code, c.name, c.gender, dobTs, c.cid, c.phone, c.email, c.edu, c.school, c.major, c.plan_id, candidatePositionByPlan[c.plan_id], c.source, recTs, c.status, c.rejection || null]);
         }
     }
 
     // Interviews
     const interviews = [
-        { id: 'int-01', cand_id: 'cand-uv08', round_id: 'round-02', interviewer_id: 'emp-kd-01', score: 8.5, result: 'PASSED', comment: 'Ứng viên giao tiếp tự tin, có kinh nghiệm tư vấn phần mềm B2B tốt' },
-        { id: 'int-02', cand_id: 'cand-uv10', round_id: 'round-02', interviewer_id: 'emp-kd-01', score: 9.0, result: 'PASSED', comment: 'Kỹ năng thương lượng xuất sắc, đề xuất tuyển dụng ngay' },
-        { id: 'int-03', cand_id: 'cand-uv14', round_id: 'round-02', interviewer_id: 'emp-kt-01', score: 7.5, result: 'PENDING', comment: 'Đang chờ hoàn tất bài test kỹ thuật, hẹn phỏng vấn vòng 2' },
+        { id: 'int-01', cand_id: 'cand-uv08', round_id: 'round-04', interviewer_id: 'emp-kd-01', score: 8.5, result: 'PASSED', comment: 'Ứng viên giao tiếp tự tin, có kinh nghiệm tư vấn phần mềm B2B tốt' },
+        { id: 'int-02', cand_id: 'cand-uv10', round_id: 'round-04', interviewer_id: 'emp-kd-01', score: 9.0, result: 'PASSED', comment: 'Kỹ năng thương lượng xuất sắc, đề xuất tuyển dụng ngay' },
+        { id: 'int-03', cand_id: 'cand-uv14', round_id: 'round-02', interviewer_id: 'emp-kt-01', date: '2026-08-28', score: 8.0, result: 'PASSED', comment: 'Hoàn thành tốt bài test kỹ thuật, đủ điều kiện chuyển sang vòng trao đổi offer' },
         { id: 'int-04', cand_id: 'cand-uv18', round_id: 'round-06', interviewer_id: 'emp-cloud-01', score: 8.0, result: 'PENDING', comment: 'Đã phỏng vấn vòng 1, chờ lịch phỏng vấn chuyên sâu bảo mật' }
     ];
 
     for (const it of interviews) {
         const existing = await queryOne('SELECT interview_id FROM Interview WHERE interview_id = ?', [it.id]);
         if (!existing) {
+            const interviewDate = it.date ? new Date(it.date).getTime() : now - 2 * 86400000;
             await run(`INSERT INTO Interview (interview_id, created_date, last_modified_date, candidate_id, recruitment_round_id, interviewer_id, interview_date, score, result, comment)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-                [it.id, now, now, it.cand_id, it.round_id, it.interviewer_id, now - 2 * 86400000, it.score, it.result, it.comment]);
+                [it.id, now, now, it.cand_id, it.round_id, it.interviewer_id, interviewDate, it.score, it.result, it.comment]);
         }
     }
 
@@ -839,8 +858,8 @@ const seedData = async (forceClear = false) => {
             note: 'Chuẩn bị phòng họp, máy chiếu và hồ sơ ứng viên in sẵn',
             candidate_note: 'Ứng viên mang theo CCCD và bằng cấp gốc để đối chiếu',
             candidates: JSON.stringify([
-                { candidate_id: 'cand-uv08', candidate_code: 'UV-2024-008', full_name: 'Nguyễn Thị Bích Ngọc', apply_position_name: 'Nhân viên Kinh doanh', note: 'Xác nhận tham gia' },
-                { candidate_id: 'cand-uv10', candidate_code: 'UV-2024-010', full_name: 'Đỗ Quốc Hưng', apply_position_name: 'Nhân viên Kinh doanh', note: 'Đã gọi điện xác nhận' }
+                { candidate_id: 'cand-uv08', candidate_code: 'UV08', full_name: 'Nguyễn Thu Hà', apply_position_name: 'Nhân viên Kinh doanh', note: 'Xác nhận tham gia' },
+                { candidate_id: 'cand-uv10', candidate_code: 'UV10', full_name: 'Đỗ Quốc Hưng', apply_position_name: 'Nhân viên Kinh doanh', note: 'Đã gọi điện xác nhận' }
             ]),
             council: JSON.stringify([
                 { employee_id: 'emp-kd-01', employee_code: 'NV-2024-027', full_name: 'Phạm Quốc Tuấn', position_name: 'Trưởng Phòng Kinh doanh', is_decision_maker: 1 },
@@ -862,7 +881,7 @@ const seedData = async (forceClear = false) => {
             note: 'Gửi link Google Meet trước 30 phút cho ứng viên',
             candidate_note: 'Ứng viên mở camera trong suốt quá trình thi tuyển online',
             candidates: JSON.stringify([
-                { candidate_id: 'cand-uv01', candidate_code: 'UV-2024-001', full_name: 'Trần Văn Minh', apply_position_name: 'Nhân viên Kiểm thử', note: 'Kiểm tra đường truyền internet' }
+                { candidate_id: 'cand-uv01', candidate_code: 'UV01', full_name: 'Nguyễn Nhung', apply_position_name: 'Nhân viên Kiểm thử', note: 'Kiểm tra đường truyền internet' }
             ]),
             council: JSON.stringify([
                 { employee_id: 'emp-kt-01', employee_code: 'NV-2024-105', full_name: 'Phạm Thị Mai', position_name: 'Trưởng Phòng Kiểm thử', is_decision_maker: 1 }
@@ -878,8 +897,8 @@ const seedData = async (forceClear = false) => {
             round_type: 'Vòng phỏng vấn',
             format_type: 'Offline',
             location: 'Phòng họp Tầng 2 - Tòa nhà BRAVO Building, Hà Nội',
-            start_time: now + 3 * 86400000,
-            end_time: now + 3 * 86400000 + 5400000,
+            start_time: now - 4 * 86400000,
+            end_time: now - 4 * 86400000 + 5400000,
             note: 'Chuẩn bị đề thi kiểm thử phần mềm bản in',
             candidate_note: 'Ứng viên mang laptop cá nhân để làm bài test thực hành',
             candidates: JSON.stringify([
@@ -892,7 +911,7 @@ const seedData = async (forceClear = false) => {
             tests: JSON.stringify([
                 { test_name: 'Bài thi thực hành Kiểm thử phần mềm', expected_score: 75, duration_minutes: 60, exam_file: 'De_thi_KiemThu_V3.pdf', answer_file: 'Dap_an_KiemThu_V3.pdf' }
             ]),
-            status: 'Đã lên lịch'
+            status: 'Đã hoàn thành'
         },
         {
             id: 'sch-04',
@@ -908,8 +927,8 @@ const seedData = async (forceClear = false) => {
                 { candidate_id: 'cand-uv18', candidate_code: 'UV18', full_name: 'Hoàng Gia Bảo', apply_position_name: 'Nhân viên Cloud và Hạ tầng', note: 'Xác nhận tham gia online' }
             ]),
             council: JSON.stringify([
-                { employee_id: 'emp-cloud-01', employee_code: 'NV-2024-090', full_name: 'Vũ Văn Khiêm', position_name: 'Trưởng Phòng Cloud và Hạ tầng', is_decision_maker: 1 },
-                { employee_id: 'emp-kcn-01', employee_code: 'NV-2024-080', full_name: 'Lê Hoàng Nam', position_name: 'Trưởng Khối Công nghệ', is_decision_maker: 1 }
+                { employee_id: 'emp-cloud-01', employee_code: 'NV-2024-097', full_name: 'Hoàng Trọng Nghĩa', position_name: 'Trưởng Phòng Cloud và Hạ tầng', is_decision_maker: 1 },
+                { employee_id: 'emp-kcn-01', employee_code: 'NV-2024-095', full_name: 'Lê Hoàng Nam', position_name: 'Trưởng Khối Công nghệ', is_decision_maker: 1 }
             ]),
             tests: JSON.stringify([
                 { test_name: 'Bài phỏng vấn tình huống Cloud/Security', expected_score: 80, duration_minutes: 45, exam_file: '', answer_file: '' }
@@ -927,20 +946,121 @@ const seedData = async (forceClear = false) => {
         }
     }
 
+    // Sơ loại và đánh giá phỏng vấn minh họa đầy đủ các biểu mẫu nghiệp vụ.
+    const preScreenings = [
+        {
+            id: 'prescreen-01',
+            code: 'SL/2026-001',
+            candidateId: 'cand-uv11',
+            positionId: 'pos-kt-emp',
+            departmentId: 'dept-kt',
+            cultureLevel: '12/12',
+            educationLevel: 'Đại học',
+            educationSchool: 'Đại học Bách Khoa Hà Nội',
+            result: 'PASSED',
+            score: 8,
+            comment: 'Hồ sơ đáp ứng yêu cầu nền tảng QA; chuyển ứng viên sang vòng phỏng vấn chuyên môn.',
+            criteria: [
+                ['prescreen-01-01', 1, 'Trình độ học vấn', 'Đại học', 'Chuyên ngành CNTT hoặc tương đương', 'Đại học', 'CNTT - Đại học Bách Khoa Hà Nội', 1, 'Đáp ứng'],
+                ['prescreen-01-02', 2, 'Kinh nghiệm QA', 'Từ 1 năm', 'Có trải nghiệm kiểm thử phần mềm', '18 tháng', 'Manual test và viết test case cho web application', 1, 'Đáp ứng'],
+                ['prescreen-01-03', 3, 'Giao tiếp', 'Khá', 'Trình bày rõ ràng và phối hợp nhóm tốt', 'Khá', 'CV có mô tả vai trò phối hợp BA và Developer', 1, 'Đáp ứng']
+            ]
+        }
+    ];
+
+    for (const screening of preScreenings) {
+        if (!await queryOne('SELECT pre_screening_id FROM PreScreening WHERE pre_screening_id = ?', [screening.id])) {
+            await run(`INSERT INTO PreScreening (pre_screening_id, screening_code, candidate_id, received_date, culture_level, education_level, education_school, position_id, department_id, screening_date, level_score, screening_result, comment, created_date, last_modified_date)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                [screening.id, screening.code, screening.candidateId, new Date('2026-08-10').getTime(), screening.cultureLevel, screening.educationLevel, screening.educationSchool, screening.positionId, screening.departmentId, new Date('2026-08-18').getTime(), screening.score, screening.result, screening.comment, now, now]);
+        }
+
+        for (const [id, order, type, requiredFrom, requiredDescription, candidateValue, candidateDescription, passed, note] of screening.criteria) {
+            if (!await queryOne('SELECT criteria_detail_id FROM PreScreeningCriteria WHERE criteria_detail_id = ?', [id])) {
+                await run(`INSERT INTO PreScreeningCriteria (criteria_detail_id, pre_screening_id, row_order, criteria_type, required_from, required_description, candidate_value, candidate_description, is_passed, note)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                    [id, screening.id, order, type, requiredFrom, requiredDescription, candidateValue, candidateDescription, passed, note]);
+            }
+        }
+    }
+
+    const interviewEvaluations = [
+        {
+            id: 'interview-eval-01',
+            code: 'DG-PV/2026-001',
+            scheduleId: 'sch-03',
+            candidateId: 'cand-uv14',
+            score: 8,
+            result: 'PASSED',
+            comment: 'Ứng viên có tư duy kiểm thử tốt, phù hợp chuyển sang vòng trao đổi offer.',
+            scripts: [
+                ['interview-script-01', 1, 'Hãy mô tả cách xây dựng test case cho chức năng đặt hàng.', 'Nêu được happy path, validation và các trường hợp biên.', 'Ứng viên phân tích theo luồng nghiệp vụ, có checklist dữ liệu đầu vào và đầu ra.'],
+                ['interview-script-02', 2, 'Bạn xử lý thế nào khi phát hiện lỗi blocker trước ngày phát hành?', 'Đánh giá mức độ ảnh hưởng, thông báo sớm và theo dõi khắc phục.', 'Ứng viên đề xuất triage với BA, Developer và Product Owner; có phương án regression test.']
+            ],
+            criteria: [
+                ['interview-criterion-01', 1, 'Kiến thức kiểm thử', 'Manual testing', 'Hiểu test case, bug lifecycle và regression test', 'Tốt', 'Diễn giải chính xác quy trình kiểm thử', 1, 'Đáp ứng tốt'],
+                ['interview-criterion-02', 2, 'Tư duy phân tích', 'Phân tích nghiệp vụ', 'Nhận diện được rủi ro và trường hợp biên', 'Tốt', 'Có cấu trúc phân tích rõ ràng', 1, 'Đáp ứng'],
+                ['interview-criterion-03', 3, 'Giao tiếp', 'Khá', 'Trao đổi với nhóm dự án mạch lạc', 'Khá', 'Trình bày súc tích, tiếp nhận phản biện tốt', 1, 'Đáp ứng']
+            ]
+        }
+    ];
+
+    for (const evaluation of interviewEvaluations) {
+        if (!await queryOne('SELECT interview_eval_id FROM InterviewEvaluation WHERE interview_eval_id = ?', [evaluation.id])) {
+            await run(`INSERT INTO InterviewEvaluation (interview_eval_id, eval_code, evaluation_date, schedule_id, candidate_id, duration_minutes, level_score, overall_result, overall_comment, created_date, last_modified_date)
+               VALUES (?, ?, ?, ?, ?, 75, ?, ?, ?, ?, ?)`,
+                [evaluation.id, evaluation.code, new Date('2026-08-28').getTime(), evaluation.scheduleId, evaluation.candidateId, evaluation.score, evaluation.result, evaluation.comment, now, now]);
+        }
+
+        for (const [id, order, question, expectation, answer] of evaluation.scripts) {
+            if (!await queryOne('SELECT script_id FROM InterviewEvaluationScript WHERE script_id = ?', [id])) {
+                await run(`INSERT INTO InterviewEvaluationScript (script_id, interview_eval_id, row_order, question, expectation, answer)
+                   VALUES (?, ?, ?, ?, ?, ?)`, [id, evaluation.id, order, question, expectation, answer]);
+            }
+        }
+
+        for (const [id, order, type, requiredFrom, requiredDescription, candidateValue, candidateDescription, passed, note] of evaluation.criteria) {
+            if (!await queryOne('SELECT criteria_detail_id FROM InterviewEvaluationCriteria WHERE criteria_detail_id = ?', [id])) {
+                await run(`INSERT INTO InterviewEvaluationCriteria (criteria_detail_id, interview_eval_id, row_order, criteria_type, required_from, required_description, candidate_value, candidate_description, is_passed, note)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                    [id, evaluation.id, order, type, requiredFrom, requiredDescription, candidateValue, candidateDescription, passed, note]);
+            }
+        }
+    }
+
+    const approvalSteps = [
+        ['approval-demo-01', 1, 'Trưởng Phòng', 'dept-hr', 'emp-hr-01', 'Trần Thị Thu Hà', 'APPROVED', 'Đã xác nhận kết quả thử việc và nhu cầu nhân sự.', now - 2 * 86400000, now - 2 * 86400000],
+        ['approval-demo-02', 2, 'Ban Giám Đốc', null, null, null, 'PENDING', null, now - 86400000, null]
+    ];
+
+    for (const [id, level, role, scope, approverId, approverName, status, comment, submittedDate, decidedDate] of approvalSteps) {
+        if (!await queryOne('SELECT approval_id FROM ApprovalHistory WHERE approval_id = ?', [id])) {
+            await run(`INSERT INTO ApprovalHistory (approval_id, document_type, document_id, level_order, required_role, department_scope, approver_employee_id, approver_name, status, comment, submitted_date, decided_date, created_date)
+               VALUES (?, 'ContractProposal', 'prop-c-01', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                [id, level, role, scope, approverId, approverName, status, comment, submittedDate, decidedDate, now]);
+        }
+    }
+
+    if (!await queryOne('SELECT audit_id FROM AuditLog WHERE audit_id = ?', ['audit-demo-01'])) {
+        await run(`INSERT INTO AuditLog (audit_id, user_id, username, action, entity_type, entity_id, entity_name, details, created_date)
+           VALUES (?, 'usr-ha', 'HANT', 'CREATE', 'RecruitmentRequest', 'req-rne-01', 'RNE/0726-0001', ?, ?)`,
+            ['audit-demo-01', JSON.stringify({ department: 'Phòng Kiểm thử', quantity: 3, reason: 'Bổ sung nhân sự theo định biên Quý 3/2026' }), now - 20 * 86400000]);
+    }
+
     // LeaveApplications (Đơn xin nghỉ phép)
     const leaveApplications = [
         {
             id: 'lv-01',
             code: 'DXNP/26-001',
             emp_id: 'emp-kd-04',
-            emp_code: 'NV-2024-027',
-            emp_name: 'Nhân viên Kinh doanh',
+            emp_code: 'NV-2024-030',
+            emp_name: 'Trần Đức Thắng',
             dept_id: 'dept-kd',
             dept_name: 'Phòng Kinh doanh',
             approver_id: 'emp-kd-01',
-            approver_name: 'Trưởng phòng Kinh doanh',
+            approver_name: 'Phạm Quốc Tuấn',
             related_person_id: 'emp-kd-02',
-            related_person_name: 'Nguyễn Văn Nam (Trưởng nhóm)',
+            related_person_name: 'Đặng Đình Hùng',
             start_date: now + 86400000,
             end_date: now + 2 * 86400000,
             total_days: 2.0,
@@ -949,7 +1069,53 @@ const seedData = async (forceClear = false) => {
                 { date: new Date(now + 86400000).toISOString().split('T')[0], time_option: 'Cả ngày', days: 1.0, note: 'Đi về quê' },
                 { date: new Date(now + 2 * 86400000).toISOString().split('T')[0], time_option: 'Cả ngày', days: 1.0, note: 'Giải quyết việc gia đình' }
             ]),
+            approverNote: '',
             status: 'PENDING'
+        },
+        {
+            id: 'lv-02',
+            code: 'DXNP/26-002',
+            emp_id: 'emp-hr-03',
+            emp_code: 'NV-2024-006',
+            emp_name: 'Hoàng Bích Ngọc',
+            dept_id: 'dept-hr',
+            dept_name: 'Phòng Nhân sự',
+            approver_id: 'emp-hr-01',
+            approver_name: 'Trần Thị Thu Hà',
+            related_person_id: 'emp-hr-02',
+            related_person_name: 'Nguyễn Thùy Linh',
+            start_date: now - 3 * 86400000,
+            end_date: now - 3 * 86400000,
+            total_days: 0.5,
+            reason: 'Khám sức khỏe định kỳ theo lịch hẹn',
+            details: JSON.stringify([
+                { date: '2026-08-29', time_option: 'Buổi sáng', days: 0.5, note: 'Đã bàn giao lịch phỏng vấn ứng viên' }
+            ]),
+            approverNote: 'Đồng ý nghỉ nửa ngày, đã xác nhận kế hoạch bàn giao công việc.',
+            status: 'APPROVED'
+        },
+        {
+            id: 'lv-03',
+            code: 'DXNP/26-003',
+            emp_id: 'emp-cloud-05',
+            emp_code: 'NV-2024-101',
+            emp_name: 'Bùi Quang Huy',
+            dept_id: 'dept-cloud',
+            dept_name: 'Phòng Cloud và Hạ tầng',
+            approver_id: 'emp-cloud-01',
+            approver_name: 'Hoàng Trọng Nghĩa',
+            related_person_id: 'emp-cloud-02',
+            related_person_name: 'Trần Tuấn Anh',
+            start_date: now - 10 * 86400000,
+            end_date: now - 9 * 86400000,
+            total_days: 2,
+            reason: 'Việc cá nhân đột xuất trong giai đoạn vận hành cao điểm',
+            details: JSON.stringify([
+                { date: '2026-08-22', time_option: 'Cả ngày', days: 1, note: 'Trùng lịch trực vận hành hệ thống' },
+                { date: '2026-08-23', time_option: 'Cả ngày', days: 1, note: 'Chưa bố trí được người trực thay thế' }
+            ]),
+            approverNote: 'Chưa thể phê duyệt do thiếu nhân sự trực vận hành trong giai đoạn cao điểm.',
+            status: 'REJECTED'
         }
     ];
 
@@ -957,8 +1123,8 @@ const seedData = async (forceClear = false) => {
         const existing = await queryOne('SELECT leave_id FROM LeaveApplication WHERE leave_id = ?', [lv.id]);
         if (!existing) {
             await run(`INSERT INTO LeaveApplication (leave_id, created_date, last_modified_date, leave_code, employee_id, employee_code, employee_name, department_id, department_name, approver_id, approver_name, related_person_id, related_person_name, start_date, end_date, total_days, reason, details_json, approver_note, status)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '', ?)`,
-                [lv.id, now, now, lv.code, lv.emp_id, lv.emp_code, lv.emp_name, lv.dept_id, lv.dept_name, lv.approver_id, lv.approver_name, lv.related_person_id, lv.related_person_name, lv.start_date, lv.end_date, lv.total_days, lv.reason, lv.details, lv.status]);
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                [lv.id, now, now, lv.code, lv.emp_id, lv.emp_code, lv.emp_name, lv.dept_id, lv.dept_name, lv.approver_id, lv.approver_name, lv.related_person_id, lv.related_person_name, lv.start_date, lv.end_date, lv.total_days, lv.reason, lv.details, lv.approverNote, lv.status]);
         }
     }
 
@@ -1019,13 +1185,30 @@ const seedData = async (forceClear = false) => {
         }
     }
 
+    const scaleBands = [
+        ['D - Cần cải thiện', 0, 6.49, 'Chưa đáp ứng yêu cầu, cần kế hoạch cải thiện cụ thể.'],
+        ['C - Đạt yêu cầu', 6.5, 7.99, 'Hoàn thành yêu cầu cơ bản của vị trí.'],
+        ['B - Tốt', 8, 8.99, 'Hoàn thành tốt mục tiêu và chủ động trong công việc.'],
+        ['A - Xuất sắc', 9, 10, 'Vượt kỳ vọng, tạo tác động tích cực rõ rệt cho đội ngũ.']
+    ];
+
+    for (const criterion of criteriaList) {
+        for (const [index, [grade, min, max, description]] of scaleBands.entries()) {
+            const scaleId = `scale-${criterion.id}-${index + 1}`;
+            if (!await queryOne('SELECT scale_id FROM EvaluationScale WHERE scale_id = ?', [scaleId])) {
+                await run(`INSERT INTO EvaluationScale (scale_id, criteria_id, grade_name, min_score, max_score, description)
+                   VALUES (?, ?, ?, ?, ?, ?)`, [scaleId, criterion.id, grade, min, max, description]);
+            }
+        }
+    }
+
     // Employee Evaluations
     const sampleEvals = [
-        { id: 'eval-01', code: 'DG/2026-001', emp_id: 'emp-hr-02', eval_id: 'emp-hr-01', dept_id: 'dept-hr', pos_id: 'pos-hr-lead', score: 9.2, grade: 'Loại A - Xuất sắc', desc: 'Hoàn thành xuất sắc chỉ tiêu tuyển dụng Quý 2 năm 2026' },
-        { id: 'eval-02', code: 'DG/2026-002', emp_id: 'emp-kd-02', eval_id: 'emp-kd-01', dept_id: 'dept-kd', pos_id: 'pos-kd-lead', score: 8.8, grade: 'Loại B - Tốt', desc: 'Đạt 110% kế hoạch doanh số tư vấn triển khai phần mềm ERP' },
-        { id: 'eval-03', code: 'DG/2026-003', emp_id: 'emp-mkt-02', eval_id: 'emp-mkt-01', dept_id: 'dept-pmk', pos_id: 'pos-mkt-lead', score: 8.5, grade: 'Loại B - Tốt', desc: 'Triển khai thành công các chiến dịch Lead Generation B2B' },
-        { id: 'eval-04', code: 'DG/2026-004', emp_id: 'emp-kttk1-02', eval_id: 'emp-kttk1-01', dept_id: 'dept-kttk-1', pos_id: 'pos-kttk1-lead', score: 9.5, grade: 'Loại A - Xuất sắc', desc: 'Dẫn dắt đội ngũ triển khai hoàn thành đúng hạn dự án tập đoàn' },
-        { id: 'eval-05', code: 'DG/2026-005', emp_id: 'emp-kt-02', eval_id: 'emp-kt-01', dept_id: 'dept-kt', pos_id: 'pos-kt-lead', score: 8.6, grade: 'Loại B - Tốt', desc: 'Kiểm soát chất lượng bản phát hành BRAVO ERP 10 không có lỗi nghiêm trọng' }
+        { id: 'eval-01', code: 'DG/2026-001', emp_id: 'emp-hr-02', eval_id: 'emp-hr-01', dept_id: 'dept-hr', pos_id: 'pos-hr-lead', score: 9.2, grade: 'Loại A - Xuất sắc', desc: 'Hoàn thành xuất sắc chỉ tiêu tuyển dụng Quý 2 năm 2026', scores: [9.5, 9, 9, 9] },
+        { id: 'eval-02', code: 'DG/2026-002', emp_id: 'emp-kd-02', eval_id: 'emp-kd-01', dept_id: 'dept-kd', pos_id: 'pos-kd-lead', score: 8.8, grade: 'Loại B - Tốt', desc: 'Đạt 110% kế hoạch doanh số tư vấn triển khai phần mềm ERP', scores: [9, 8.5, 8.5, 9] },
+        { id: 'eval-03', code: 'DG/2026-003', emp_id: 'emp-mkt-02', eval_id: 'emp-mkt-01', dept_id: 'dept-pmk', pos_id: 'pos-mkt-lead', score: 8.5, grade: 'Loại B - Tốt', desc: 'Triển khai thành công các chiến dịch Lead Generation B2B', scores: [8.5, 8.5, 8, 9] },
+        { id: 'eval-04', code: 'DG/2026-004', emp_id: 'emp-kttk1-02', eval_id: 'emp-kttk1-01', dept_id: 'dept-kttk-1', pos_id: 'pos-kttk1-lead', score: 9.5, grade: 'Loại A - Xuất sắc', desc: 'Dẫn dắt đội ngũ triển khai hoàn thành đúng hạn dự án tập đoàn', scores: [9.5, 9.5, 9.5, 9.5] },
+        { id: 'eval-05', code: 'DG/2026-005', emp_id: 'emp-kt-02', eval_id: 'emp-kt-01', dept_id: 'dept-kt', pos_id: 'pos-kt-lead', score: 8.6, grade: 'Loại B - Tốt', desc: 'Kiểm soát chất lượng bản phát hành BRAVO ERP 10 không có lỗi nghiêm trọng', scores: [8.5, 8.5, 8.5, 9] }
     ];
 
     for (const ev of sampleEvals) {
@@ -1036,12 +1219,11 @@ const seedData = async (forceClear = false) => {
                 [ev.id, now, now, ev.code, now - 10 * 86400000, ev.eval_id, ev.emp_id, ev.dept_id, ev.pos_id, ev.score, ev.grade, ev.desc]);
 
             // Evaluation details for criteria
-            for (const cr of criteriaList) {
+            for (const [index, cr] of criteriaList.entries()) {
                 const detId = `det-${ev.id}-${cr.code}`;
-                const scoreVal = ev.score >= 9 ? 9.5 : (ev.score >= 8 ? 8.5 : 7.5);
                 await run(`INSERT INTO EmployeeEvaluationDetail (detail_id, evaluation_id, criteria_id, criteria_code, criteria_name, weight, score, note)
              VALUES (?, ?, ?, ?, ?, ?, ?, 'Đánh giá hoàn thành chỉ tiêu theo quy chế')`,
-                    [detId, ev.id, cr.id, cr.code, cr.name, cr.weight, scoreVal]);
+                    [detId, ev.id, cr.id, cr.code, cr.name, cr.weight, ev.scores[index]]);
             }
         }
     }
@@ -1091,16 +1273,18 @@ const seedData = async (forceClear = false) => {
             code: 'ĐB/0826-0002',
             effDate: new Date('2026-08-12').getTime(),
             deptId: 'dept-hr',
-            creator: 'HR Test 01',
-            target: 4,
-            max: 7,
-            current: 5,
-            budget: 20000000,
-            desc: 'Định biên nhân sự điều chỉnh tháng 8/2026',
+            creatorId: 'emp-hr-01',
+            creator: 'Trần Thị Thu Hà',
+            target: 8,
+            max: 9,
+            current: 8,
+            budget: 48000000,
+            desc: 'Định biên Phòng Nhân sự tháng 8/2026, duy trì đủ đội ngũ tuyển dụng và C&B.',
             status: 'Đang duyệt',
             details: [
                 { id: 'qdet-01-1', posId: 'pos-hr-mgr', posCode: 'PHR_MGR', posName: 'Trưởng Phòng Nhân sự', target: 1, resign: 0, mat: 0, curr: 1, need: 0, note: '' },
-                { id: 'qdet-01-2', posId: 'pos-hr-emp', posCode: 'PHR_EMP', posName: 'Nhân viên Nhân sự', target: 3, resign: 1, mat: 0, curr: 4, need: 0, note: '' }
+                { id: 'qdet-01-2', posId: 'pos-hr-lead', posCode: 'PHR_LEAD', posName: 'Trưởng Nhóm Nhân sự', target: 2, resign: 0, mat: 0, curr: 2, need: 0, note: '' },
+                { id: 'qdet-01-3', posId: 'pos-hr-emp', posCode: 'PHR_EMP', posName: 'Nhân viên Nhân sự', target: 5, resign: 0, mat: 0, curr: 5, need: 0, note: '' }
             ]
         },
         {
@@ -1108,16 +1292,18 @@ const seedData = async (forceClear = false) => {
             code: 'ĐB/0726-0002',
             effDate: new Date('2026-07-19').getTime(),
             deptId: 'dept-pmk',
-            creator: 'NhungNH',
-            target: 10,
+            creatorId: 'emp-hr-02',
+            creator: 'Nguyễn Thùy Linh',
+            target: 15,
             max: 20,
-            current: 6,
+            current: 15,
             budget: 150000000,
-            desc: 'Kế hoạch mở rộng Marketing & Lead Gen Quý 3/2026',
+            desc: 'Kế hoạch Marketing và Lead Generation Quý 3/2026, duy trì định biên hiện hữu.',
             status: 'Đã hoàn thiện',
             details: [
                 { id: 'qdet-02-1', posId: 'pos-mkt-mgr', posCode: 'PMK_MGR', posName: 'Trưởng Phòng Marketing', target: 1, resign: 0, mat: 0, curr: 1, need: 0, note: '' },
-                { id: 'qdet-02-2', posId: 'pos-mkt-emp', posCode: 'PMK_EMP', posName: 'Nhân viên Marketing', target: 9, resign: 1, mat: 0, curr: 5, need: 5, note: '' }
+                { id: 'qdet-02-2', posId: 'pos-mkt-lead', posCode: 'PMK_LEAD', posName: 'Trưởng Nhóm Marketing', target: 2, resign: 0, mat: 0, curr: 2, need: 0, note: '' },
+                { id: 'qdet-02-3', posId: 'pos-mkt-emp', posCode: 'PMK_EMP', posName: 'Nhân viên Marketing', target: 12, resign: 0, mat: 0, curr: 12, need: 0, note: '' }
             ]
         },
         {
@@ -1125,16 +1311,18 @@ const seedData = async (forceClear = false) => {
             code: 'ĐB/0726-0001',
             effDate: new Date('2026-07-16').getTime(),
             deptId: 'dept-hr',
-            creator: 'NhungNH',
+            creatorId: 'emp-hr-01',
+            creator: 'Trần Thị Thu Hà',
             target: 10,
             max: 15,
             current: 8,
             budget: 120000000,
-            desc: 'Định biên phòng Nhân sự đầu năm 2026',
+            desc: 'Định biên Phòng Nhân sự đầu năm 2026, dự phòng hai chuyên viên cho kế hoạch mở rộng.',
             status: 'Đã hoàn thiện',
             details: [
                 { id: 'qdet-03-1', posId: 'pos-hr-mgr', posCode: 'PHR_MGR', posName: 'Trưởng Phòng Nhân sự', target: 1, resign: 0, mat: 0, curr: 1, need: 0, note: '' },
-                { id: 'qdet-03-2', posId: 'pos-hr-emp', posCode: 'PHR_EMP', posName: 'Nhân viên Nhân sự', target: 9, resign: 0, mat: 0, curr: 7, need: 2, note: '' }
+                { id: 'qdet-03-2', posId: 'pos-hr-lead', posCode: 'PHR_LEAD', posName: 'Trưởng Nhóm Nhân sự', target: 2, resign: 0, mat: 0, curr: 2, need: 0, note: '' },
+                { id: 'qdet-03-3', posId: 'pos-hr-emp', posCode: 'PHR_EMP', posName: 'Nhân viên Nhân sự', target: 7, resign: 0, mat: 0, curr: 5, need: 2, note: 'Dự phòng chuyên viên tuyển dụng và C&B' }
             ]
         },
         {
@@ -1142,17 +1330,18 @@ const seedData = async (forceClear = false) => {
             code: 'ĐB/0726-0003',
             effDate: new Date('2026-07-01').getTime(),
             deptId: 'dept-kd',
-            creator: 'HR Test 01',
-            target: 11,
-            max: 15,
-            current: 9,
+            creatorId: 'emp-hr-02',
+            creator: 'Nguyễn Thùy Linh',
+            target: 20,
+            max: 22,
+            current: 17,
             budget: 170000000,
-            desc: 'Định biên quý 3, quý 4 - Bộ phận kinh doanh',
+            desc: 'Định biên Quý 3, Quý 4/2026 của Phòng Kinh doanh, cần tuyển thêm ba chuyên viên ERP.',
             status: 'Đã hoàn thiện',
             details: [
                 { id: 'qdet-04-1', posId: 'pos-kd-mgr', posCode: 'PKD_MGR', posName: 'Trưởng Phòng Kinh doanh', target: 1, resign: 0, mat: 0, curr: 1, need: 0, note: '' },
                 { id: 'qdet-04-2', posId: 'pos-kd-lead', posCode: 'PKD_LEAD', posName: 'Trưởng Nhóm Kinh doanh', target: 2, resign: 0, mat: 0, curr: 2, need: 0, note: '' },
-                { id: 'qdet-04-3', posId: 'pos-kd-emp', posCode: 'PKD_EMP', posName: 'Nhân viên Kinh doanh', target: 8, resign: 2, mat: 0, curr: 6, need: 4, note: '' }
+                { id: 'qdet-04-3', posId: 'pos-kd-emp', posCode: 'PKD_EMP', posName: 'Nhân viên Kinh doanh', target: 17, resign: 0, mat: 0, curr: 14, need: 3, note: 'Bổ sung chuyên viên kinh doanh ERP theo kế hoạch tuyển dụng.' }
             ]
         },
         {
@@ -1160,15 +1349,18 @@ const seedData = async (forceClear = false) => {
             code: 'ĐB/0826-0001',
             effDate: new Date('2026-08-01').getTime(),
             deptId: 'dept-kt',
-            creator: 'HR Test 01',
-            target: 5,
-            max: 8,
-            current: 3,
+            creatorId: 'emp-hr-01',
+            creator: 'Trần Thị Thu Hà',
+            target: 12,
+            max: 14,
+            current: 9,
             budget: 50000000,
-            desc: 'Định biên Phòng Kiểm thử Quý 3/2026',
+            desc: 'Định biên Phòng Kiểm thử Quý 3/2026, bổ sung ba nhân sự cho kế hoạch phát hành ERP 10.',
             status: 'Tạo phiếu',
             details: [
-                { id: 'qdet-05-1', posId: 'pos-kt-emp', posCode: 'PKT_EMP', posName: 'Nhân viên Kiểm thử', target: 5, resign: 0, mat: 0, curr: 3, need: 2, note: 'Bổ sung nhân sự kiểm thử dự án' }
+                { id: 'qdet-05-1', posId: 'pos-kt-mgr', posCode: 'PKT_MGR', posName: 'Trưởng Phòng Kiểm thử', target: 1, resign: 0, mat: 0, curr: 1, need: 0, note: '' },
+                { id: 'qdet-05-2', posId: 'pos-kt-lead', posCode: 'PKT_LEAD', posName: 'Trưởng Nhóm Kiểm thử', target: 2, resign: 0, mat: 0, curr: 1, need: 1, note: 'Bổ sung trưởng nhóm kiểm thử tự động.' },
+                { id: 'qdet-05-3', posId: 'pos-kt-emp', posCode: 'PKT_EMP', posName: 'Nhân viên Kiểm thử', target: 9, resign: 0, mat: 0, curr: 7, need: 2, note: 'Bổ sung nhân sự kiểm thử dự án.' }
             ]
         },
         {
@@ -1176,15 +1368,18 @@ const seedData = async (forceClear = false) => {
             code: 'ĐB/0826-0003',
             effDate: new Date('2026-08-05').getTime(),
             deptId: 'dept-cloud',
-            creator: 'HR Test 01',
+            creatorId: 'emp-hr-02',
+            creator: 'Nguyễn Thùy Linh',
             target: 10,
             max: 12,
-            current: 6,
+            current: 7,
             budget: 200000000,
-            desc: 'Tuyển bổ sung Kỹ sư DevOps & Cloud Hạ tầng',
+            desc: 'Tuyển bổ sung Kỹ sư DevOps và Cloud Hạ tầng theo nhu cầu trực vận hành 24/7.',
             status: 'Từ chối',
             details: [
-                { id: 'qdet-06-1', posId: 'pos-cloud-emp', posCode: 'CLOUD_EMP', posName: 'Nhân viên Cloud và Hạ tầng', target: 10, resign: 1, mat: 0, curr: 6, need: 5, note: 'Cần giải trình thêm chi tiết ngân sách' }
+                { id: 'qdet-06-1', posId: 'pos-cloud-mgr', posCode: 'CLOUD_MGR', posName: 'Trưởng Phòng Cloud và Hạ tầng', target: 1, resign: 0, mat: 0, curr: 1, need: 0, note: '' },
+                { id: 'qdet-06-2', posId: 'pos-cloud-lead', posCode: 'CLOUD_LEAD', posName: 'Trưởng Nhóm Cloud và Hạ tầng', target: 2, resign: 0, mat: 0, curr: 1, need: 1, note: 'Cần bổ sung năng lực điều phối ca trực.' },
+                { id: 'qdet-06-3', posId: 'pos-cloud-emp', posCode: 'CLOUD_EMP', posName: 'Nhân viên Cloud và Hạ tầng', target: 7, resign: 0, mat: 0, curr: 5, need: 2, note: 'Cần giải trình thêm chi tiết ngân sách.' }
             ]
         }
     ];
@@ -1192,9 +1387,9 @@ const seedData = async (forceClear = false) => {
     for (const q of quotaSeeds) {
         const existing = await queryOne('SELECT quota_id FROM DepartmentQuota WHERE quota_id = ?', [q.id]);
         if (!existing) {
-            await run(`INSERT INTO DepartmentQuota (quota_id, created_date, last_modified_date, quota_code, effective_date, department_id, creator_name, target_headcount, max_capacity, current_headcount, budget, description, status)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-                [q.id, now, now, q.code, q.effDate, q.deptId, q.creator, q.target, q.max, q.current, q.budget, q.desc, q.status]);
+            await run(`INSERT INTO DepartmentQuota (quota_id, created_date, last_modified_date, quota_code, effective_date, department_id, creator_id, creator_name, target_headcount, max_capacity, current_headcount, budget, description, status)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                [q.id, now, now, q.code, q.effDate, q.deptId, q.creatorId, q.creator, q.target, q.max, q.current, q.budget, q.desc, q.status]);
 
             for (const d of q.details) {
                 await run(`INSERT INTO DepartmentQuotaDetail (detail_id, quota_id, position_id, position_code, position_name, target_headcount, resignation_count, maternity_count, current_headcount, needed_headcount, note)
@@ -1211,6 +1406,7 @@ const seedData = async (forceClear = false) => {
         { id: 'cttype-tv', code: 'HDTV', name: 'Hợp đồng Thử việc (02 tháng)', duration: 2, hasProbation: 1, probationDays: 60 },
         { id: 'cttype-12m', code: 'HD12M', name: 'Hợp đồng Xác định thời hạn 12 tháng', duration: 12, hasProbation: 0, probationDays: 0 },
         { id: 'cttype-24m', code: 'HD24M', name: 'Hợp đồng Xác định thời hạn 24 tháng', duration: 24, hasProbation: 0, probationDays: 0 },
+        { id: 'cttype-36m', code: 'HD36M', name: 'Hợp đồng Xác định thời hạn 36 tháng', duration: 36, hasProbation: 0, probationDays: 0 },
         { id: 'cttype-kth', code: 'HDKTH', name: 'Hợp đồng Không xác định thời hạn', duration: 0, hasProbation: 0, probationDays: 0 }
     ];
 
@@ -1233,7 +1429,22 @@ const seedData = async (forceClear = false) => {
         { id: 'pw-04', posId: 'pos-kt-emp', ctId: 'cttype-kth', order: 4, note: 'Chuyển thành HĐLĐ Không xác định thời hạn dài lâu' },
         { id: 'pw-05', posId: 'pos-hr-emp', ctId: 'cttype-tv', order: 1, note: 'Thử việc 60 ngày' },
         { id: 'pw-06', posId: 'pos-hr-emp', ctId: 'cttype-12m', order: 2, note: 'HĐLĐ 1 năm' },
-        { id: 'pw-07', posId: 'pos-hr-emp', ctId: 'cttype-kth', order: 3, note: 'HĐLĐ Không xác định thời hạn' }
+        { id: 'pw-07', posId: 'pos-hr-emp', ctId: 'cttype-kth', order: 3, note: 'HĐLĐ Không xác định thời hạn' },
+        { id: 'pw-08', posId: 'pos-kd-emp', ctId: 'cttype-tv', order: 1, note: 'Thử việc 60 ngày trước khi nhận KPI doanh số' },
+        { id: 'pw-09', posId: 'pos-kd-emp', ctId: 'cttype-12m', order: 2, note: 'HĐLĐ 12 tháng sau khi hoàn thành thử việc' },
+        { id: 'pw-10', posId: 'pos-kd-emp', ctId: 'cttype-36m', order: 3, note: 'HĐLĐ 36 tháng dành cho nhân sự đạt KPI ổn định' },
+        { id: 'pw-11', posId: 'pos-mkt-emp', ctId: 'cttype-tv', order: 1, note: 'Thử việc 60 ngày' },
+        { id: 'pw-12', posId: 'pos-mkt-emp', ctId: 'cttype-12m', order: 2, note: 'HĐLĐ 12 tháng theo chu kỳ chiến dịch' },
+        { id: 'pw-13', posId: 'pos-mkt-emp', ctId: 'cttype-36m', order: 3, note: 'HĐLĐ 36 tháng cho nhân sự chủ chốt' },
+        { id: 'pw-14', posId: 'pos-cloud-emp', ctId: 'cttype-tv', order: 1, note: 'Thử việc 60 ngày, đánh giá trực vận hành' },
+        { id: 'pw-15', posId: 'pos-cloud-emp', ctId: 'cttype-12m', order: 2, note: 'HĐLĐ 12 tháng sau khi đạt yêu cầu vận hành' },
+        { id: 'pw-16', posId: 'pos-cloud-emp', ctId: 'cttype-36m', order: 3, note: 'HĐLĐ 36 tháng cho kỹ sư vận hành ổn định' },
+        { id: 'pw-17', posId: 'pos-kttk2-emp', ctId: 'cttype-tv', order: 1, note: 'Thử việc 60 ngày theo dự án triển khai' },
+        { id: 'pw-18', posId: 'pos-kttk2-emp', ctId: 'cttype-12m', order: 2, note: 'HĐLĐ 12 tháng sau khi hoàn thành dự án đầu tiên' },
+        { id: 'pw-19', posId: 'pos-kttk2-emp', ctId: 'cttype-36m', order: 3, note: 'HĐLĐ 36 tháng cho chuyên viên triển khai' },
+        { id: 'pw-20', posId: 'pos-ptsp-emp', ctId: 'cttype-tv', order: 1, note: 'Thử việc 60 ngày với bài đánh giá kỹ thuật' },
+        { id: 'pw-21', posId: 'pos-ptsp-emp', ctId: 'cttype-12m', order: 2, note: 'HĐLĐ 12 tháng sau khi hoàn thành sprint thử việc' },
+        { id: 'pw-22', posId: 'pos-ptsp-emp', ctId: 'cttype-36m', order: 3, note: 'HĐLĐ 36 tháng cho kỹ sư phát triển sản phẩm' }
     ];
 
     for (const pw of pathwaySeeds) {
