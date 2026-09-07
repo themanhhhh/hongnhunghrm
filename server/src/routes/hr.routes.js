@@ -1,7 +1,6 @@
 const express = require('express');
 const router = express.Router();
 const crypto = require('crypto');
-const path = require('path');
 const multer = require('multer');
 const { query, queryOne, run } = require('../db/connection');
 const { authenticateToken, authorizeRole } = require('../middleware/auth');
@@ -50,17 +49,33 @@ async function updateExtendedEmployeeFields(employeeId, input, now) {
 }
 
 
-// Multer upload config
-const storage = multer.diskStorage({
-    destination: function (req, file, cb) {
-        cb(null, path.join(__dirname, '../../uploads'));
-    },
-    filename: function (req, file, cb) {
-        const ext = path.extname(file.originalname);
-        cb(null, 'avatar-' + Date.now() + '-' + Math.round(Math.random() * 1e9) + ext);
+const avatarMimeTypes = new Set(['image/jpeg', 'image/png', 'image/webp']);
+const upload = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 5 * 1024 * 1024 },
+    fileFilter: (req, file, cb) => {
+        if (!avatarMimeTypes.has(file.mimetype)) {
+            const error = new Error('Ảnh hồ sơ chỉ hỗ trợ định dạng JPEG, PNG hoặc WebP.');
+            error.status = 400;
+            return cb(error);
+        }
+        cb(null, true);
     }
 });
-const upload = multer({ storage: storage });
+
+function uploadAvatar(req, res, next) {
+    upload.single('avatar')(req, res, (error) => {
+        if (!error) return next();
+        error.status = error.code === 'LIMIT_FILE_SIZE' ? 400 : (error.status || 400);
+        if (error.code === 'LIMIT_FILE_SIZE') error.message = 'Ảnh hồ sơ không được vượt quá 5 MB.';
+        next(error);
+    });
+}
+
+function pinataGatewayUrl(cid) {
+    const gateway = (process.env.PINATA_GATEWAY_URL || 'https://gateway.pinata.cloud').replace(/\/+$/, '');
+    return `${gateway}/ipfs/${cid}`;
+}
 
 // --- 0. DANH MỤC PHÒNG BÀN (DEPARTMENTS) ---
 router.get('/departments', async (req, res) => {
@@ -265,17 +280,45 @@ router.delete('/employees/:id', authorizeRole('Administrator', 'HR Staff'), asyn
     }
 });
 
-router.post('/employees/:id/avatar', authorizeRole('Administrator', 'HR Staff'), upload.single('avatar'), async (req, res) => {
+router.post('/employees/:id/avatar', authorizeRole('Administrator', 'HR Staff'), uploadAvatar, async (req, res) => {
     try {
         if (!req.file) {
             return res.status(400).json({ success: false, message: 'Chưa chọn file ảnh đại diện.' });
         }
-        const avatarUrl = '/uploads/' + req.file.filename;
+        if (!process.env.PINATA_JWT) {
+            return res.status(503).json({ success: false, message: 'Chưa cấu hình PINATA_JWT trên máy chủ.' });
+        }
+        const employee = await queryOne('SELECT employee_id FROM Employee WHERE employee_id = ?', [req.params.id]);
+        if (!employee) {
+            return res.status(404).json({ success: false, message: 'Hồ sơ nhân viên không tồn tại.' });
+        }
+
+        const formData = new FormData();
+        formData.append('file', new Blob([req.file.buffer], { type: req.file.mimetype }), req.file.originalname);
+        formData.append('network', 'public');
+        formData.append('name', `employee-avatar-${req.params.id}`);
+        formData.append('keyvalues', JSON.stringify({ keyvalues: { employee_id: req.params.id, resource: 'employee-avatar' } }));
+
+        const pinataResponse = await fetch('https://uploads.pinata.cloud/v3/files', {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${process.env.PINATA_JWT}` },
+            body: formData
+        });
+        const pinataBody = await pinataResponse.json().catch(() => null);
+        const cid = pinataBody?.data?.cid;
+        if (!pinataResponse.ok || !cid) {
+            return res.status(502).json({
+                success: false,
+                message: pinataBody?.error?.message || pinataBody?.message || 'Pinata không thể lưu ảnh hồ sơ.'
+            });
+        }
+
+        const avatarUrl = pinataGatewayUrl(cid);
         const now = Date.now();
 
         await run(`UPDATE Employee SET avatar_url = ?, last_modified_date = ? WHERE employee_id = ?`, [avatarUrl, now, req.params.id]);
 
-        res.json({ success: true, message: 'Tải ảnh đại diện thành công!', avatarUrl });
+        res.json({ success: true, message: 'Tải ảnh đại diện thành công!', data: { avatarUrl, cid } });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }

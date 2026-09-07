@@ -5,6 +5,7 @@ import {
   Download,
   Eye,
   Filter,
+  ImageUp,
   Pencil,
   Plus,
   Search,
@@ -148,6 +149,127 @@ function toPayload(tab: WorkspaceTab, values: Record<string, string>) {
     } else payload[field.name] = value;
   }
   return payload;
+}
+
+function employeeInitials(name: string) {
+  return name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(-2)
+    .map((part) => part[0])
+    .join("")
+    .toUpperCase();
+}
+
+function EmployeeAvatar({
+  name,
+  avatarUrl,
+  className = "size-9 text-xs",
+}: {
+  name: string;
+  avatarUrl?: string;
+  className?: string;
+}) {
+  if (avatarUrl)
+    return (
+      // Pinata gateway hosts are configured at runtime, so they cannot be predeclared for next/image.
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={avatarUrl}
+        alt={`Ảnh hồ sơ ${name}`}
+        className={`${className} shrink-0 rounded-full border border-slate-200 object-cover bg-slate-100`}
+      />
+    );
+  return (
+    <div
+      className={`${className} grid shrink-0 place-items-center rounded-full bg-teal-100 font-bold text-teal-800`}
+      aria-label={`Chưa có ảnh hồ sơ ${name}`}
+    >
+      {employeeInitials(name) || "NV"}
+    </div>
+  );
+}
+
+function EmployeeAvatarUploader({
+  employeeId,
+  name,
+  avatarUrl,
+  canUpload,
+  onUploaded,
+}: {
+  employeeId: string;
+  name: string;
+  avatarUrl?: string;
+  canUpload: boolean;
+  onUploaded: (avatarUrl: string) => void;
+}) {
+  const [previewUrl, setPreviewUrl] = useState<string | undefined>(avatarUrl);
+  const [uploadError, setUploadError] = useState("");
+  const uploadMutation = useMutation({
+    mutationFn: (file: File) => api.uploadEmployeeAvatar(employeeId, file),
+    onSuccess: ({ avatarUrl: nextAvatarUrl }) => {
+      setPreviewUrl(nextAvatarUrl);
+      setUploadError("");
+      onUploaded(nextAvatarUrl);
+    },
+    onError: (error) => {
+      setPreviewUrl(avatarUrl);
+      setUploadError(
+        error instanceof Error ? error.message : "Không thể tải ảnh hồ sơ.",
+      );
+    },
+  });
+
+  const selectAvatar = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+      setUploadError("Chỉ chấp nhận ảnh JPEG, PNG hoặc WebP.");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setUploadError("Ảnh hồ sơ không được vượt quá 5 MB.");
+      return;
+    }
+    setPreviewUrl(URL.createObjectURL(file));
+    setUploadError("");
+    uploadMutation.mutate(file);
+  };
+
+  return (
+    <div className="flex flex-col gap-4 rounded-2xl border border-teal-100 bg-teal-50/60 p-4 sm:flex-row sm:items-center">
+      <EmployeeAvatar
+        name={name}
+        avatarUrl={previewUrl}
+        className="size-20 text-xl"
+      />
+      <div className="min-w-0 flex-1">
+        <div className="font-display text-base font-bold text-slate-950">
+          Ảnh hồ sơ
+        </div>
+        <p className="mt-1 text-xs leading-5 text-slate-500">
+          JPEG, PNG hoặc WebP, tối đa 5 MB. Ảnh được lưu trên Pinata/IPFS.
+        </p>
+        {uploadError && (
+          <p className="mt-2 text-xs font-medium text-rose-700">{uploadError}</p>
+        )}
+      </div>
+      {canUpload && (
+        <label className="inline-flex h-9 shrink-0 cursor-pointer items-center justify-center gap-2 rounded-lg border border-teal-200 bg-white px-3 text-xs font-bold text-teal-800 transition hover:border-teal-400 hover:bg-teal-100">
+          <ImageUp size={15} />
+          {uploadMutation.isPending ? "Đang tải ảnh..." : "Chọn ảnh"}
+          <input
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            className="sr-only"
+            onChange={selectAvatar}
+            disabled={uploadMutation.isPending}
+          />
+        </label>
+      )}
+    </div>
+  );
 }
 
 function ReportsWorkspace() {
@@ -1104,7 +1226,7 @@ function OperationalWorkspace({
                           key={column.key}
                           className={`max-w-[260px] px-5 py-4 ${column.key === tab.columns[0]?.key ? "font-mono text-xs font-bold text-teal-700" : "text-xs text-slate-600"}`}
                         >
-                          <span className="line-clamp-2">
+                          <div className="line-clamp-2">
                             {column.key === "status" ||
                             column.key === "employment_status" ||
                             column.key === "decision_type" ? (
@@ -1123,10 +1245,26 @@ function OperationalWorkspace({
                               >
                                 {displayValue(row[column.key])}
                               </Badge>
+                            ) : name === "people" &&
+                              tab.id === "employees" &&
+                              column.key === "full_name" ? (
+                              <div className="flex min-w-[170px] items-center gap-3">
+                                <EmployeeAvatar
+                                  name={String(row.full_name ?? "Nhân viên")}
+                                  avatarUrl={
+                                    typeof row.avatar_url === "string"
+                                      ? row.avatar_url
+                                      : undefined
+                                  }
+                                />
+                                <span className="font-semibold text-slate-800">
+                                  {displayCell(column.key, row[column.key])}
+                                </span>
+                              </div>
                             ) : (
                               displayCell(column.key, row[column.key])
                             )}
-                          </span>
+                          </div>
                         </td>
                       ))}
                       <td className="px-5 py-4">
@@ -1361,6 +1499,29 @@ function OperationalWorkspace({
               </button>
             </div>
             <div className="max-h-[calc(90vh-105px)] overflow-y-auto p-5">
+              {tab.id === "employees" && (
+                <div className="mb-5">
+                  <EmployeeAvatarUploader
+                    employeeId={rowId(tab, showDetail)}
+                    name={String(showDetail.full_name ?? "Nhân viên")}
+                    avatarUrl={
+                      typeof showDetail.avatar_url === "string"
+                        ? showDetail.avatar_url
+                        : undefined
+                    }
+                    canUpload={canEdit}
+                    onUploaded={(avatarUrl) => {
+                      setShowDetail((current) =>
+                        current ? { ...current, avatar_url: avatarUrl } : current,
+                      );
+                      setNotice("Đã cập nhật ảnh hồ sơ trên Pinata.");
+                      queryClient.invalidateQueries({
+                        queryKey: ["workspace", name],
+                      });
+                    }}
+                  />
+                </div>
+              )}
               <div className="grid gap-3 sm:grid-cols-2">
                 {Object.entries(showDetail).map(([key, value]) => (
                   <div

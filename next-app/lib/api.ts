@@ -128,6 +128,35 @@ export const api = {
     }
     return dashboardData;
   },
+  async uploadEmployeeAvatar(employeeId: string, file: File) {
+    const session = readSession();
+    if (!canAccess(session, "people", "edit")) {
+      throw new ApiError("Bạn không có quyền thay ảnh hồ sơ nhân viên.", 403);
+    }
+    if (isMockMode()) return { avatarUrl: URL.createObjectURL(file) };
+
+    const formData = new FormData();
+    formData.append("avatar", file);
+    const headers = new Headers({ "X-HRM-Role": session.role });
+    const token = typeof window !== "undefined" ? window.localStorage.getItem("bravo_next_token") : null;
+    if (token) headers.set("Authorization", `Bearer ${token}`);
+
+    try {
+      const response = await fetch(`${API_URL}/hr/employees/${employeeId}/avatar`, {
+        method: "POST",
+        headers,
+        body: formData,
+      });
+      const body = await response.json().catch(() => null) as ApiEnvelope<{ avatarUrl: string }> | null;
+      if (!response.ok || !body?.success || !body.data?.avatarUrl) {
+        throw new ApiError(body?.message ?? "Không thể tải ảnh hồ sơ.", response.status);
+      }
+      return body.data;
+    } catch (error) {
+      if (error instanceof ApiError) throw error;
+      throw new ApiError("Không thể kết nối đến máy chủ để tải ảnh hồ sơ.");
+    }
+  },
   async login(username: string, password: string) {
     if (isMockMode()) return demoLogin(username, password);
     try {
