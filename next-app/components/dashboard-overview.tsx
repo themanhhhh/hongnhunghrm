@@ -364,7 +364,7 @@ export function DashboardOverview() {
   ) as Session | null;
   const { data, error, isLoading, isFetching, refetch } = useQuery({
     queryKey: ["dashboard", session?.role],
-    queryFn: api.dashboard,
+    queryFn: () => api.dashboard(),
   });
   const now = new Date();
   const welcome = greetingHour(now.getHours());

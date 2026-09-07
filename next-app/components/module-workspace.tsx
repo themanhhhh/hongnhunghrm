@@ -64,6 +64,43 @@ const editableTabs = new Set([
 ]);
 const undeletableTabs = new Set(["work-history"]);
 
+const workspaceTitles: Record<WorkspaceName, Record<string, string>> = {
+  recruitment: {
+    quota: "Quản lý định biên nhân sự",
+    plans: "Quản lý kế hoạch tuyển dụng",
+    requests: "Quản lý yêu cầu tuyển dụng",
+    candidates: "Quản lý hồ sơ ứng viên",
+    screenings: "Quản lý sơ loại ứng viên",
+    schedules: "Quản lý lịch phỏng vấn",
+    "interview-evaluations": "Quản lý đánh giá phỏng vấn",
+    offers: "Quản lý offer tuyển dụng",
+    conversion: "Chuyển ứng viên thành nhân viên",
+  },
+  people: {
+    employees: "Quản lý hồ sơ nhân sự",
+    quotas: "Quản lý định biên nhân sự",
+    departments: "Quản lý danh mục bộ phận",
+    positions: "Quản lý danh mục vị trí công việc",
+    "contract-proposals": "Quản lý đề xuất hợp đồng lao động",
+    contracts: "Quản lý hợp đồng lao động",
+    "expiring-contracts": "Theo dõi hợp đồng sắp hết hạn",
+    "contract-extensions": "Quản lý gia hạn hợp đồng lao động",
+    leave: "Quản lý đơn xin nghỉ phép",
+    "transfer-proposals": "Quản lý đề xuất thuyên chuyển, bổ nhiệm",
+    "transfer-decisions": "Quản lý quyết định thuyên chuyển, bổ nhiệm",
+    "resignation-applications": "Quản lý đơn xin nghỉ việc",
+    "resignation-decisions": "Quản lý quyết định nghỉ việc",
+    "work-history": "Tra cứu quá trình công tác",
+  },
+  rewards: {
+    criteria: "Quản lý tiêu chí đánh giá",
+    evaluations: "Quản lý phiếu đánh giá",
+    proposals: "Quản lý đề xuất thưởng phạt",
+    decisions: "Quản lý quyết định khen thưởng, kỷ luật",
+    history: "Tra cứu lịch sử đánh giá và ghi nhận",
+  },
+};
+
 const labels: Record<string, string> = {
   PENDING: "Chờ duyệt",
   APPROVED: "Đã duyệt",
@@ -1283,6 +1320,8 @@ function OperationalWorkspace({
       return employeeOptions;
     return field.options;
   };
+  const pageTitle =
+    workspaceTitles[name][tab.id] ?? `Quản lý ${tab.label.toLowerCase()}`;
 
   return (
     <div className="operational-workspace space-y-7">
@@ -1296,11 +1335,7 @@ function OperationalWorkspace({
                 : "PERFORMANCE & RECOGNITION"}
           </div>
           <h1 className="font-display text-3xl font-bold tracking-tight text-slate-950">
-            {name === "recruitment"
-              ? "Quản lý tuyển dụng"
-              : name === "people"
-                ? "Quản lý nhân sự"
-                : "Đánh giá & ghi nhận"}
+            {pageTitle}
           </h1>
         </div>
         <div className="flex flex-wrap gap-2">
