@@ -71,8 +71,24 @@ router.get('/dashboard/summary', async (req, res) => {
         const totalCandidates = (await queryOne(`SELECT COUNT(*) as count FROM Candidate`))?.count || 0;
         const pendingInterviews = (await queryOne(`SELECT COUNT(*) as count FROM Interview WHERE result = 'PENDING'`))?.count || 0;
         const totalRewards = (await queryOne(`SELECT COUNT(*) as count FROM RewardDiscipline WHERE decision_type = 'KHEN_THUONG'`))?.count || 0;
+        const processingCandidates = (await queryOne(`SELECT COUNT(*) as count FROM Candidate WHERE status NOT IN ('HIRED', 'REJECTED', 'OFFER_REJECTED')`))?.count || 0;
 
         const pendingRequests = await query(`SELECT TOP (5) recruitment_request_id as id, request_code as code, 'YCTD' as type, 'Yêu cầu tuyển dụng' as typeName, reason as title, status FROM RecruitmentRequest WHERE status = 'PENDING'`);
+        const deptStructure = await query(
+            `SELECT d.department_name, COUNT(e.employee_id) as count
+             FROM Department d LEFT JOIN Employee e ON d.department_id = e.department_id AND e.is_active = 1
+             WHERE d.status = 1 GROUP BY d.department_id, d.department_name ORDER BY count DESC`
+        );
+        const rawPipeline = await query(`SELECT status, COUNT(*) as count FROM Candidate GROUP BY status`);
+        const pipelineMap = {};
+        rawPipeline.forEach(row => { pipelineMap[row.status] = row.count; });
+        const pipelineStages = [
+            { label: 'Mới tiếp nhận', count: (pipelineMap.NEW || 0) + (pipelineMap.SUBMITTED || 0) },
+            { label: 'Đã sàng lọc', count: pipelineMap.SCREENED || 0 },
+            { label: 'Phỏng vấn', count: (pipelineMap.INTERVIEWED || 0) + (pipelineMap['S2: Phỏng vấn'] || 0) },
+            { label: 'Trúng tuyển', count: (pipelineMap.OFFER_ACCEPTED || 0) + (pipelineMap['S5: Trúng tuyển'] || 0) },
+            { label: 'Đã tiếp nhận', count: pipelineMap.HIRED || 0 }
+        ];
 
         const pendingTasks = pendingRequests.map(r => ({
             id: r.id,
@@ -85,13 +101,26 @@ router.get('/dashboard/summary', async (req, res) => {
         res.json({
             success: true,
             data: {
+                kpi: {
+                    totalEmployees,
+                    activeEmployees: totalEmployees,
+                    totalRequests,
+                    pendingRequests: pendingRequests.length,
+                    openPositionsCount: activePlans,
+                    totalCandidates,
+                    processingCandidates,
+                    pendingApprovalsCount: pendingRequests.length
+                },
                 totalEmployees,
                 totalRequests,
                 activePlans,
                 totalCandidates,
                 pendingInterviews,
                 totalRewards,
-                pendingTasks
+                pendingTasks,
+                pendingApprovals: pendingRequests,
+                pipelineStages,
+                deptStructure
             }
         });
     } catch (error) {

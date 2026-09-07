@@ -4,6 +4,27 @@ import { isMockMode, mockApiRequest } from "./mock-api";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5000/api";
 
+export type DashboardData = {
+  kpis: Array<{
+    label: string;
+    value: number | string;
+    trend: string;
+    tone: "teal" | "amber" | "violet" | "rose";
+    detail: string;
+  }>;
+  departments: Array<{ name: string; count: number; target?: number }>;
+  approvals: Array<{
+    id?: string;
+    code: string;
+    type: string;
+    title: string;
+    owner: string;
+    age: string;
+    priority: string;
+  }>;
+  pipeline: Array<{ label: string; count: number }>;
+};
+
 export class ApiError extends Error {
   status: number;
   constructor(message: string, status = 500) {
@@ -82,25 +103,26 @@ export const api = {
       return mockApiRequest<T>(path, init);
     }
   },
-  async dashboard() {
+  async dashboard(): Promise<DashboardData> {
     const session = readSession();
     const endpoint = session.role === "Administrator" ? "/reports/dashboard/admin" : session.role === "HR Staff" ? "/reports/dashboard/hr" : session.role === "Ban Giám Đốc" ? "/reports/dashboard/bgd" : "/reports/dashboard/summary";
     const result = await this.request<ApiEnvelope<Record<string, unknown>>>(endpoint, {}, { resource: "dashboard" });
     const source = unwrap<Record<string, unknown>>(result);
     if (!source) return dashboardData;
-    const sourceKpi = source.kpi as Record<string, number> | undefined;
+    const sourceKpi = (source.kpi ?? source) as Record<string, number>;
     if (sourceKpi && "totalUsers" in sourceKpi) {
-      return { kpis: [{ label: "Tổng số tài khoản", value: sourceKpi.totalUsers ?? 0, trend: `${sourceKpi.activeUsers ?? 0} hoạt động`, tone: "teal" as const, detail: "Quản trị hệ thống" }, { label: "Tài khoản bị khóa", value: sourceKpi.lockedUsers ?? 0, trend: "Cần theo dõi", tone: "rose" as const, detail: "Bảo mật tài khoản" }, { label: "Tổng số nhân sự", value: sourceKpi.totalEmployees ?? 0, trend: `${sourceKpi.totalDepartments ?? 0} phòng ban`, tone: "violet" as const, detail: "Sơ đồ tổ chức" }, { label: "Tổng số vị trí", value: sourceKpi.totalPositions ?? 0, trend: "Danh mục dùng chung", tone: "amber" as const, detail: "Vị trí công việc" }], departments: ((source.employeesByDept ?? []) as Array<Record<string, unknown>>).map((item) => ({ name: String(item.department_name ?? "Chưa phân loại"), count: Number(item.count ?? 0), target: Number(item.count ?? 0) || 1 })), approvals: [], pipeline: [] };
+      return { kpis: [{ label: "Tổng số tài khoản", value: sourceKpi.totalUsers ?? 0, trend: `${sourceKpi.activeUsers ?? 0} hoạt động`, tone: "teal", detail: "Quản trị hệ thống" }, { label: "Tài khoản bị khóa", value: sourceKpi.lockedUsers ?? 0, trend: "Cần theo dõi", tone: "rose", detail: "Bảo mật tài khoản" }, { label: "Tổng số nhân sự", value: sourceKpi.totalEmployees ?? 0, trend: `${sourceKpi.totalDepartments ?? 0} phòng ban`, tone: "violet", detail: "Sơ đồ tổ chức" }, { label: "Tổng số vị trí", value: sourceKpi.totalPositions ?? 0, trend: "Danh mục dùng chung", tone: "amber", detail: "Vị trí công việc" }], departments: ((source.employeesByDept ?? []) as Array<Record<string, unknown>>).map((item) => ({ name: String(item.department_name ?? "Chưa phân loại"), count: Number(item.count ?? 0) })), approvals: [], pipeline: [] };
     }
-    if (sourceKpi) {
+    if ("totalEmployees" in sourceKpi || "totalRequests" in sourceKpi) {
       const kpi = sourceKpi;
       const actionNeeded = source.actionNeeded as Record<string, Record<string, unknown[]>> | undefined;
       const charts = source.charts as Record<string, unknown[]> | undefined;
-      const pendingApprovals = source.pendingApprovals as Array<Record<string, unknown>> | undefined;
+      const pendingApprovals = (source.pendingApprovals ?? source.pendingTasks ?? actionNeeded?.recruitment?.pendingRequests ?? []) as Array<Record<string, unknown>>;
+      const actionCount = pendingApprovals.length || Number(kpi.pendingApprovalsCount ?? kpi.pendingRequests ?? 0);
       return {
-        kpis: [{ label: "Nhân sự đang làm việc", value: kpi.totalEmployees ?? 0, trend: `${kpi.activeEmployees ?? 0} active`, tone: "teal" as const, detail: "Dữ liệu từ backend cũ" }, { label: "Vị trí đang tuyển", value: kpi.openPositionsCount ?? kpi.totalRequests ?? 0, trend: `${kpi.pendingRequests ?? 0} chờ duyệt`, tone: "amber" as const, detail: "Theo yêu cầu tuyển dụng" }, { label: "Ứng viên đang xử lý", value: kpi.processingCandidates ?? kpi.totalCandidates ?? 0, trend: "Pipeline tuyển dụng", tone: "violet" as const, detail: "Dữ liệu realtime" }, { label: "Phiếu chờ phê duyệt", value: (kpi.pendingApprovalsCount ?? kpi.pendingRequests ?? 0), trend: "Cần xử lý", tone: "rose" as const, detail: "Theo workflow" }],
-        departments: ((charts?.deptStructure ?? source.deptStructure ?? []) as Array<Record<string, unknown>>).map((item) => ({ name: String(item.department_name ?? "Chưa phân loại"), count: Number(item.count ?? 0), target: Number(item.count ?? 0) || 1 })),
-        approvals: (pendingApprovals ?? ((actionNeeded?.recruitment?.pendingRequests ?? []) as Array<Record<string, unknown>>)).map((item) => ({ code: String(item.code ?? "YCTD"), type: String(item.typeName ?? "Tuyển dụng"), title: String(item.title ?? item.reason ?? item.positionName ?? "Yêu cầu tuyển dụng"), owner: String(item.deptName ?? "Phòng ban"), age: "Đang chờ xử lý", priority: "Cao" })),
+        kpis: [{ label: "Nhân sự đang làm việc", value: kpi.activeEmployees ?? kpi.totalEmployees ?? 0, trend: `${kpi.totalEmployees ?? 0} hồ sơ nhân sự`, tone: "teal", detail: "Theo dữ liệu hiện tại" }, { label: "Vị trí đang tuyển", value: kpi.openPositionsCount ?? kpi.recruitingRequests ?? kpi.totalRequests ?? 0, trend: `${kpi.pendingRequests ?? 0} yêu cầu chờ duyệt`, tone: "amber", detail: "Theo nhu cầu tuyển dụng" }, { label: "Ứng viên đang xử lý", value: kpi.processingCandidates ?? kpi.totalCandidates ?? 0, trend: `${kpi.upcomingInterviews ?? 0} lịch phỏng vấn sắp tới`, tone: "violet", detail: "Trong pipeline tuyển dụng" }, { label: "Việc cần xử lý", value: actionCount, trend: actionCount ? "Cần được xem xét" : "Không có phiếu tồn", tone: "rose", detail: "Theo workflow hiện tại" }],
+        departments: ((charts?.deptStructure ?? source.deptStructure ?? []) as Array<Record<string, unknown>>).map((item) => ({ name: String(item.department_name ?? "Chưa phân loại"), count: Number(item.count ?? 0) })),
+        approvals: pendingApprovals.map((item) => ({ id: String(item.id ?? ""), code: String(item.code ?? "CHỜ DUYỆT"), type: String(item.typeName ?? item.type ?? "Nghiệp vụ"), title: String(item.title ?? item.reason ?? item.positionName ?? item.employeeName ?? "Chứng từ cần xem xét"), owner: String(item.deptName ?? item.employeeName ?? item.currentLevel ?? "Chưa xác định"), age: String(item.status ?? "Đang chờ xử lý"), priority: String(item.priority ?? "Chờ duyệt") })),
         pipeline: ((source.pipelineStages ?? []) as Array<Record<string, unknown>>).map((item) => ({ label: String(item.label ?? item.status ?? "Giai đoạn"), count: Number(item.count ?? 0) })),
       };
     }

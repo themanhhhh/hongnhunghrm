@@ -303,15 +303,34 @@ export async function mockApiRequest<T>(path: string, init: RequestInit = {}): P
 }
 
 function dashboardResponse() {
+  const store = loadStore();
+  const employees = store["/hr/employees"];
+  const candidates = store["/recruitment/candidates"];
+  const requests = store["/recruitment/requests"];
+  const pendingItems = [
+    ...requests.filter((item) => item.status === "PENDING").map((item) => ({ id: item.recruitment_request_id, code: item.request_code, typeName: "Tuyển dụng", title: item.reason ?? item.position_name, deptName: item.department_name, status: "Chờ duyệt" })),
+    ...store["/hr/leave-applications"].filter((item) => item.status === "PENDING").map((item) => ({ id: item.leave_id, code: item.leave_code, typeName: "Nghỉ phép", title: item.reason, employeeName: item.employee_name, status: "Chờ duyệt" })),
+    ...store["/hr/transfer-proposals"].filter((item) => item.status === "PENDING").map((item) => ({ id: item.proposal_id, code: item.proposal_code, typeName: "Thuyên chuyển", title: item.decision_type, employeeName: item.employee_name, status: "Chờ duyệt" })),
+  ];
+  const countByDepartment = store["/admin/departments"].map((department) => ({
+    department_name: department.department_name,
+    count: employees.filter((employee) => employee.department_id === department.department_id && employee.employment_status === "WORKING").length,
+  }));
   return {
     kpi: {
-      totalEmployees: 3,
-      activeEmployees: 3,
-      openPositionsCount: 3,
-      processingCandidates: 2,
-      pendingApprovalsCount: 3,
+      totalEmployees: employees.length,
+      activeEmployees: employees.filter((item) => item.employment_status === "WORKING").length,
+      openPositionsCount: requests.filter((item) => item.status === "APPROVED" || item.status === "IN_PROGRESS").length,
+      processingCandidates: candidates.filter((item) => !["HIRED", "REJECTED"].includes(String(item.status))).length,
+      pendingApprovalsCount: pendingItems.length,
     },
-    charts: { deptStructure: loadStore()["/admin/departments"].map((department) => ({ department_name: department.department_name, count: 1 })) },
-    pipelineStages: [{ label: "Mới tiếp nhận", count: 1 }, { label: "Phỏng vấn", count: 1 }, { label: "Offer", count: 1 }],
+    charts: { deptStructure: countByDepartment },
+    pendingApprovals: pendingItems,
+    pipelineStages: [
+      { label: "Mới tiếp nhận", count: candidates.filter((item) => ["NEW", "SUBMITTED"].includes(String(item.status))).length },
+      { label: "Phỏng vấn", count: candidates.filter((item) => String(item.status).includes("Phỏng vấn") || item.status === "INTERVIEWED").length },
+      { label: "Trúng tuyển", count: candidates.filter((item) => ["S5: Trúng tuyển", "OFFER_ACCEPTED"].includes(String(item.status))).length },
+      { label: "Đã tiếp nhận", count: candidates.filter((item) => item.status === "HIRED").length },
+    ],
   };
 }
