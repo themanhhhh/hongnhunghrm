@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 530 80" width="530" height="80">
+  <style>
+    .brand-green {
+      font-family: 'Segoe UI', Roboto, -apple-system, sans-serif;
+      font-weight: 900;
+      font-size: 56px;
+      fill: #205E4B;
+    }
+    .brand-gold {
+      font-family: 'Segoe UI', Roboto, -apple-system, sans-serif;
+      font-weight: 900;
+      font-size: 56px;
+      fill: #DF9B1A;
+    }
+  </style>
+
+  <!-- BRAVO 10 in matching bold green color -->
+  <text x="10" y="60" class="brand-green" letter-spacing="1.5">BRAVO 10</text>
+
+  <!-- ERP in gold color -->
+  <text x="368" y="60" class="brand-gold" letter-spacing="1.5">ERP</text>
+</svg>

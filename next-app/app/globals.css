@@ -1,0 +1,18 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "DM Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
+}
+
+@layer base {
+  * { border-color: #e2e8f0; }
+  body { font-family: var(--font-sans); background: #f6f8f7; }
+  .font-display { font-family: var(--font-display); }
+}
+
+::selection { background: #99f6e4; color: #0f172a; }
+
+/* Operational categories are navigated from the persistent sidebar. */
+.operational-workspace > .rounded-2xl:nth-child(3) > div:first-child { display: none; }
