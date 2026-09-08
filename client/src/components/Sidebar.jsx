@@ -55,7 +55,7 @@ export const Sidebar = ({ currentTab, setCurrentTab, activeSubTab, setActiveSubT
                     subItems: [
                         'Định biên nhân sự',
                         'Yêu cầu tuyển dụng',
-                        'Hồ sơ uv',
+                        'Hồ sơ ứng viên',
                         'Phiếu sơ loại',
                         'Lập lịch',
                         'Đánh giá phỏng vấn',

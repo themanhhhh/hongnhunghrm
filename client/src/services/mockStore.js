@@ -948,6 +948,20 @@ export const getMockResponse = (method, endpoint, body) => {
         };
     }
 
+    if (endpoint === '/reports/query' && method === 'POST') {
+        const reportId = body?.reportId || 'hr_summary';
+        return {
+            success: true,
+            reportId,
+            filters: body?.filters || {},
+            data: [
+                { id: 1, code: 'NV-2026-001', name: 'Nguyễn Văn Admin', dept: 'Khối Kỹ thuật', val1: '9.2', val2: '9.5', result: 'A+ (Xuất sắc)' },
+                { id: 2, code: 'NV-2026-002', name: 'Trần Thị Trưởng Phòng', dept: 'Phòng Nhân sự', val1: '9.0', val2: '9.2', result: 'A (Xuất sắc)' }
+            ],
+            summary: { total: 2, mock: true }
+        };
+    }
+
     // Fallback for everything else
     return { success: true, data: [] };
 };

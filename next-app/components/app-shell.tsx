@@ -50,7 +50,7 @@ const navItems: NavItem[] = [
     subItems: [
       { id: "quota", label: "Định biên nhân sự" },
       { id: "requests", label: "Yêu cầu tuyển dụng" },
-      { id: "candidates", label: "Hồ sơ uv" },
+      { id: "candidates", label: "Hồ sơ ứng viên" },
       { id: "screenings", label: "Phiếu sơ loại" },
       { id: "schedules", label: "Lập lịch" },
       { id: "interview-evaluations", label: "Đánh giá phỏng vấn" },

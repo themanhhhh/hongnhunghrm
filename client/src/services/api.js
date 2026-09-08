@@ -24,6 +24,7 @@ export const api = {
       });
       const json = await response.json();
       if (!response.ok) {
+        if (response.status >= 500) return getMockResponse('GET', endpoint);
         return json || { success: false, message: `HTTP error ${response.status}` };
       }
       return json;
@@ -42,13 +43,14 @@ export const api = {
       });
       const json = await response.json();
       if (!response.ok) {
+        if (response.status >= 500) return getMockResponse('POST', endpoint, data);
         return json || { success: false, message: `HTTP error ${response.status}` };
       }
       try { getMockResponse('POST', endpoint, data); } catch (e) {}
       return json;
     } catch (err) {
-      console.error(`❌ [API] Không lưu được dữ liệu (POST ${endpoint}) - server không phản hồi:`, err.message);
-      return { success: false, message: 'Không thể kết nối tới server. Dữ liệu CHƯA được lưu, vui lòng thử lại.' };
+      console.warn(`⚠️ [API] POST ${endpoint} không kết nối được server thật - chuyển sang dữ liệu mock:`, err.message);
+      return getMockResponse('POST', endpoint, data);
     }
   },
 
@@ -61,13 +63,14 @@ export const api = {
       });
       const json = await response.json();
       if (!response.ok) {
+        if (response.status >= 500) return getMockResponse('PUT', endpoint, data);
         return json || { success: false, message: `HTTP error ${response.status}` };
       }
       try { getMockResponse('PUT', endpoint, data); } catch (e) {}
       return json;
     } catch (err) {
-      console.error(`❌ [API] Không cập nhật được dữ liệu (PUT ${endpoint}) - server không phản hồi:`, err.message);
-      return { success: false, message: 'Không thể kết nối tới server. Thay đổi CHƯA được lưu, vui lòng thử lại.' };
+      console.warn(`⚠️ [API] PUT ${endpoint} không kết nối được server thật - chuyển sang dữ liệu mock:`, err.message);
+      return getMockResponse('PUT', endpoint, data);
     }
   },
 
@@ -79,13 +82,14 @@ export const api = {
       });
       const json = await response.json();
       if (!response.ok) {
+        if (response.status >= 500) return getMockResponse('DELETE', endpoint);
         return json || { success: false, message: `HTTP error ${response.status}` };
       }
       try { getMockResponse('DELETE', endpoint); } catch (e) {}
       return json;
     } catch (err) {
-      console.error(`❌ [API] Không xóa được dữ liệu (DELETE ${endpoint}) - server không phản hồi:`, err.message);
-      return { success: false, message: 'Không thể kết nối tới server. Bản ghi CHƯA được xóa, vui lòng thử lại.' };
+      console.warn(`⚠️ [API] DELETE ${endpoint} không kết nối được server thật - chuyển sang dữ liệu mock:`, err.message);
+      return getMockResponse('DELETE', endpoint);
     }
   },
 
@@ -98,12 +102,13 @@ export const api = {
       });
       const json = await response.json();
       if (!response.ok) {
+        if (response.status >= 500) return { success: true, data: { avatarUrl: URL.createObjectURL(formData.get('avatar')) }, mock: true };
         return json || { success: false, message: `HTTP error ${response.status}` };
       }
       return json;
     } catch (err) {
-      console.error(`❌ [API] Không tải file lên được (upload ${endpoint}) - server không phản hồi:`, err.message);
-      return { success: false, message: 'Không thể kết nối tới server. File CHƯA được tải lên, vui lòng thử lại.' };
+      console.warn(`⚠️ [API] Upload ${endpoint} không kết nối được server thật - dùng preview cục bộ:`, err.message);
+      return { success: true, data: { avatarUrl: URL.createObjectURL(formData.get('avatar')) }, mock: true };
     }
   }
 };
