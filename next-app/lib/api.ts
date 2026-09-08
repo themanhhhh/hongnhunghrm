@@ -1,6 +1,6 @@
 import { canAccess, defaultSession, DEMO_USERS, type Action, type Resource, type Session } from "./permissions";
 import { dashboardData, moduleData } from "./mock-data";
-import { isMockMode, mockApiRequest } from "./mock-api";
+import { isMockMode, mockApiRequest, mockUploadEmployeeAvatar } from "./mock-api";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5000/api";
 
@@ -149,7 +149,7 @@ export const api = {
     if (!canAccess(session, "people", "edit")) {
       throw new ApiError("Bạn không có quyền thay ảnh hồ sơ nhân viên.", 403);
     }
-    if (isMockMode()) return { avatarUrl: URL.createObjectURL(file) };
+    if (isMockMode()) return mockUploadEmployeeAvatar(employeeId, file);
 
     const formData = new FormData();
     formData.append("avatar", file);

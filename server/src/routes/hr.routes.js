@@ -405,6 +405,12 @@ router.post('/contracts', authorizeRole('Administrator', 'HR Staff'), async (req
         const pFrom = parseDate(probation_from_date);
         const pTo = parseDate(probation_to_date);
         const hasProbation = has_probation === true || Number(has_probation) === 1 || /thử việc/i.test(contract_type || '');
+        if (hasProbation && (!pFrom || !pTo || !Number(probation_salary_rate))) {
+            return res.status(400).json({ success: false, message: 'Khi có thử việc phải nhập đầy đủ thời gian thử việc và tỷ lệ lương thử việc.' });
+        }
+        if (![base_salary, social_insurance_salary].every((value) => value === undefined || value === null || value === '' || Number.isInteger(Number(value)))) {
+            return res.status(400).json({ success: false, message: 'Lương cơ bản và lương đóng bảo hiểm phải là số VND không có số lẻ.' });
+        }
 
         const allowanceJson = Array.isArray(allowance_details) ? JSON.stringify(allowance_details) : (typeof allowance_details === 'string' ? allowance_details : '[]');
         const finalSalary = Number(base_salary || salary || 0);
@@ -428,7 +434,7 @@ router.post('/contracts', authorizeRole('Administrator', 'HR Staff'), async (req
             ]
         );
 
-        res.json({ success: true, message: 'Lập hợp đồng lao động mới thành công!' });
+        res.json({ success: true, message: 'Lập hợp đồng lao động mới thành công!', data: { id, contract_id: id, contract_no: finalContractNo } });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }
@@ -476,6 +482,12 @@ router.put('/contracts/:id', authorizeRole('Administrator', 'HR Staff'), async (
         const pFrom = parseDate(probation_from_date);
         const pTo = parseDate(probation_to_date);
         const hasProbation = has_probation === true || Number(has_probation) === 1 || /thử việc/i.test(contract_type || '');
+        if (hasProbation && (!pFrom || !pTo || !Number(probation_salary_rate))) {
+            return res.status(400).json({ success: false, message: 'Khi có thử việc phải nhập đầy đủ thời gian thử việc và tỷ lệ lương thử việc.' });
+        }
+        if (![base_salary, social_insurance_salary].every((value) => value === undefined || value === null || value === '' || Number.isInteger(Number(value)))) {
+            return res.status(400).json({ success: false, message: 'Lương cơ bản và lương đóng bảo hiểm phải là số VND không có số lẻ.' });
+        }
 
         const allowanceJson = Array.isArray(allowance_details) ? JSON.stringify(allowance_details) : (typeof allowance_details === 'string' ? allowance_details : '[]');
         const finalSalary = Number(base_salary || salary || 0);
@@ -811,7 +823,7 @@ router.get('/transfer-proposals/:id', authorizeRole('Administrator', 'HR Staff',
     res.json({ success: true, data: item });
 });
 
-router.post('/transfer-proposals', authorizeRole('Administrator', 'HR Staff'), async (req, res) => {
+router.post('/transfer-proposals', authorizeRole('Administrator', 'HR Staff', 'Trưởng Phòng'), async (req, res) => {
     try {
         const {
             proposal_code,
@@ -824,6 +836,7 @@ router.post('/transfer-proposals', authorizeRole('Administrator', 'HR Staff'), a
             proposer_position,
             proposer_department,
             detail_items,
+            description,
             note,
             status
         } = req.body;
@@ -846,17 +859,23 @@ router.post('/transfer-proposals', authorizeRole('Administrator', 'HR Staff'), a
 
         const firstItem = Array.isArray(detail_items) && detail_items.length > 0 ? detail_items[0] : {};
         const firstEmpId = firstItem.employee_id || req.body.employee_id || 'emp-hr-01';
+        const currentDepartmentId = firstItem.current_department_id || req.body.current_department_id || null;
+        const currentPositionId = firstItem.current_position_id || req.body.current_position_id || null;
+        const targetDepartmentId = firstItem.target_department_id || req.body.target_department_id || null;
+        const targetPositionId = firstItem.target_position_id || req.body.target_position_id || null;
 
         await run(
             `INSERT INTO TransferProposal (
         proposal_id, created_date, last_modified_date, proposal_code, employee_id,
-         proposal_date, proposed_effective_date, decision_type, proposer_id, proposer_name,
-        proposer_position, proposer_department, detail_items, note, status
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         proposal_date, current_department_id, target_department_id, current_position_id, target_position_id,
+         proposed_effective_date, decision_type, proposer_id, proposer_name,
+        proposer_position, proposer_department, detail_items, description, note, status
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
                 id, now, now, finalCode, firstEmpId,
-                pDate, effDate, decision_type || 'Thuyên chuyển', proposer_id || null, proposer_name || '',
-                proposer_position || '', proposer_department || '', detailsJson, note || '', status || 'PENDING'
+                pDate, currentDepartmentId, targetDepartmentId, currentPositionId, targetPositionId,
+                effDate, decision_type || 'Thuyên chuyển', proposer_id || null, proposer_name || '',
+                proposer_position || '', proposer_department || '', detailsJson, description || '', note || '', status || 'PENDING'
             ]
         );
 
@@ -866,7 +885,7 @@ router.post('/transfer-proposals', authorizeRole('Administrator', 'HR Staff'), a
     }
 });
 
-router.put('/transfer-proposals/:id', authorizeRole('Administrator', 'HR Staff'), async (req, res) => {
+router.put('/transfer-proposals/:id', authorizeRole('Administrator', 'HR Staff', 'Trưởng Phòng'), async (req, res) => {
     try {
         const {
             proposal_code,
@@ -878,6 +897,7 @@ router.put('/transfer-proposals/:id', authorizeRole('Administrator', 'HR Staff')
             proposer_position,
             proposer_department,
             detail_items,
+            description,
             note,
             status
         } = req.body;
@@ -894,17 +914,21 @@ router.put('/transfer-proposals/:id', authorizeRole('Administrator', 'HR Staff')
 
         const firstItem = Array.isArray(detail_items) && detail_items.length > 0 ? detail_items[0] : {};
         const firstEmpId = firstItem.employee_id || req.body.employee_id || 'emp-hr-01';
+        const currentDepartmentId = firstItem.current_department_id || req.body.current_department_id || null;
+        const currentPositionId = firstItem.current_position_id || req.body.current_position_id || null;
+        const targetDepartmentId = firstItem.target_department_id || req.body.target_department_id || null;
+        const targetPositionId = firstItem.target_position_id || req.body.target_position_id || null;
 
         await run(
             `UPDATE TransferProposal SET
-         proposal_code = ?, employee_id = ?, proposal_date = ?, proposed_effective_date = ?, decision_type = ?,
-        proposer_id = ?, proposer_name = ?, proposer_position = ?, proposer_department = ?,
-        detail_items = ?, note = ?, status = ?, last_modified_date = ?
-       WHERE proposal_id = ?`,
+         proposal_code = ?, employee_id = ?, proposal_date = ?, current_department_id = ?, target_department_id = ?, current_position_id = ?, target_position_id = ?, proposed_effective_date = ?, decision_type = ?,
+         proposer_id = ?, proposer_name = ?, proposer_position = ?, proposer_department = ?,
+         detail_items = ?, description = ?, note = ?, status = ?, last_modified_date = ?
+        WHERE proposal_id = ?`,
             [
-                proposal_code, firstEmpId, pDate, effDate, decision_type,
+                proposal_code, firstEmpId, pDate, currentDepartmentId, targetDepartmentId, currentPositionId, targetPositionId, effDate, decision_type,
                 proposer_id || null, proposer_name || '', proposer_position || '', proposer_department || '',
-                detailsJson, note || '', status || 'PENDING', now, id
+                detailsJson, description || '', note || '', status || 'PENDING', now, id
             ]
         );
 
@@ -924,7 +948,7 @@ router.put('/transfer-proposals/:id/status', authorizeRole('Administrator', 'HR 
     res.json({ success: true, message: status === 'APPROVED' ? 'Đã phê duyệt đề xuất điều chuyển.' : 'Đã từ chối đề xuất điều chuyển.' });
 });
 
-router.delete('/transfer-proposals/:id', authorizeRole('Administrator', 'HR Staff'), async (req, res) => {
+router.delete('/transfer-proposals/:id', authorizeRole('Administrator', 'HR Staff', 'Trưởng Phòng'), async (req, res) => {
     try {
         await run(`DELETE FROM TransferProposal WHERE proposal_id = ?`, [req.params.id]);
         res.json({ success: true, message: 'Đã xóa Đề xuất Thuyên chuyển thành công!' });
@@ -937,11 +961,16 @@ router.delete('/transfer-proposals/:id', authorizeRole('Administrator', 'HR Staf
 router.get('/transfer-decisions', authorizeRole('Administrator', 'HR Staff', 'Ban Giám Đốc', 'Trưởng Khối', 'Trưởng Phòng'), async (req, res) => {
     const list = await query(
         `SELECT td.*, e.full_name as employee_name, e.employee_code,
-            dept.department_name as target_dept_name, pos.position_name as target_pos_name
+            cdept.department_name as current_dept_name, cpos.position_name as current_pos_name,
+            dept.department_name as target_dept_name, pos.position_name as target_pos_name,
+            m.full_name as manager_name
      FROM TransferDecision td
      JOIN Employee e ON td.employee_id = e.employee_id
+     LEFT JOIN Department cdept ON td.current_department_id = cdept.department_id
+     LEFT JOIN Position cpos ON td.current_position_id = cpos.position_id
      LEFT JOIN Department dept ON td.target_department_id = dept.department_id
      LEFT JOIN Position pos ON td.target_position_id = pos.position_id
+     LEFT JOIN Employee m ON td.manager_id = m.employee_id
      ORDER BY td.created_date DESC`
     );
     res.json({ success: true, data: list });
@@ -950,11 +979,16 @@ router.get('/transfer-decisions', authorizeRole('Administrator', 'HR Staff', 'Ba
 router.get('/transfer-decisions/:id', authorizeRole('Administrator', 'HR Staff', 'Ban Giám Đốc', 'Trưởng Khối', 'Trưởng Phòng'), async (req, res) => {
     const item = await queryOne(
         `SELECT td.*, e.full_name as employee_name, e.employee_code,
-            dept.department_name as target_dept_name, pos.position_name as target_pos_name
+            cdept.department_name as current_dept_name, cpos.position_name as current_pos_name,
+            dept.department_name as target_dept_name, pos.position_name as target_pos_name,
+            m.full_name as manager_name
          FROM TransferDecision td
          JOIN Employee e ON td.employee_id = e.employee_id
+         LEFT JOIN Department cdept ON td.current_department_id = cdept.department_id
+         LEFT JOIN Position cpos ON td.current_position_id = cpos.position_id
          LEFT JOIN Department dept ON td.target_department_id = dept.department_id
          LEFT JOIN Position pos ON td.target_position_id = pos.position_id
+         LEFT JOIN Employee m ON td.manager_id = m.employee_id
          WHERE td.decision_id = ?`,
         [req.params.id]
     );
@@ -978,38 +1012,63 @@ router.post('/transfer-decisions', authorizeRole('Administrator', 'HR Staff'), a
             signed_by,
             description,
             reason,
-            note
+            note,
+            decision_number,
+            creator_position,
+            creator_department,
+            detail_items
         } = req.body;
         const now = Date.now();
         const id = crypto.randomUUID();
-        const decNo = 'QĐ-TCBN/' + new Date().getFullYear() + '/' + Math.floor(100 + Math.random() * 900);
+        const details = Array.isArray(detail_items) ? detail_items : (typeof detail_items === 'string' ? JSON.parse(detail_items || '[]') : []);
+        const firstDetail = details[0] || {};
+        const employeeId = employee_id || firstDetail.employee_id;
+        const employee = await queryOne(`SELECT employee_id, department_id, position_id FROM Employee WHERE employee_id = ?`, [employeeId]);
+        if (!employee) return res.status(400).json({ success: false, message: 'Mã nhân viên không tồn tại.' });
+        const decisionType = decision_type || 'Thuyên chuyển';
+        const targetDepartmentId = target_department_id || firstDetail.target_department_id || null;
+        const targetPositionId = target_position_id || firstDetail.target_position_id || null;
+        if (decisionType !== 'Miễn nhiệm' && (!targetDepartmentId || !targetPositionId)) return res.status(400).json({ success: false, message: 'Thuyên chuyển hoặc bổ nhiệm phải có bộ phận mới và vị trí mới.' });
+        const currentDepartmentId = firstDetail.current_department_id || employee.department_id || null;
+        const currentPositionId = firstDetail.current_position_id || employee.position_id || null;
+        const managerId = manager_id || firstDetail.manager_id || null;
+        const decNo = decision_number && String(decision_number).trim() ? String(decision_number).trim() : 'QĐ-TCBN/' + new Date().getFullYear() + '/' + Math.floor(100 + Math.random() * 900);
         const effDate = effective_date ? (typeof effective_date === 'number' ? effective_date : new Date(effective_date).getTime()) : now;
         const decisionDate = decision_date ? (typeof decision_date === 'number' ? decision_date : new Date(decision_date).getTime()) : now;
+        const detailJson = JSON.stringify([{ ...firstDetail, employee_id: employeeId, current_department_id: currentDepartmentId, current_position_id: currentPositionId, target_department_id: targetDepartmentId, target_position_id: targetPositionId, manager_id: managerId }]);
 
         await run(
-            `INSERT INTO TransferDecision (decision_id, created_date, last_modified_date, decision_number, proposal_id, employee_id, target_department_id, target_position_id, manager_id, decision_date, effective_date, decision_type, creator_id, creator_name, signed_by, description, reason, note, status)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'EXECUTED')`,
-            [id, now, now, decNo, proposal_id || null, employee_id, target_department_id || null, target_position_id || null, manager_id || null, decisionDate, effDate, decision_type || 'Thuyên chuyển', creator_id || req.user.employeeId || null, creator_name || req.user.fullName || '', signed_by || 'Ban Giám Đốc', description || '', reason || '', note || '']
+            `INSERT INTO TransferDecision (decision_id, created_date, last_modified_date, decision_number, proposal_id, employee_id, current_department_id, current_position_id, target_department_id, target_position_id, manager_id, decision_date, effective_date, decision_type, creator_id, creator_name, creator_position, creator_department, signed_by, description, reason, note, detail_items, status)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'EXECUTED')`,
+            [id, now, now, decNo, proposal_id || null, employeeId, currentDepartmentId, currentPositionId, targetDepartmentId, targetPositionId, managerId, decisionDate, effDate, decisionType, creator_id || req.user.employeeId || null, creator_name || req.user.fullName || '', creator_position || '', creator_department || '', signed_by || 'Ban Giám Đốc', description || '', reason || '', note || '', detailJson]
+        );
+
+        await run(
+            `INSERT INTO TransferDecisionDetail (detail_id, decision_id, employee_id, current_department_id, current_position_id, target_department_id, target_position_id, manager_id, note, created_date)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [crypto.randomUUID(), id, employeeId, currentDepartmentId, currentPositionId, targetDepartmentId, targetPositionId, managerId, firstDetail.note || note || '', now]
         );
 
         // Quyết định hoàn thiện đồng bộ bộ phận, vị trí và quản lý trực tiếp vào hồ sơ nhân sự.
-        if (target_department_id || target_position_id || manager_id) {
+        if (targetDepartmentId || targetPositionId || managerId || decisionType === 'Miễn nhiệm') {
             const updates = [];
             const params = [];
-            if (target_department_id) { updates.push('department_id = ?'); params.push(target_department_id); }
-            if (target_position_id) { updates.push('position_id = ?'); params.push(target_position_id); }
-            if (manager_id) { updates.push('manager_id = ?'); params.push(manager_id); }
+            if (targetDepartmentId) { updates.push('department_id = ?'); params.push(targetDepartmentId); }
+            if (targetPositionId) { updates.push('position_id = ?'); params.push(targetPositionId); }
+            else if (decisionType === 'Miễn nhiệm') updates.push('position_id = NULL');
+            if (managerId) { updates.push('manager_id = ?'); params.push(managerId); }
+            else if (decisionType === 'Miễn nhiệm') updates.push('manager_id = NULL');
             updates.push('last_modified_date = ?'); params.push(now);
             params.push(employee_id);
 
-            await run(`UPDATE Employee SET ${updates.join(', ')} WHERE employee_id = ?`, params);
+            await run(`UPDATE Employee SET ${updates.join(', ')} WHERE employee_id = ?`, [...params.slice(0, -1), employeeId]);
         }
 
         if (proposal_id) {
             await run(`UPDATE TransferProposal SET status = 'APPROVED' WHERE proposal_id = ?`, [proposal_id]);
         }
 
-        res.json({ success: true, message: 'Ban hành Quyết định Thuyên chuyển/Bổ nhiệm & đã cập nhật sơ đồ nhân sự!' });
+        res.json({ success: true, data: { decision_id: id, decision_number: decNo }, message: 'Ban hành Quyết định Thuyên chuyển/Bổ nhiệm/Miễn nhiệm và đã cập nhật hồ sơ nhân sự!' });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }

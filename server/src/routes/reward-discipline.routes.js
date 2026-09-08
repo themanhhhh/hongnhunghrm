@@ -155,8 +155,8 @@ router.get('/evaluations', rewardReaders, async (req, res) => {
        FROM EmployeeEvaluation ev
        JOIN Employee emp ON ev.employee_id = emp.employee_id
        JOIN Employee eval ON ev.evaluator_id = eval.employee_id
-       LEFT JOIN Department d ON emp.department_id = d.department_id
-       LEFT JOIN Position p ON emp.position_id = p.position_id
+       LEFT JOIN Department d ON ev.department_id = d.department_id
+       LEFT JOIN Position p ON ev.position_id = p.position_id
        ORDER BY ev.evaluation_date DESC`
         );
 
@@ -174,8 +174,9 @@ router.get('/evaluations', rewardReaders, async (req, res) => {
 
 router.post('/evaluations', authorizeRole('Administrator', 'HR Staff'), async (req, res) => {
     try {
-        const { evaluation_date, year, evaluator_id, employee_id, description, details } = req.body;
+        const { evaluation_date, evaluation_quarter, year, evaluator_id, employee_id, description, details } = req.body;
         if (!employee_id || !evaluator_id) return res.status(400).json({ success: false, message: 'Nhân viên và người đánh giá là bắt buộc.' });
+        if (![1, 2, 3, 4].includes(Number(evaluation_quarter))) return res.status(400).json({ success: false, message: 'Kỳ đánh giá phải là Quý I, Quý II, Quý III hoặc Quý IV.' });
         const calculation = calculateEvaluation(details);
         const now = Date.now();
         const id = crypto.randomUUID();
@@ -189,9 +190,9 @@ router.post('/evaluations', authorizeRole('Administrator', 'HR Staff'), async (r
         if (!evaluator) return res.status(404).json({ success: false, message: 'Không tìm thấy người đánh giá.' });
 
         await run(
-            `INSERT INTO EmployeeEvaluation (evaluation_id, created_date, last_modified_date, evaluation_code, evaluation_date, year, evaluator_id, employee_id, department_id, position_id, total_score, grade_result, description, status)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'COMPLETED')`,
-            [id, now, now, code, evalDate, year || new Date().getFullYear(), evaluator_id, employee_id, emp?.department_id || null, emp?.position_id || null, calculation.totalScore, calculation.gradeResult, description || '']
+            `INSERT INTO EmployeeEvaluation (evaluation_id, created_date, last_modified_date, evaluation_code, evaluation_date, evaluation_quarter, year, evaluator_id, employee_id, department_id, position_id, total_score, grade_result, description, status)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'COMPLETED')`,
+            [id, now, now, code, evalDate, Number(evaluation_quarter), year || new Date().getFullYear(), evaluator_id, employee_id, emp?.department_id || null, emp?.position_id || null, calculation.totalScore, calculation.gradeResult, description || '']
         );
 
         // Insert Evaluation Details
@@ -304,12 +305,13 @@ router.put('/criteria/:id', authorizeRole('Administrator', 'HR Staff'), async (r
 
 router.put('/evaluations/:id', authorizeRole('Administrator', 'HR Staff'), async (req, res) => {
     try {
-        const { evaluation_date, year, evaluator_id, employee_id, description, details } = req.body;
+        const { evaluation_date, evaluation_quarter, year, evaluator_id, employee_id, description, details } = req.body;
         const calculation = calculateEvaluation(details);
+        if (![1, 2, 3, 4].includes(Number(evaluation_quarter))) return res.status(400).json({ success: false, message: 'Kỳ đánh giá phải là Quý I, Quý II, Quý III hoặc Quý IV.' });
         const emp = await queryOne(`SELECT department_id, position_id FROM Employee WHERE employee_id = ?`, [employee_id]);
         if (!emp) return res.status(404).json({ success: false, message: 'Không tìm thấy nhân viên được đánh giá.' });
         const now = Date.now();
-        await run(`UPDATE EmployeeEvaluation SET last_modified_date = ?, evaluation_date = ?, year = ?, evaluator_id = ?, employee_id = ?, department_id = ?, position_id = ?, total_score = ?, grade_result = ?, description = ? WHERE evaluation_id = ?`, [now, toTimestamp(evaluation_date, now), year || new Date().getFullYear(), evaluator_id, employee_id, emp.department_id || null, emp.position_id || null, calculation.totalScore, calculation.gradeResult, description || '', req.params.id]);
+        await run(`UPDATE EmployeeEvaluation SET last_modified_date = ?, evaluation_date = ?, evaluation_quarter = ?, year = ?, evaluator_id = ?, employee_id = ?, department_id = ?, position_id = ?, total_score = ?, grade_result = ?, description = ? WHERE evaluation_id = ?`, [now, toTimestamp(evaluation_date, now), Number(evaluation_quarter), year || new Date().getFullYear(), evaluator_id, employee_id, emp.department_id || null, emp.position_id || null, calculation.totalScore, calculation.gradeResult, description || '', req.params.id]);
         await run(`DELETE FROM EmployeeEvaluationDetail WHERE evaluation_id = ?`, [req.params.id]);
         for (const detail of calculation.normalized) {
             await run(`INSERT INTO EmployeeEvaluationDetail (detail_id, evaluation_id, criteria_id, criteria_code, criteria_name, weight, score, note) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`, [crypto.randomUUID(), req.params.id, detail.criteria_id, detail.criteria_code || '', detail.criteria_name || '', detail.weight, detail.score, detail.note || '']);
@@ -364,7 +366,7 @@ router.get('/criteria/:id', rewardReaders, async (req, res) => {
 });
 
 router.get('/evaluations/:id', rewardReaders, async (req, res) => {
-    const evaluation = await queryOne(`SELECT ev.*, emp.full_name as employee_name, eval.full_name as evaluator_name FROM EmployeeEvaluation ev JOIN Employee emp ON ev.employee_id = emp.employee_id JOIN Employee eval ON ev.evaluator_id = eval.employee_id WHERE ev.evaluation_id = ?`, [req.params.id]);
+    const evaluation = await queryOne(`SELECT ev.*, emp.full_name as employee_name, eval.full_name as evaluator_name, d.department_name, p.position_name FROM EmployeeEvaluation ev JOIN Employee emp ON ev.employee_id = emp.employee_id JOIN Employee eval ON ev.evaluator_id = eval.employee_id LEFT JOIN Department d ON ev.department_id = d.department_id LEFT JOIN Position p ON ev.position_id = p.position_id WHERE ev.evaluation_id = ?`, [req.params.id]);
     if (!evaluation) return res.status(404).json({ success: false, message: 'Không tìm thấy phiếu đánh giá.' });
     evaluation.details = await query(`SELECT * FROM EmployeeEvaluationDetail WHERE evaluation_id = ?`, [req.params.id]);
     res.json({ success: true, data: [evaluation] });

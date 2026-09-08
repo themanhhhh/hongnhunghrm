@@ -514,6 +514,8 @@ const tableDefinitions = {
         [decision_number] NVARCHAR(50) NOT NULL,
         [proposal_id] NVARCHAR(36),
         [employee_id] NVARCHAR(36) NOT NULL,
+        [current_department_id] NVARCHAR(36),
+        [current_position_id] NVARCHAR(36),
         [target_department_id] NVARCHAR(36),
         [target_position_id] NVARCHAR(36),
         [manager_id] NVARCHAR(36),
@@ -522,10 +524,13 @@ const tableDefinitions = {
         [decision_type] NVARCHAR(50),
         [creator_id] NVARCHAR(36),
         [creator_name] NVARCHAR(100),
+        [creator_position] NVARCHAR(100),
+        [creator_department] NVARCHAR(100),
         [signed_by] NVARCHAR(100),
         [description] NVARCHAR(500),
         [reason] NVARCHAR(255),
         [note] NVARCHAR(500),
+        [detail_items] NVARCHAR(MAX),
         [status] NVARCHAR(30) NOT NULL DEFAULT 'EXECUTED'`,
     TransferProposalDetail: `
         [detail_id] NVARCHAR(36) NOT NULL,
@@ -707,7 +712,7 @@ const foreignKeys = [
     ['TransferProposal', 'current_department_id', 'Department', 'department_id', 'NO ACTION'], ['TransferProposal', 'target_department_id', 'Department', 'department_id', 'SET NULL'],
     ['TransferProposal', 'current_position_id', 'Position', 'position_id', 'NO ACTION'], ['TransferProposal', 'target_position_id', 'Position', 'position_id', 'SET NULL'],
     ['TransferProposal', 'proposer_id', 'Employee', 'employee_id', 'NO ACTION'], ['TransferDecision', 'proposal_id', 'TransferProposal', 'proposal_id', 'NO ACTION'],
-    ['TransferDecision', 'employee_id', 'Employee', 'employee_id', 'CASCADE'], ['TransferDecision', 'target_department_id', 'Department', 'department_id', 'SET NULL'],
+    ['TransferDecision', 'employee_id', 'Employee', 'employee_id', 'CASCADE'], ['TransferDecision', 'current_department_id', 'Department', 'department_id', 'NO ACTION'], ['TransferDecision', 'current_position_id', 'Position', 'position_id', 'NO ACTION'], ['TransferDecision', 'target_department_id', 'Department', 'department_id', 'SET NULL'],
     ['TransferDecision', 'target_position_id', 'Position', 'position_id', 'SET NULL'], ['TransferDecision', 'manager_id', 'Employee', 'employee_id', 'NO ACTION'], ['TransferDecision', 'creator_id', 'Employee', 'employee_id', 'NO ACTION'], ['TransferProposalDetail', 'proposal_id', 'TransferProposal', 'proposal_id', 'CASCADE'], ['TransferProposalDetail', 'employee_id', 'Employee', 'employee_id', 'NO ACTION'], ['TransferProposalDetail', 'current_department_id', 'Department', 'department_id', 'NO ACTION'], ['TransferProposalDetail', 'current_position_id', 'Position', 'position_id', 'NO ACTION'], ['TransferProposalDetail', 'target_department_id', 'Department', 'department_id', 'NO ACTION'], ['TransferProposalDetail', 'target_position_id', 'Position', 'position_id', 'NO ACTION'], ['TransferProposalDetail', 'manager_id', 'Employee', 'employee_id', 'NO ACTION'], ['TransferDecisionDetail', 'decision_id', 'TransferDecision', 'decision_id', 'CASCADE'], ['TransferDecisionDetail', 'employee_id', 'Employee', 'employee_id', 'NO ACTION'], ['TransferDecisionDetail', 'current_department_id', 'Department', 'department_id', 'NO ACTION'], ['TransferDecisionDetail', 'current_position_id', 'Position', 'position_id', 'NO ACTION'], ['TransferDecisionDetail', 'target_department_id', 'Department', 'department_id', 'NO ACTION'], ['TransferDecisionDetail', 'target_position_id', 'Position', 'position_id', 'NO ACTION'], ['TransferDecisionDetail', 'manager_id', 'Employee', 'employee_id', 'NO ACTION'], ['ResignationApplication', 'employee_id', 'Employee', 'employee_id', 'CASCADE'],
     ['ResignationDecision', 'application_id', 'ResignationApplication', 'application_id', 'NO ACTION'], ['ResignationDecision', 'employee_id', 'Employee', 'employee_id', 'CASCADE'],
     ['EvaluationScale', 'criteria_id', 'EvaluationCriteria', 'criteria_id', 'CASCADE'], ['EmployeeEvaluation', 'evaluator_id', 'Employee', 'employee_id'],
@@ -751,7 +756,7 @@ const columnsToEnsure = [
     ['DepartmentQuota', 'budget_details', 'NVARCHAR(MAX)'], ['TransferProposal', 'proposal_date', 'BIGINT'], ['TransferProposal', 'decision_type', 'NVARCHAR(50)'],
     ['TransferProposal', 'proposer_id', 'NVARCHAR(36)'], ['TransferProposal', 'proposer_name', 'NVARCHAR(100)'], ['TransferProposal', 'proposer_position', 'NVARCHAR(100)'],
     ['TransferProposal', 'proposer_department', 'NVARCHAR(100)'], ['TransferProposal', 'detail_items', 'NVARCHAR(MAX)'], ['TransferProposal', 'description', 'NVARCHAR(500)'], ['TransferProposal', 'note', 'NVARCHAR(255)'],
-    ['TransferDecision', 'manager_id', 'NVARCHAR(36)'], ['TransferDecision', 'decision_date', 'BIGINT'], ['TransferDecision', 'decision_type', 'NVARCHAR(50)'], ['TransferDecision', 'creator_id', 'NVARCHAR(36)'], ['TransferDecision', 'creator_name', 'NVARCHAR(100)'], ['TransferDecision', 'description', 'NVARCHAR(500)'], ['TransferDecision', 'note', 'NVARCHAR(500)']
+    ['TransferDecision', 'manager_id', 'NVARCHAR(36)'], ['TransferDecision', 'current_department_id', 'NVARCHAR(36)'], ['TransferDecision', 'current_position_id', 'NVARCHAR(36)'], ['TransferDecision', 'decision_date', 'BIGINT'], ['TransferDecision', 'decision_type', 'NVARCHAR(50)'], ['TransferDecision', 'creator_id', 'NVARCHAR(36)'], ['TransferDecision', 'creator_name', 'NVARCHAR(100)'], ['TransferDecision', 'creator_position', 'NVARCHAR(100)'], ['TransferDecision', 'creator_department', 'NVARCHAR(100)'], ['TransferDecision', 'description', 'NVARCHAR(500)'], ['TransferDecision', 'note', 'NVARCHAR(500)'], ['TransferDecision', 'detail_items', 'NVARCHAR(MAX)']
 ];
 
 async function tableExists(tableName) {

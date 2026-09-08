@@ -8,6 +8,7 @@ const MOCK_STORE_KEY = "bravo_next_mock_store";
 const idFields: Record<string, string> = {
   "/admin/departments": "department_id",
   "/admin/positions": "position_id",
+  "/admin/contract-types": "contract_type_id",
   "/hr/employees": "employee_id",
   "/hr/quotas": "quota_id",
   "/hr/contracts": "contract_id",
@@ -44,6 +45,10 @@ const initialStore: MockStore = {
     { position_id: "pos-hr-emp", position_code: "PHR_EMP", position_name: "Nhân viên Nhân sự", department_id: "dept-hr", department_name: "Phòng Nhân sự", target_headcount: 5, description: "Tuyển dụng và C&B" },
     { position_id: "pos-kd-emp", position_code: "PKD_EMP", position_name: "Nhân viên Kinh doanh", department_id: "dept-kd", department_name: "Phòng Kinh doanh", target_headcount: 17, description: "Tư vấn giải pháp ERP" },
     { position_id: "pos-cloud-emp", position_code: "CLOUD_EMP", position_name: "Kỹ sư Cloud và Hạ tầng", department_id: "dept-cloud", department_name: "Phòng Cloud và Hạ tầng", target_headcount: 7, description: "Vận hành hạ tầng" },
+  ],
+  "/admin/contract-types": [
+    { contract_type_id: "contract-type-demo-01", contract_type_code: "HDXD-12T", contract_type_name: "HĐLĐ xác định thời hạn 12 tháng", duration_months: 12, has_probation: 0, probation_days: 0, status: 1 },
+    { contract_type_id: "contract-type-demo-02", contract_type_code: "HDTV", contract_type_name: "Hợp đồng thử việc", duration_months: 2, has_probation: 1, probation_days: 60, status: 1 },
   ],
   "/hr/employees": [
     { employee_id: "emp-hr-02", employee_code: "NV-2024-005", full_name: "Nguyễn Thùy Linh", department_id: "dept-hr", department_name: "Phòng Nhân sự", position_id: "pos-hr-emp", position_name: "Nhân viên Nhân sự", level: "Nhân viên", join_date: "2024-03-15", employment_status: "WORKING", email: "linh.nt@example.test", phone: "0966123456" },
@@ -94,7 +99,7 @@ const initialStore: MockStore = {
     { pre_screening_id: "screen-demo-01", candidate_id: "cand-demo-01", screening_code: "SL/2026-001", candidate_name: "Lê Bảo Trâm", position_name: "Kỹ sư Cloud và Hạ tầng", level_score: 8, screening_result: "ĐẠT", screening_date: "2026-09-02" },
   ],
   "/recruitment/interview-schedules": [
-    { schedule_id: "schedule-demo-01", schedule_code: "PV/2026-012", round_type: "Vòng phỏng vấn", format_type: "Online", start_time: "2026-09-10T09:00", location: "Microsoft Teams", status: "Đã lên lịch" },
+    { schedule_id: "schedule-demo-01", schedule_code: "PV/2026-012", round_type: "Vòng phỏng vấn", format_type: "Online", start_time: "2026-09-10T09:00", location: "Microsoft Teams", candidates: [{ candidate_id: "cand-demo-02", note: "" }], council: [{ employee_id: "emp-hr-02", is_decision_maker: 1 }, { employee_id: "emp-kd-01", is_decision_maker: 0 }], status: "Đã lên lịch" },
   ],
   "/recruitment/interview-evaluations": [
     {
@@ -102,6 +107,7 @@ const initialStore: MockStore = {
       eval_code: "DGPV/2026-001",
       evaluation_date: "2026-09-03",
       schedule_id: "schedule-demo-01",
+      evaluator_id: "emp-hr-02",
       candidate_id: "cand-demo-02",
       candidate_name: "Vũ Minh Khôi",
       schedule_code: "PV/2026-011",
@@ -137,11 +143,12 @@ const initialStore: MockStore = {
     { decision_id: "decision-demo-01", decision_number: "QDTD/2026-001", candidate_id: "cand-demo-02", candidate_name: "Vũ Minh Khôi", decision_date: "2026-09-05", result: "ĐẠT", status: "COMPLETED" },
   ],
   "/recruitment/offers": [
-    { offer_id: "offer-demo-01", candidate_code: "UV-2026-002", candidate_name: "Vũ Minh Khôi", offer_date: "2026-09-03", expected_start_date: "2026-09-15", salary_offer: 18000000, offer_status: "Đã chấp nhận" },
+    { offer_id: "offer-demo-01", candidate_id: "cand-demo-02", candidate_code: "UV-2026-002", candidate_name: "Vũ Minh Khôi", offer_date: "2026-09-03", expected_start_date: "2026-09-15", probation_salary: 15000000, official_salary: 18000000, salary_offer: 18000000, offer_status: "Đã chấp nhận", note: "" },
   ],
   "/hr/contracts": [
     { contract_id: "contract-demo-01", contract_no: "HDLD/2026/001", employee_id: "emp-hr-02", employee_name: "Nguyễn Thùy Linh", contract_type: "HĐLĐ Xác định thời hạn 12 tháng", start_date: "2026-01-15", end_date: "2027-01-14", status: "ACTIVE" },
   ],
+  "/hr/contract-appendices": [],
   "/hr/expiring-contracts": [
     { contract_id: "contract-demo-01", contract_no: "HDLD/2026/001", employee_name: "Nguyễn Thùy Linh", department_name: "Phòng Nhân sự", end_date: "2027-01-14", contract_type: "HĐLĐ Xác định thời hạn 12 tháng", status: "ACTIVE" },
   ],
@@ -156,10 +163,10 @@ const initialStore: MockStore = {
     { leave_id: "leave-demo-02", leave_code: "DXNP/2026-002", employee_id: "emp-hr-02", employee_name: "Nguyễn Thùy Linh", start_date: "2026-08-29", end_date: "2026-08-29", total_days: 0.5, status: "APPROVED", reason: "Khám sức khỏe" },
   ],
   "/hr/transfer-proposals": [
-    { proposal_id: "transfer-demo-01", proposal_code: "DXDC/2026-001", employee_name: "Đặng Việt Dũng", decision_type: "Thuyên chuyển", effective_date: "2026-10-01", status: "PENDING" },
+    { proposal_id: "transfer-demo-01", proposal_code: "DXDC/2026-001", employee_id: "emp-cloud-04", employee_name: "Đặng Việt Dũng", current_department_id: "dept-cloud", current_dept_name: "Phòng Cloud và Hạ tầng", current_position_id: "pos-cloud-emp", current_pos_name: "Kỹ sư Cloud và Hạ tầng", target_department_id: "dept-kd", target_dept_name: "Phòng Kinh doanh", target_position_id: "pos-kd-emp", target_pos_name: "Nhân viên Kinh doanh", proposal_date: "2026-09-01", effective_date: "2026-10-01", decision_type: "Thuyên chuyển", proposer_id: "emp-hr-02", proposer_name: "Nguyễn Thùy Linh", proposer_position: "Nhân viên Nhân sự", proposer_department: "Phòng Nhân sự", detail_items: [{ employee_id: "emp-cloud-04", employee_name: "Đặng Việt Dũng", current_department_id: "dept-cloud", current_position_id: "pos-cloud-emp", target_department_id: "dept-kd", target_position_id: "pos-kd-emp", note: "" }], description: "Bổ sung nhân sự kinh doanh theo kế hoạch.", status: "PENDING" },
   ],
   "/hr/transfer-decisions": [
-    { decision_id: "transfer-decision-demo-01", decision_number: "QDDC/2026-001", employee_name: "Đặng Việt Dũng", target_dept_name: "Phòng Cloud và Hạ tầng", target_pos_name: "Kỹ sư Cloud và Hạ tầng", effective_date: "2026-10-01", status: "DRAFT" },
+    { decision_id: "transfer-decision-demo-01", decision_number: "QĐ-TCBN/2026/001", proposal_id: "transfer-demo-01", employee_id: "emp-cloud-04", employee_name: "Đặng Việt Dũng", current_department_id: "dept-cloud", current_dept_name: "Phòng Cloud và Hạ tầng", current_position_id: "pos-cloud-emp", current_pos_name: "Kỹ sư Cloud và Hạ tầng", target_department_id: "dept-kd", target_dept_name: "Phòng Kinh doanh", target_position_id: "pos-kd-emp", target_pos_name: "Nhân viên Kinh doanh", manager_id: "emp-kd-01", manager_name: "Phạm Quốc Tuấn", decision_date: "2026-09-05", effective_date: "2026-10-01", decision_type: "Thuyên chuyển", creator_id: "emp-hr-02", creator_name: "Nguyễn Thùy Linh", creator_position: "Trưởng nhóm Tuyển dụng", creator_department: "Phòng Nhân sự", detail_items: [{ employee_id: "emp-cloud-04", current_department_id: "dept-cloud", current_position_id: "pos-cloud-emp", target_department_id: "dept-kd", target_position_id: "pos-kd-emp", manager_id: "emp-kd-01", note: "" }], description: "Điều chuyển theo nhu cầu tổ chức.", status: "EXECUTED" },
   ],
   "/hr/resignation-applications": [
     { application_id: "resign-demo-01", application_code: "DXNV/2026-001", employee_name: "Đặng Việt Dũng", desired_resign_date: "2026-10-15", reason: "Thay đổi định hướng cá nhân", status: "PENDING" },
@@ -175,7 +182,7 @@ const initialStore: MockStore = {
     { criteria_id: "criteria-demo-02", criteria_code: "TEAMWORK", criteria_name: "Phối hợp đội nhóm", weight: 20, description: "Tinh thần hợp tác và hỗ trợ đồng đội" },
   ],
   "/reward-discipline/evaluations": [
-    { evaluation_id: "evaluation-demo-01", evaluation_code: "DG/2026-001", employee_name: "Nguyễn Thùy Linh", evaluator_name: "Trần Thị Thu Hà", year: 2026, total_score: 9.2, grade_result: "Loại A - Xuất sắc" },
+    { evaluation_id: "evaluation-demo-01", evaluation_code: "DG/2026-001", evaluation_date: "2026-09-05", evaluation_quarter: 3, year: 2026, evaluator_id: "emp-hr-01", evaluator_name: "Trần Thị Thu Hà", employee_id: "emp-hr-02", employee_name: "Nguyễn Thùy Linh", department_id: "dept-hr", department_name: "Phòng Nhân sự", position_id: "pos-hr-emp", position_name: "Nhân viên Nhân sự", details: [{ criteria_id: "criteria-demo-01", criteria_code: "KPI", criteria_name: "Hoàn thành chỉ tiêu công việc", weight: 40, score: 9, note: "Vượt chỉ tiêu quý." }, { criteria_id: "criteria-demo-02", criteria_code: "TEAMWORK", criteria_name: "Phối hợp đội nhóm", weight: 20, score: 9.5, note: "" }], total_score: 9.17, grade_result: "Loại A (Giỏi)", description: "Đánh giá kết quả công việc Quý III." },
   ],
   "/reward-discipline/proposals": [
     { proposal_id: "reward-proposal-demo-01", proposal_code: "DXKT/2026-001", record_type: "KHEN_THUONG", employee_name: "Nguyễn Thùy Linh", proposed_amount: 5000000, reason: "Hoàn thành vượt chỉ tiêu tuyển dụng Quý III", status: "PENDING" },
@@ -212,6 +219,17 @@ function saveStore(store: MockStore) {
   if (typeof window !== "undefined") window.localStorage.setItem(MOCK_STORE_KEY, JSON.stringify(store));
 }
 
+export function mockUploadEmployeeAvatar(employeeId: string, file: File) {
+  const store = loadStore();
+  const employee = store["/hr/employees"].find((item) => String(item.employee_id) === employeeId);
+  const avatarUrl = URL.createObjectURL(file);
+  if (employee) {
+    employee.avatar_url = avatarUrl;
+    saveStore(store);
+  }
+  return { avatarUrl };
+}
+
 function mockReportResult(reportId: string, filters: Record<string, string>) {
   const definition = reportDefinitions.find((item) => item.id === reportId);
   if (!definition) return { success: false, message: "Không tìm thấy mẫu báo cáo." };
@@ -244,6 +262,14 @@ function payloadFor(init: RequestInit): MockRow {
   } catch {
     return {};
   }
+}
+
+function parseDetailList(value: unknown): MockRow[] {
+  if (Array.isArray(value)) return value.filter((item): item is MockRow => Boolean(item && typeof item === "object"));
+  if (typeof value === "string") {
+    try { return parseDetailList(JSON.parse(value)); } catch { return []; }
+  }
+  return [];
 }
 
 function envelope(data: unknown) {
@@ -302,12 +328,25 @@ export async function mockApiRequest<T>(path: string, init: RequestInit = {}): P
   }
 
   const store = loadStore();
+  const method = init.method ?? "GET";
+  const appendixMatch = path.match(/^\/hr\/contracts\/([^/]+)\/appendices(?:\/([^/]+))?$/);
+  if (appendixMatch) {
+    const contractId = appendixMatch[1];
+    const appendices = store["/hr/contract-appendices"] ?? [];
+    if (method === "GET") return envelope(appendices.filter((item) => String(item.contract_id) === contractId)) as T;
+    if (method === "POST") {
+      const appendix = { ...payloadFor(init), appendix_id: `mock-appendix-${Date.now()}`, contract_id: contractId, status: "ACTIVE" };
+      appendices.unshift(appendix);
+      store["/hr/contract-appendices"] = appendices;
+      saveStore(store);
+      return envelope(appendix) as T;
+    }
+  }
   const route = routeFor(path);
   const idField = idFields[route];
   const segments = path.slice(route.length).split("/").filter(Boolean);
   const id = segments[0];
   const action = segments[1];
-  const method = init.method ?? "GET";
   const rows = store[route] ?? [];
 
   if (path === "/hr/employees/me" && method === "GET") {
@@ -418,6 +457,164 @@ export async function mockApiRequest<T>(path: string, init: RequestInit = {}): P
     return envelope(nextRow) as T;
   }
 
+  if (route === "/recruitment/interview-evaluations" && (method === "POST" || method === "PUT")) {
+    const candidate = store["/recruitment/candidates"].find((item) => String(item.candidate_id) === String(payload.candidate_id));
+    const schedule = store["/recruitment/interview-schedules"].find((item) => String(item.schedule_id) === String(payload.schedule_id));
+    if (!candidate || !schedule) return failure("Lịch phỏng vấn hoặc ứng viên không tồn tại.") as T;
+    const scheduleCandidates = parseDetailList(schedule.candidates ?? schedule.candidates_json);
+    if (!scheduleCandidates.some((item) => String(item.candidate_id ?? item.id ?? "") === String(payload.candidate_id))) return failure("Ứng viên không thuộc lịch phỏng vấn đã chọn.") as T;
+    const evaluation = method === "PUT" ? rows.find((item) => String(item[idField]) === id) : undefined;
+    if (method === "PUT" && !evaluation) return failure("Không tìm thấy Phiếu Đánh giá phỏng vấn.") as T;
+    const nextRow = {
+      ...(evaluation ?? {}),
+      ...payload,
+      [idField]: String(evaluation?.[idField] ?? payload[idField] ?? `mock-evaluation-${Date.now()}`),
+      eval_code: String(evaluation?.eval_code ?? `PDGPV/${new Date().getFullYear().toString().slice(-2)}-${String(rows.length + 1).padStart(3, "0")}`),
+      candidate_name: candidate.full_name,
+      candidate_code: candidate.candidate_code,
+      schedule_code: schedule.schedule_code,
+      evaluator_name: store["/hr/employees"].find((item) => String(item.employee_id) === String(payload.evaluator_id))?.full_name,
+    };
+    if (method === "POST") rows.unshift(nextRow);
+    else rows[rows.findIndex((item) => String(item[idField]) === id)] = nextRow;
+    candidate.status = String(payload.overall_result ?? "").trim().toUpperCase() === "ĐẠT" ? "Đã phỏng vấn, Đạt" : "Đã phỏng vấn, Không đạt";
+    if (payload.offer && typeof payload.offer === "object" && !Array.isArray(payload.offer)) {
+      const offer = payload.offer as MockRow;
+      const existingOffer = store["/recruitment/offers"].find((item) => String(item.candidate_id) === String(payload.candidate_id));
+      if (existingOffer) Object.assign(existingOffer, offer);
+      else store["/recruitment/offers"].unshift({ offer_id: `mock-offer-${Date.now()}`, candidate_id: payload.candidate_id, candidate_code: candidate.candidate_code, candidate_name: candidate.full_name, ...offer });
+    }
+    store[route] = rows;
+    saveStore(store);
+    return envelope(nextRow) as T;
+  }
+
+  if (route === "/recruitment/decisions" && method === "POST") {
+    const candidate = store["/recruitment/candidates"].find((item) => String(item.candidate_id) === String(payload.candidate_id));
+    const evaluation = store["/recruitment/interview-evaluations"].find((item) => String(item.interview_eval_id) === String(payload.interview_eval_id) && String(item.candidate_id) === String(payload.candidate_id));
+    const result = String(payload.result ?? "").trim().toUpperCase();
+    if (!candidate) return failure("Không tìm thấy thông tin ứng viên.") as T;
+    if (!evaluation) return failure("Quyết định phải dựa trên Phiếu Đánh giá phỏng vấn của ứng viên.") as T;
+    const evaluationPassed = ["ĐẠT", "PASSED"].includes(String(evaluation.overall_result ?? "").trim().toUpperCase());
+    if (evaluationPassed !== (result === "ĐẠT")) return failure("Kết quả quyết định phải khớp với Đánh giá chung của Phiếu Đánh giá phỏng vấn.") as T;
+    if (result === "KHÔNG ĐẠT" && !String(payload.rejection_reason ?? "").trim()) return failure("Phải nhập lý do bị loại khi quyết định Không đạt.") as T;
+    if (rows.some((item) => String(item.candidate_id) === String(payload.candidate_id) && item.status !== "CANCELLED")) return failure("Ứng viên này đã có quyết định tuyển dụng.") as T;
+    const nextRow = { ...payload, [idField]: `mock-decision-${Date.now()}`, decision_number: String(payload.decision_number ?? `QDTD/${new Date().getFullYear().toString().slice(-2)}-${String(rows.length + 1).padStart(4, "0")}`), candidate_name: candidate.full_name, candidate_code: candidate.candidate_code, eval_code: evaluation.eval_code, status: "COMPLETED" };
+    rows.unshift(nextRow);
+    candidate.status = result === "ĐẠT" ? "S5: Trúng tuyển" : "S7: Loại";
+    store[route] = rows;
+    saveStore(store);
+    return envelope(nextRow) as T;
+  }
+
+  if (route === "/hr/transfer-proposals" && (method === "POST" || method === "PUT")) {
+    const details = parseDetailList(payload.detail_items);
+    const detail = details[0] ?? {};
+    const employee = store["/hr/employees"].find((item) => String(item.employee_id) === String(detail.employee_id ?? payload.employee_id));
+    if (!employee) return failure("Không tìm thấy nhân viên cần điều chuyển.") as T;
+    const currentDepartment = store["/admin/departments"].find((item) => String(item.department_id) === String(detail.current_department_id ?? employee.department_id));
+    const targetDepartment = store["/admin/departments"].find((item) => String(item.department_id) === String(detail.target_department_id));
+    const currentPosition = store["/admin/positions"].find((item) => String(item.position_id) === String(detail.current_position_id ?? employee.position_id));
+    const targetPosition = store["/admin/positions"].find((item) => String(item.position_id) === String(detail.target_position_id));
+    const existing = method === "PUT" ? rows.find((item) => String(item[idField]) === id) : undefined;
+    if (method === "PUT" && !existing) return failure("Không tìm thấy đề xuất điều chuyển.") as T;
+    const nextRow = {
+      ...(existing ?? {}),
+      ...payload,
+      [idField]: String(existing?.[idField] ?? payload[idField] ?? `mock-transfer-${Date.now()}`),
+      employee_id: employee.employee_id,
+      employee_name: employee.full_name,
+      current_department_id: detail.current_department_id ?? employee.department_id,
+      current_dept_name: currentDepartment?.department_name,
+      current_position_id: detail.current_position_id ?? employee.position_id,
+      current_pos_name: currentPosition?.position_name,
+      target_department_id: detail.target_department_id,
+      target_dept_name: targetDepartment?.department_name,
+      target_position_id: detail.target_position_id,
+      target_pos_name: targetPosition?.position_name,
+      detail_items: details,
+      effective_date: payload.effective_date ?? payload.proposed_effective_date,
+    };
+    if (method === "POST") rows.unshift(nextRow);
+    else rows[rows.findIndex((item) => String(item[idField]) === id)] = nextRow;
+    store[route] = rows;
+    saveStore(store);
+    return envelope(nextRow) as T;
+  }
+
+  if (route === "/hr/transfer-decisions" && method === "POST") {
+    const details = parseDetailList(payload.detail_items);
+    const detail = details[0] ?? {};
+    const employee = store["/hr/employees"].find((item) => String(item.employee_id) === String(payload.employee_id ?? detail.employee_id));
+    if (!employee) return failure("Mã nhân viên không tồn tại.") as T;
+    const decisionType = String(payload.decision_type ?? "Thuyên chuyển");
+    const targetDepartmentId = String(payload.target_department_id ?? detail.target_department_id ?? "");
+    const targetPositionId = String(payload.target_position_id ?? detail.target_position_id ?? "");
+    if (decisionType !== "Miễn nhiệm" && (!targetDepartmentId || !targetPositionId)) return failure("Thuyên chuyển hoặc bổ nhiệm phải có bộ phận mới và vị trí mới.") as T;
+    const managerId = String(payload.manager_id ?? detail.manager_id ?? "");
+    const decision = {
+      ...payload,
+      decision_id: `mock-transfer-decision-${Date.now()}`,
+      decision_number: String(payload.decision_number ?? `QĐ-TCBN/${new Date().getFullYear()}/${String(rows.length + 1).padStart(3, "0")}`),
+      employee_id: employee.employee_id,
+      employee_name: employee.full_name,
+      current_department_id: employee.department_id,
+      current_dept_name: employee.department_name,
+      current_position_id: employee.position_id,
+      current_pos_name: employee.position_name,
+      target_department_id: targetDepartmentId || undefined,
+      target_dept_name: store["/admin/departments"].find((item) => String(item.department_id) === targetDepartmentId)?.department_name,
+      target_position_id: targetPositionId || undefined,
+      target_pos_name: store["/admin/positions"].find((item) => String(item.position_id) === targetPositionId)?.position_name,
+      manager_id: managerId || undefined,
+      manager_name: store["/hr/employees"].find((item) => String(item.employee_id) === managerId)?.full_name,
+      detail_items: [{ ...detail, employee_id: employee.employee_id, current_department_id: employee.department_id, current_position_id: employee.position_id, target_department_id: targetDepartmentId, target_position_id: targetPositionId, manager_id: managerId }],
+      status: "EXECUTED",
+    };
+    if (targetDepartmentId) { employee.department_id = targetDepartmentId; employee.department_name = decision.target_dept_name; }
+    if (targetPositionId) { employee.position_id = targetPositionId; employee.position_name = decision.target_pos_name; }
+    else if (decisionType === "Miễn nhiệm") employee.position_id = undefined;
+    employee.manager_id = managerId || (decisionType === "Miễn nhiệm" ? undefined : employee.manager_id);
+    employee.manager_name = store["/hr/employees"].find((item) => String(item.employee_id) === String(employee.manager_id))?.full_name;
+    rows.unshift(decision);
+    store[route] = rows;
+    saveStore(store);
+    return envelope(decision) as T;
+  }
+
+  if (route === "/reward-discipline/evaluations" && (method === "POST" || method === "PUT")) {
+    const details = parseDetailList(payload.details);
+    if (!details.length) return failure("Phiếu đánh giá phải có ít nhất một tiêu chí.") as T;
+    if (details.some((detail) => Number(detail.weight) <= 0 || !Number.isFinite(Number(detail.score)) || Number(detail.score) < 0 || Number(detail.score) > 10)) return failure("Trọng số phải lớn hơn 0 và điểm phải nằm trong khoảng 0 đến 10.") as T;
+    const employee = store["/hr/employees"].find((item) => String(item.employee_id) === String(payload.employee_id));
+    const evaluator = store["/hr/employees"].find((item) => String(item.employee_id) === String(payload.evaluator_id));
+    if (!employee || !evaluator) return failure("Nhân viên hoặc người đánh giá không tồn tại.") as T;
+    const totalWeight = details.reduce((sum, detail) => sum + Number(detail.weight), 0);
+    const totalScore = Math.round(details.reduce((sum, detail) => sum + Number(detail.score) * Number(detail.weight), 0) / totalWeight * 100) / 100;
+    const gradeResult = totalScore >= 9 ? "Loại A+ (Xuất sắc)" : totalScore >= 8 ? "Loại A (Giỏi)" : totalScore >= 6.5 ? "Loại B (Tốt)" : totalScore >= 5 ? "Loại C (Trung bình)" : "Loại D (Yếu)";
+    const existing = method === "PUT" ? rows.find((item) => String(item[idField]) === id) : undefined;
+    if (method === "PUT" && !existing) return failure("Không tìm thấy phiếu đánh giá.") as T;
+    const nextRow = {
+      ...(existing ?? {}),
+      ...payload,
+      [idField]: String(existing?.[idField] ?? payload[idField] ?? `mock-evaluation-${Date.now()}`),
+      evaluation_code: String(existing?.evaluation_code ?? `PĐG-${new Date().getFullYear()}-${String(rows.length + 1).padStart(3, "0")}`),
+      employee_name: employee.full_name,
+      evaluator_name: evaluator.full_name,
+      department_name: employee.department_name,
+      position_name: employee.position_name,
+      details,
+      total_score: totalScore,
+      grade_result: gradeResult,
+      status: "COMPLETED",
+    };
+    if (method === "POST") rows.unshift(nextRow);
+    else rows[rows.findIndex((item) => String(item[idField]) === id)] = nextRow;
+    store[route] = rows;
+    saveStore(store);
+    return envelope(nextRow) as T;
+  }
+
   if (method === "POST") {
     const newRow = { ...payload, [idField]: String(payload[idField] ?? `mock-${Date.now()}`) };
     rows.unshift(newRow);
@@ -431,6 +628,10 @@ export async function mockApiRequest<T>(path: string, init: RequestInit = {}): P
 
   if (method === "DELETE") {
     store[route] = rows.filter((item) => String(item[idField]) !== id);
+    if (route === "/recruitment/interview-evaluations") {
+      const candidate = store["/recruitment/candidates"].find((item) => String(item.candidate_id) === String(row.candidate_id));
+      if (candidate && !store[route].some((item) => String(item.candidate_id) === String(row.candidate_id))) candidate.status = "Đã sơ loại, Đạt";
+    }
     if (route === "/recruitment/pre-screenings") {
       const candidate = store["/recruitment/candidates"].find((item) => String(item.candidate_id) === String(row.candidate_id));
       if (candidate && !store[route].some((item) => String(item.candidate_id) === String(row.candidate_id))) candidate.status = "Đã tiếp nhận hồ sơ";

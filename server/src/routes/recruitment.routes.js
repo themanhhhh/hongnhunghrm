@@ -586,22 +586,38 @@ router.delete('/pre-screenings/:id', authorizeRole('Administrator', 'HR Staff'),
 
 // --- 3C. ĐÁNH GIÁ PHỎNG VẤN (INTERVIEW EVALUATION) ---
 
-// Kiểm tra người dùng hiện tại có thuộc Hội đồng phỏng vấn của ứng viên này không (Admin/HR luôn được phép)
-async function checkInterviewPanelAccess(req, candidate_id) {
-    if (['Administrator', 'HR Staff'].includes(req.user.roleName)) return null; // OK, không cần kiểm tra thêm
+// Chỉ thành viên Hội đồng của đúng lịch được lập đánh giá (Administrator được quản trị ngoại lệ).
+async function checkInterviewPanelAccess(req, candidate_id, schedule_id, evaluator_id) {
+    if (req.user.roleName === 'Administrator') return null;
+    if (req.user.roleName !== 'HR Staff') return 'Chỉ nhân sự thuộc Hội đồng tuyển dụng mới được lập Phiếu Đánh giá phỏng vấn.';
     if (!req.user.employeeId) {
         return 'Tài khoản chưa liên kết với hồ sơ nhân viên, không thể thực hiện đánh giá phỏng vấn.';
     }
-    const schedules = await query(`SELECT council_json, candidates_json FROM InterviewSchedule`);
-    const isInPanel = schedules.some(sch => {
-        let candidatesArr = [], council = [];
-        try { candidatesArr = JSON.parse(sch.candidates_json || '[]'); } catch (e) { }
-        try { council = JSON.parse(sch.council_json || '[]'); } catch (e) { }
-        const hasCandidate = candidatesArr.some(c => c.candidate_id === candidate_id);
-        const inCouncil = council.some(m => m.employee_id === req.user.employeeId);
-        return hasCandidate && inCouncil;
-    });
-    return isInPanel ? null : 'Bạn không thuộc Hội đồng phỏng vấn của ứng viên này, không có quyền đánh giá.';
+    if (!schedule_id) return 'Phiếu đánh giá phải gắn với một lịch phỏng vấn cụ thể.';
+    const schedule = await queryOne(`SELECT council_json, candidates_json FROM InterviewSchedule WHERE schedule_id = ?`, [schedule_id]);
+    if (!schedule) return 'Lịch phỏng vấn không tồn tại.';
+    let candidatesArr = [], council = [];
+    try { candidatesArr = JSON.parse(schedule.candidates_json || '[]'); } catch (e) { }
+    try { council = JSON.parse(schedule.council_json || '[]'); } catch (e) { }
+    if (!candidatesArr.some(c => c.candidate_id === candidate_id) || !council.some(m => m.employee_id === req.user.employeeId)) {
+        return 'Bạn không thuộc Hội đồng phỏng vấn của ứng viên này, không có quyền đánh giá.';
+    }
+    if (evaluator_id && !council.some(m => m.employee_id === evaluator_id)) return 'Người đánh giá phải thuộc Hội đồng của lịch phỏng vấn.';
+    return null;
+}
+
+async function saveEvaluationOffer(candidateId, rawOffer, now) {
+    if (!rawOffer || typeof rawOffer !== 'object' || Array.isArray(rawOffer)) return;
+    const offer = rawOffer;
+    const hasOfferData = ['expected_start_date', 'probation_salary', 'official_salary', 'salary_offer', 'note'].some((field) => offer[field] !== undefined && String(offer[field] ?? '').trim() !== '');
+    if (!hasOfferData) return;
+    const parseDate = (value) => (value ? (typeof value === 'number' ? value : new Date(value).getTime()) : null);
+    const existing = await queryOne(`SELECT offer_id FROM Offer WHERE candidate_id = ?`, [candidateId]);
+    if (existing) {
+        await run(`UPDATE Offer SET expected_start_date = ?, probation_salary = ?, official_salary = ?, salary_offer = ?, note = ?, last_modified_date = ? WHERE offer_id = ?`, [parseDate(offer.expected_start_date), Number(offer.probation_salary) || 0, Number(offer.official_salary ?? offer.salary_offer) || 0, Number(offer.salary_offer ?? offer.official_salary) || 0, offer.note || '', now, existing.offer_id]);
+        return;
+    }
+    await run(`INSERT INTO Offer (offer_id, created_date, last_modified_date, candidate_id, offer_date, expected_start_date, probation_salary, official_salary, salary_offer, note) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, [crypto.randomUUID(), now, now, candidateId, now, parseDate(offer.expected_start_date), Number(offer.probation_salary) || 0, Number(offer.official_salary ?? offer.salary_offer) || 0, Number(offer.salary_offer ?? offer.official_salary) || 0, offer.note || '']);
 }
 
 router.get('/interview-evaluations', async (req, res) => {
@@ -634,9 +650,10 @@ router.get('/interview-evaluations/:id', async (req, res) => {
         if (!item) {
             return res.status(404).json({ success: false, message: 'Không tìm thấy Phiếu Đánh giá phỏng vấn.' });
         }
-        const script = await query(`SELECT * FROM InterviewEvaluationScript WHERE interview_eval_id = ? ORDER BY row_order ASC`, [req.params.id]);
-        const criteria = await query(`SELECT * FROM InterviewEvaluationCriteria WHERE interview_eval_id = ? ORDER BY row_order ASC`, [req.params.id]);
-        res.json({ success: true, data: { ...item, script, criteria } });
+         const script = await query(`SELECT * FROM InterviewEvaluationScript WHERE interview_eval_id = ? ORDER BY row_order ASC`, [req.params.id]);
+         const criteria = await query(`SELECT * FROM InterviewEvaluationCriteria WHERE interview_eval_id = ? ORDER BY row_order ASC`, [req.params.id]);
+         const offer = await queryOne(`SELECT expected_start_date, probation_salary, official_salary, salary_offer, note FROM Offer WHERE candidate_id = ?`, [item.candidate_id]);
+         res.json({ success: true, data: { ...item, script, criteria, offer: offer ?? {} } });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }
@@ -646,10 +663,10 @@ router.post('/interview-evaluations', async (req, res) => {
     try {
         const {
             evaluation_date, schedule_id, candidate_id, evaluator_id, duration_minutes,
-            level_score, overall_result, overall_comment, script, criteria
+            level_score, overall_result, overall_comment, script, criteria, offer
         } = req.body;
 
-        const accessError = await checkInterviewPanelAccess(req, candidate_id);
+        const accessError = await checkInterviewPanelAccess(req, candidate_id, schedule_id, evaluator_id || req.user.employeeId);
         if (accessError) {
             return res.status(403).json({ success: false, message: accessError });
         }
@@ -692,6 +709,8 @@ router.post('/interview-evaluations', async (req, res) => {
             }
         }
 
+        await saveEvaluationOffer(candidate_id, offer, now);
+        await run(`UPDATE Candidate SET status = ?, last_modified_date = ? WHERE candidate_id = ?`, [String(overall_result || '').trim().toUpperCase() === 'ĐẠT' ? 'Đã phỏng vấn, Đạt' : 'Đã phỏng vấn, Không đạt', now, candidate_id]);
         res.json({ success: true, message: 'Tạo Phiếu Đánh giá phỏng vấn thành công!' });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
@@ -702,10 +721,10 @@ router.put('/interview-evaluations/:id', async (req, res) => {
     try {
         const {
             evaluation_date, schedule_id, candidate_id, evaluator_id, duration_minutes,
-            level_score, overall_result, overall_comment, script, criteria
+            level_score, overall_result, overall_comment, script, criteria, offer
         } = req.body;
 
-        const accessError = await checkInterviewPanelAccess(req, candidate_id);
+        const accessError = await checkInterviewPanelAccess(req, candidate_id, schedule_id, evaluator_id || req.user.employeeId);
         if (accessError) {
             return res.status(403).json({ success: false, message: accessError });
         }
@@ -746,6 +765,8 @@ router.put('/interview-evaluations/:id', async (req, res) => {
             }
         }
 
+        await saveEvaluationOffer(candidate_id, offer, now);
+        await run(`UPDATE Candidate SET status = ?, last_modified_date = ? WHERE candidate_id = ?`, [String(overall_result || '').trim().toUpperCase() === 'ĐẠT' ? 'Đã phỏng vấn, Đạt' : 'Đã phỏng vấn, Không đạt', now, candidate_id]);
         res.json({ success: true, message: 'Cập nhật Phiếu Đánh giá phỏng vấn thành công!' });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
@@ -1050,11 +1071,16 @@ router.post('/decisions', authorizeRole('Administrator', 'HR Staff'), async (req
         if (!candidate) {
             return res.status(404).json({ success: false, message: 'Không tìm thấy thông tin ứng viên.' });
         }
-        if (interview_eval_id) {
-            const evaluation = await queryOne('SELECT interview_eval_id FROM InterviewEvaluation WHERE interview_eval_id = ? AND candidate_id = ?', [interview_eval_id, candidate_id]);
-            if (!evaluation) {
-                return res.status(400).json({ success: false, message: 'Phiếu đánh giá phỏng vấn không thuộc ứng viên đã chọn.' });
-            }
+        if (!interview_eval_id) {
+            return res.status(400).json({ success: false, message: 'Quyết định phải dựa trên một Phiếu Đánh giá phỏng vấn.' });
+        }
+        const evaluation = await queryOne('SELECT interview_eval_id, overall_result FROM InterviewEvaluation WHERE interview_eval_id = ? AND candidate_id = ?', [interview_eval_id, candidate_id]);
+        if (!evaluation) {
+            return res.status(400).json({ success: false, message: 'Phiếu đánh giá phỏng vấn không thuộc ứng viên đã chọn.' });
+        }
+        const evaluationPassed = ['ĐẠT', 'PASSED'].includes(String(evaluation.overall_result || '').trim().toUpperCase());
+        if (evaluationPassed !== (normalizedResult === 'ĐẠT')) {
+            return res.status(400).json({ success: false, message: 'Kết quả quyết định phải khớp với Đánh giá chung của Phiếu Đánh giá phỏng vấn.' });
         }
         const previousDecision = await queryOne(
             `SELECT decision_id FROM RecruitmentDecision

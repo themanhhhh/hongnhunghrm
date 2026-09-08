@@ -43,8 +43,9 @@ const employeeFields: WorkspaceField[] = [
   date("date_of_birth", "Ngày sinh"),
   text("citizen_id", "Số CCCD"),
   text("phone", "Số điện thoại"),
-  text("email", "Email công ty", "name@bravo.com.vn", true),
+  text("email", "Email công ty", "name@bravo.com.vn"),
   text("personal_email", "Email cá nhân"),
+  text("company_email", "Email cơ quan", "name@bravo.com.vn"),
   text("address", "Địa chỉ hiện tại", undefined, false, 2),
   text("permanent_address", "Địa chỉ thường trú", undefined, false, 2),
   text("department_id", "Mã phòng ban", "Ví dụ: dept-hr", true),
@@ -127,6 +128,11 @@ const recruitmentTabs: WorkspaceTab[] = [
     fields: [text("candidate_id", "Mã ứng viên", "cand-...", true), date("offer_date", "Ngày Offer", true), date("expected_start_date", "Ngày dự kiến đi làm", true), number("probation_salary", "Lương thử việc", true), number("official_salary", "Lương chính thức", true), select("offer_status", "Trạng thái Offer", [{ value: "Đã phát hành", label: "Đã phát hành" }, { value: "Đã chấp nhận", label: "Đã chấp nhận" }, { value: "Từ chối", label: "Từ chối" }]), area("note", "Ghi chú")],
   },
   {
+    id: "decisions", label: "Quyết định trúng tuyển", endpoint: "/recruitment/decisions", idField: "decision_id",
+    columns: [{ key: "decision_number", label: "Số phiếu" }, { key: "candidate_name", label: "Ứng viên" }, { key: "decision_date", label: "Ngày quyết định" }, { key: "result", label: "Kết quả" }, { key: "overall_comment", label: "Đánh giá chung" }],
+    fields: [text("decision_number", "Số phiếu"), date("decision_date", "Ngày quyết định", true), text("candidate_id", "Ứng viên", undefined, true), text("interview_eval_id", "Phiếu đánh giá phỏng vấn", undefined, true), select("result", "Kết quả", [{ value: "ĐẠT", label: "Đạt" }, { value: "KHÔNG ĐẠT", label: "Không đạt" }], true), area("rejection_reason", "Lý do bị loại"), area("overall_comment", "Đánh giá chung", undefined, 2)],
+  },
+  {
     id: "conversion", label: "Chuyển thành nhân viên", endpoint: "/recruitment/candidates", idField: "candidate_id", convert: true,
     columns: [{ key: "candidate_code", label: "Mã ứng viên" }, { key: "full_name", label: "Họ tên" }, { key: "apply_position_name", label: "Vị trí" }, { key: "status", label: "Trạng thái" }, { key: "expected_start_date", label: "Ngày đi làm" }],
     fields: [],
@@ -162,7 +168,7 @@ const peopleTabs: WorkspaceTab[] = [
   {
     id: "contracts", label: "Hợp đồng lao động", endpoint: "/hr/contracts", idField: "contract_id",
     columns: [{ key: "contract_no", label: "Số hợp đồng" }, { key: "employee_name", label: "Nhân viên" }, { key: "contract_type", label: "Loại hợp đồng" }, { key: "start_date", label: "Từ ngày" }, { key: "end_date", label: "Đến ngày" }, { key: "status", label: "Trạng thái" }],
-    fields: [text("contract_no", "Số hợp đồng"), date("contract_date", "Ngày ký", true), date("sign_date", "Ngày ký chính thức"), text("signer_id", "Mã người ký"), text("signer_name", "Người ký"), text("signer_position", "Chức vụ người ký"), text("employee_id", "Mã nhân viên", undefined, true), text("employee_position", "Vị trí nhân viên"), text("contract_type", "Loại hợp đồng", undefined, true), date("start_date", "Ngày bắt đầu", true), date("end_date", "Ngày kết thúc"), select("has_probation", "Có thử việc", [{ value: "0", label: "Không" }, { value: "1", label: "Có" }]), date("probation_from_date", "Bắt đầu thử việc"), date("probation_to_date", "Kết thúc thử việc"), number("probation_salary_rate", "Tỷ lệ lương thử việc"), text("salary_scale", "Thang lương"), text("salary_grade", "Bậc lương"), number("base_salary", "Lương cơ sở"), number("social_insurance_salary", "Lương đóng BHXH"), number("salary", "Mức lương hợp đồng"), select("status", "Trạng thái", [{ value: "ACTIVE", label: "Đang hiệu lực" }, { value: "TERMINATED", label: "Đã chấm dứt" }]), json("allowance_details", "Phụ cấp (JSON)", '[{"allowance_type":"Ăn trưa","amount":500000}]'), area("job_description", "Mô tả công việc"), text("attachment_url", "Tệp đính kèm"), area("note", "Ghi chú")],
+    fields: [text("contract_no", "Số HĐ"), date("contract_date", "Ngày HĐ", true), date("sign_date", "Ngày ký chính thức"), text("signer_id", "Mã người ký"), text("signer_name", "Người ký"), text("signer_position", "Vị trí người ký"), text("employee_id", "Mã nhân viên", undefined, true), text("employee_position", "Vị trí nhân viên"), text("contract_type", "Loại HĐLĐ", undefined, true), date("start_date", "Từ ngày", true), date("end_date", "Đến ngày"), select("has_probation", "Có thử việc", [{ value: "0", label: "Không" }, { value: "1", label: "Có" }]), date("probation_from_date", "Bắt đầu thử việc"), date("probation_to_date", "Kết thúc thử việc"), number("probation_salary_rate", "Tỷ lệ lương thử việc"), text("salary_scale", "Thang lương"), text("salary_grade", "Bậc lương"), number("base_salary", "Lương cơ bản"), number("social_insurance_salary", "Lương đóng BHXH"), number("salary", "Mức lương hợp đồng"), select("status", "Trạng thái", [{ value: "ACTIVE", label: "Đang hiệu lực" }, { value: "TERMINATED", label: "Đã chấm dứt" }]), json("allowance_details", "Phụ cấp (JSON)", '[{"allowance_type":"Ăn trưa","amount":500000}]'), area("job_description", "Mô tả công việc"), text("attachment_url", "Tệp đính kèm"), area("note", "Ghi chú"), json("appendices", "Phụ lục hợp đồng (JSON)", '[]')],
   },
   {
     id: "expiring-contracts", label: "HĐ sắp hết hạn", endpoint: "/hr/expiring-contracts", idField: "contract_id", readOnly: true,
@@ -182,12 +188,12 @@ const peopleTabs: WorkspaceTab[] = [
   {
     id: "transfer-proposals", label: "Đề xuất thuyên chuyển, bổ nhiệm", endpoint: "/hr/transfer-proposals", idField: "proposal_id", approve: true,
     columns: [{ key: "proposal_code", label: "Mã đề xuất" }, { key: "employee_name", label: "Nhân viên" }, { key: "decision_type", label: "Loại quyết định" }, { key: "effective_date", label: "Ngày hiệu lực" }, { key: "status", label: "Trạng thái" }],
-    fields: [text("proposal_code", "Mã đề xuất"), date("proposal_date", "Ngày lập", true), date("effective_date", "Ngày hiệu lực", true), select("decision_type", "Loại quyết định", [{ value: "Thuyên chuyển", label: "Thuyên chuyển" }, { value: "Bổ nhiệm", label: "Bổ nhiệm" }, { value: "Miễn nhiệm", label: "Miễn nhiệm" }]), text("proposer_id", "Mã người đề xuất"), text("proposer_name", "Người đề xuất"), text("proposer_position", "Chức vụ người đề xuất"), text("proposer_department", "Bộ phận đề xuất"), json("detail_items", "Danh sách nhân sự (JSON)", '[{"employee_id":"emp-...","target_department_id":"dept-...","target_position_id":"pos-..."}]'), area("note", "Lý do / Ghi chú")],
+    fields: [text("proposal_code", "Số đề xuất"), date("proposal_date", "Ngày đề xuất", true), date("effective_date", "Ngày hiệu lực đề xuất", true), select("decision_type", "Loại quyết định", [{ value: "Thuyên chuyển", label: "Thuyên chuyển" }, { value: "Bổ nhiệm", label: "Bổ nhiệm" }, { value: "Miễn nhiệm", label: "Miễn nhiệm" }], true), text("proposer_id", "Mã người đề xuất"), text("proposer_name", "Người đề xuất"), text("proposer_position", "Vị trí người đề xuất"), text("proposer_department", "Bộ phận đề xuất"), json("detail_items", "Chi tiết nhân sự (JSON)", '[{"employee_id":"emp-...","target_department_id":"dept-...","target_position_id":"pos-...","note":""}]'), area("description", "Diễn giải"), area("note", "Ghi chú")],
   },
   {
-    id: "transfer-decisions", label: "Quyết định thuyên chuyển, bổ nhiệm", endpoint: "/hr/transfer-decisions", idField: "decision_id",
+    id: "transfer-decisions", label: "Quyết định thuyên chuyển, bổ nhiệm, miễn nhiệm", endpoint: "/hr/transfer-decisions", idField: "decision_id",
     columns: [{ key: "decision_number", label: "Số quyết định" }, { key: "employee_name", label: "Nhân viên" }, { key: "target_dept_name", label: "Bộ phận mới" }, { key: "target_pos_name", label: "Vị trí mới" }, { key: "effective_date", label: "Ngày hiệu lực" }, { key: "status", label: "Trạng thái" }],
-    fields: [text("proposal_id", "Mã đề xuất"), text("employee_id", "Mã nhân viên", undefined, true), text("target_department_id", "Bộ phận mới"), text("target_position_id", "Vị trí mới"), date("effective_date", "Ngày hiệu lực", true), text("signed_by", "Người ký"), area("reason", "Lý do")],
+    fields: [text("proposal_id", "Đề xuất liên quan"), text("decision_number", "Số quyết định"), date("decision_date", "Ngày quyết định", true), date("effective_date", "Ngày hiệu lực", true), select("decision_type", "Loại quyết định", [{ value: "Thuyên chuyển", label: "Thuyên chuyển" }, { value: "Bổ nhiệm", label: "Bổ nhiệm" }, { value: "Miễn nhiệm", label: "Miễn nhiệm" }], true), text("creator_id", "Mã người lập"), text("creator_name", "Người lập"), text("creator_position", "Vị trí người lập"), text("creator_department", "Bộ phận người lập"), text("employee_id", "Mã nhân viên", undefined, true), text("target_department_id", "Bộ phận mới"), text("target_position_id", "Vị trí mới"), text("manager_id", "Quản lý trực tiếp mới"), json("detail_items", "Chi tiết quyết định (JSON)", '[{"employee_id":"emp-...","current_department_id":"dept-...","current_position_id":"pos-...","target_department_id":"dept-...","target_position_id":"pos-...","manager_id":"emp-...","note":""}]'), area("description", "Diễn giải"), text("signed_by", "Người ký"), area("reason", "Lý do"), area("note", "Ghi chú")],
   },
   {
     id: "resignation-applications", label: "Đơn xin nghỉ việc", endpoint: "/hr/resignation-applications", idField: "application_id", approve: true,
@@ -214,8 +220,8 @@ const rewardTabs: WorkspaceTab[] = [
   },
   {
     id: "evaluations", label: "Phiếu đánh giá", endpoint: "/reward-discipline/evaluations", idField: "evaluation_id",
-    columns: [{ key: "evaluation_code", label: "Mã phiếu" }, { key: "employee_name", label: "Nhân viên" }, { key: "evaluator_name", label: "Người đánh giá" }, { key: "year", label: "Năm" }, { key: "total_score", label: "Điểm tổng hợp" }, { key: "grade_result", label: "Xếp loại" }],
-    fields: [date("evaluation_date", "Ngày đánh giá", true), number("year", "Năm đánh giá", true), text("evaluator_id", "Mã người đánh giá", undefined, true), text("employee_id", "Mã nhân viên được đánh giá", undefined, true), area("description", "Nhận xét chung", undefined, 2), json("details", "Chi tiết tiêu chí (JSON)", '[{"criteria_id":"tc-...","criteria_code":"TC-01","criteria_name":"Kết quả KPI","weight":25,"score":8,"note":""}]')],
+    columns: [{ key: "evaluation_code", label: "Mã phiếu" }, { key: "employee_name", label: "Nhân viên" }, { key: "evaluator_name", label: "Người đánh giá" }, { key: "evaluation_quarter", label: "Kỳ đánh giá" }, { key: "year", label: "Năm" }, { key: "total_score", label: "Tổng điểm" }, { key: "grade_result", label: "Xếp loại" }],
+    fields: [date("evaluation_date", "Ngày đánh giá", true), select("evaluation_quarter", "Kỳ đánh giá", [{ value: "1", label: "Quý I" }, { value: "2", label: "Quý II" }, { value: "3", label: "Quý III" }, { value: "4", label: "Quý IV" }], true), number("year", "Năm đánh giá", true), text("evaluator_id", "Mã người đánh giá", undefined, true), text("employee_id", "Mã nhân viên được đánh giá", undefined, true), text("position_id", "Mã vị trí"), text("department_id", "Mã bộ phận"), area("description", "Diễn giải", undefined, 2), json("details", "Chi tiết tiêu chí (JSON)", '[{"criteria_id":"tc-...","criteria_code":"TC-01","criteria_name":"Kết quả KPI","weight":25,"score":8,"note":""}]')],
   },
   {
     id: "proposals", label: "Đề xuất thưởng phạt", endpoint: "/reward-discipline/proposals", idField: "proposal_id", approve: true,
