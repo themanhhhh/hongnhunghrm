@@ -16,3 +16,9 @@
 
 /* Operational categories are navigated from the persistent sidebar. */
 .operational-workspace > .rounded-2xl:nth-child(3) > div:first-child { display: none; }
+
+@media print {
+  body * { visibility: hidden !important; }
+  .report-print-sheet, .report-print-sheet * { visibility: visible !important; }
+  .report-print-sheet { position: absolute; inset: 0; width: 100%; border: 0 !important; box-shadow: none !important; }
+}

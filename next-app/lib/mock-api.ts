@@ -1,3 +1,5 @@
+import { reportDefinitions } from "./report-config";
+
 type MockRow = Record<string, unknown>;
 type MockStore = Record<string, MockRow[]>;
 
@@ -171,6 +173,27 @@ function saveStore(store: MockStore) {
   if (typeof window !== "undefined") window.localStorage.setItem(MOCK_STORE_KEY, JSON.stringify(store));
 }
 
+function mockReportResult(reportId: string, filters: Record<string, string>) {
+  const definition = reportDefinitions.find((item) => item.id === reportId);
+  if (!definition) return { success: false, message: "Không tìm thấy mẫu báo cáo." };
+  const makeRow = (index: number) => Object.fromEntries(
+    definition.columns.map((column) => {
+      if (column.key.includes("date") || column.key.includes("_date") || column.key === "dob" || column.key === "join_date") return [column.key, filters.startDate || "2026-01-01"] as const;
+      if (column.key.includes("count") || column.key.includes("quantity") || column.key === "weight" || column.key === "amount" || column.key === "budget") return [column.key, index === 1 ? 8 : 5] as const;
+      if (column.key.includes("rate") || column.key === "percentage") return [column.key, "82%"] as const;
+      if (column.key.includes("score")) return [column.key, "8.5"] as const;
+      return [column.key, index === 1 ? "Dữ liệu mẫu 1" : "Dữ liệu mẫu 2"] as const;
+    }),
+  );
+  return {
+    success: true,
+    reportId,
+    filters,
+    data: [makeRow(1), makeRow(2)],
+    summary: { total: 2, mock: true },
+  };
+}
+
 function routeFor(path: string) {
   return Object.keys(idFields).sort((a, b) => b.length - a.length).find((route) => path === route || path.startsWith(`${route}/`)) ?? path;
 }
@@ -227,6 +250,13 @@ export async function mockApiRequest<T>(path: string, init: RequestInit = {}): P
 
   if (path.includes("dashboard")) return dashboardResponse() as T;
   if (path.endsWith("/approval-history") || path.endsWith("/pathway")) return envelope([]) as T;
+  if (path === "/reports/query" && (init.method ?? "GET") === "POST") {
+    const payload = payloadFor(init);
+    return mockReportResult(String(payload.reportId ?? ""), (payload.filters ?? {}) as Record<string, string>) as T;
+  }
+  if (path === "/reports/departments" && (init.method ?? "GET") === "GET") {
+    return envelope(loadStore()["/admin/departments"] ?? []) as T;
+  }
   if (path.includes("/employees") && path.includes("/admin/departments/")) {
     const departmentId = path.split("/")[3];
     return envelope(loadStore()["/hr/employees"].filter((employee) => employee.department_id === departmentId)) as T;

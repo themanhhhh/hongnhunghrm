@@ -7,6 +7,51 @@ router.use(authenticateToken);
 // Báo cáo thống kê: dành cho Admin/HR/Ban Giám Đốc/Trưởng Khối/Trưởng Phòng - Nhân viên thường không được xem
 router.use(authorizeRole('Administrator', 'HR Staff', 'Ban Giám Đốc', 'Trưởng Khối', 'Trưởng Phòng'));
 
+const parseReportDate = (value) => {
+    if (value === null || value === undefined || value === '') return null;
+    if (typeof value === 'number') return value;
+    const text = String(value);
+    const month = text.match(/(?:Tháng\s*)?(\d{1,2})[/-](\d{4})/i);
+    if (month) return new Date(Number(month[2]), Number(month[1]) - 1, 1).getTime();
+    const year = text.match(/(?:Năm\s*)?(\d{4})/i);
+    if (year && !text.includes('-')) return new Date(Number(year[1]), 0, 1).getTime();
+    const timestamp = new Date(text).getTime();
+    return Number.isNaN(timestamp) ? null : timestamp;
+};
+
+const applyReportFilters = (rows, filters = {}) => {
+    const department = String(filters.department || 'ALL');
+    const startDate = parseReportDate(filters.startDate);
+    const endDate = parseReportDate(filters.endDate);
+    const departmentKeys = ['department_name', 'dept_name', 'department', 'deptName'];
+    const dateKeys = ['date', 'period_start', 'decision_date', 'effective_date', 'evaluation_date', 'interview_date', 'start_date', 'end_date', 'sign_date', 'join_date', 'onboard_date', 'resign_date', 'dob'];
+    return rows.filter((row) => {
+        if (department !== 'ALL') {
+            const value = departmentKeys.map((key) => row[key]).find(Boolean);
+            if (value && String(value) !== department) return false;
+        }
+        const dateKey = dateKeys.find((key) => row[key] !== null && row[key] !== undefined && row[key] !== '');
+        const dateValue = dateKey ? parseReportDate(row[dateKey]) : null;
+        if (dateKey === 'dob' && dateValue && startDate && endDate) {
+            const birthdayMonth = new Date(dateValue).getMonth();
+            const startMonth = new Date(startDate).getMonth();
+            const endMonth = new Date(endDate).getMonth();
+            if (birthdayMonth < startMonth || birthdayMonth > endMonth) return false;
+            return true;
+        }
+        if (dateValue && startDate && dateValue < startDate) return false;
+        if (dateValue && endDate && dateValue > endDate + 86399999) return false;
+        return true;
+    });
+};
+
+const normalizeReportFilters = (filters = {}) => {
+    if (filters.period === 'Quý I/2026') return { ...filters, startDate: '2026-01-01', endDate: '2026-03-31' };
+    if (filters.period === 'Quý II/2026') return { ...filters, startDate: '2026-04-01', endDate: '2026-06-30' };
+    if (filters.period === 'Tháng 08/2026') return { ...filters, startDate: '2026-08-01', endDate: '2026-08-31' };
+    return filters;
+};
+
 // --- 0. DASHBOARD ADMIN (chỉ Administrator) ---
 router.get('/dashboard/admin', async (req, res) => {
     if (req.user.roleName !== 'Administrator') {
@@ -57,6 +102,15 @@ router.get('/dashboard/admin', async (req, res) => {
                 lockedUserList
             }
         });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+router.get('/departments', async (req, res) => {
+    try {
+        const departments = await query(`SELECT department_id, department_code, department_name FROM Department WHERE status = 1 ORDER BY department_code, department_name`);
+        res.json({ success: true, data: departments });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }
@@ -495,7 +549,8 @@ router.get('/hr', async (req, res) => {
 // --- 4. DYNAMIC REPORT QUERY ENDPOINT FOR ALL 18 REPORTS ---
 router.post('/query', async (req, res) => {
     try {
-        const { reportId, filters } = req.body;
+        const { reportId } = req.body;
+        const filters = normalizeReportFilters(req.body.filters || {});
         let rows = [];
         let summary = {};
 
@@ -504,51 +559,62 @@ router.post('/query', async (req, res) => {
             case 'rec_result': // Báo cáo kết quả tuyển dụng
                 rows = await query(
                     `SELECT rr.request_code as plan_code, pl.plan_name, rr.quantity as target_quantity, pl.budget,
+                  d.department_name as dept_name, pl.start_date as period_start, pl.end_date as period_end,
                   COUNT(DISTINCT c.candidate_id) as applicant_count,
                   COUNT(DISTINCT CASE WHEN i.result = 'PASSED' THEN c.candidate_id END) as passed_pv_count,
                   COUNT(DISTINCT o.candidate_id) as offer_count,
                   COUNT(DISTINCT CASE WHEN c.status = 'HIRED' THEN c.candidate_id END) as hired_count
-           FROM RecruitmentPlan pl
-           JOIN RecruitmentRequest rr ON pl.recruitment_request_id = rr.recruitment_request_id
+            FROM RecruitmentPlan pl
+            JOIN RecruitmentRequest rr ON pl.recruitment_request_id = rr.recruitment_request_id
+            LEFT JOIN Department d ON d.department_id = rr.department_id
            LEFT JOIN Candidate c ON pl.recruitment_plan_id = c.recruitment_plan_id
            LEFT JOIN Interview i ON i.candidate_id = c.candidate_id
            LEFT JOIN Offer o ON o.candidate_id = c.candidate_id
            WHERE pl.status IN ('IN_PROGRESS', 'COMPLETED', 'ACTIVE')
-           GROUP BY pl.recruitment_plan_id, rr.request_code, pl.plan_name, rr.quantity, pl.budget`
+            GROUP BY pl.recruitment_plan_id, rr.request_code, pl.plan_name, rr.quantity, pl.budget, d.department_name, pl.start_date, pl.end_date`
                 );
-                if (!rows || rows.length === 0) {
-                    rows = [
-                        { plan_code: 'KHTD-2026-01', plan_name: 'Tuyển dụng Kỹ sư Phần mềm Senior', target_quantity: 5, budget: 150000000, applicant_count: 18, passed_pv_count: 8, offer_count: 5, hired_count: 4 },
-                        { plan_code: 'KHTD-2026-02', plan_name: 'Tuyển dụng Chuyên viên Kinh doanh ERP', target_quantity: 10, budget: 80000000, applicant_count: 32, passed_pv_count: 14, offer_count: 9, hired_count: 8 },
-                        { plan_code: 'KHTD-2026-03', plan_name: 'Tuyển dụng Chuyên viên Nhân sự C&B', target_quantity: 2, budget: 30000000, applicant_count: 12, passed_pv_count: 5, offer_count: 2, hired_count: 2 }
-                    ];
-                }
-                summary = { totalTarget: 17, totalApplicants: 62, totalHired: 14, completionRate: '82%' };
+                summary = { totalTarget: rows.reduce((sum, row) => sum + Number(row.target_quantity || 0), 0), totalApplicants: rows.reduce((sum, row) => sum + Number(row.applicant_count || 0), 0), totalHired: rows.reduce((sum, row) => sum + Number(row.hired_count || 0), 0) };
                 break;
 
             case 'rec_efficiency': // Hiệu quả tuyển dụng theo tin theo nguồn
-                rows = [
-                    { source_name: 'Website BRAVO Career', post_count: 12, total_cv: 145, qualified_cv: 88, interview_count: 42, hired_count: 15, cost: 12000000, cost_per_hired: 800000 },
-                    { source_name: 'Mạng xã hội LinkedIn', post_count: 8, total_cv: 92, qualified_cv: 65, interview_count: 30, hired_count: 10, cost: 25000000, cost_per_hired: 2500000 },
-                    { source_name: 'Kênh tuyển dụng TopCV / VietnamWorks', post_count: 15, total_cv: 210, qualified_cv: 120, interview_count: 60, hired_count: 18, cost: 45000000, cost_per_hired: 2500000 },
-                    { source_name: 'Nguồn nội bộ / Giới thiệu (Referral)', post_count: 5, total_cv: 18, qualified_cv: 16, interview_count: 14, hired_count: 8, cost: 16000000, cost_per_hired: 2000000 }
-                ];
-                summary = { totalSources: 4, totalCV: 465, totalHired: 51, avgCostPerHired: '1,920,000 VNĐ' };
+                rows = await query(
+                    `SELECT COALESCE(NULLIF(c.source, ''), N'Không xác định') as source_name,
+                            COUNT(DISTINCT c.recruitment_plan_id) as post_count,
+                            COUNT(DISTINCT c.candidate_id) as total_cv,
+                            SUM(CASE WHEN c.status NOT IN ('REJECTED', 'S7: Loại') THEN 1 ELSE 0 END) as qualified_cv,
+                            COUNT(DISTINCT i.candidate_id) as interview_count,
+                            SUM(CASE WHEN c.status = 'HIRED' THEN 1 ELSE 0 END) as hired_count,
+                            CAST(0 as DECIMAL(18, 2)) as cost
+                     FROM Candidate c
+                     LEFT JOIN Interview i ON i.candidate_id = c.candidate_id
+                     GROUP BY COALESCE(NULLIF(c.source, ''), N'Không xác định')`
+                ).map((row) => ({ ...row, cost_per_hired: row.hired_count ? Math.round(Number(row.cost || 0) / Number(row.hired_count)) : 0 }));
+                summary = { totalSources: rows.length, totalCV: rows.reduce((sum, row) => sum + Number(row.total_cv || 0), 0), totalHired: rows.reduce((sum, row) => sum + Number(row.hired_count || 0), 0) };
                 break;
 
             case 'rec_source_quality': // Đánh giá chất lượng nguồn tuyển dụng
-                rows = [
-                    { source_name: 'Nguồn nội bộ / Giới thiệu (Referral)', pass_probation_rate: '94%', avg_kpi_score: '8.8 / 10', retention_1year: '90%', overall_rating: 'Xuất sắc ⭐⭐⭐⭐⭐' },
-                    { source_name: 'Website BRAVO Career', pass_probation_rate: '88%', avg_kpi_score: '8.2 / 10', retention_1year: '82%', overall_rating: 'Tốt ⭐⭐⭐⭐' },
-                    { source_name: 'TopCV / VietnamWorks', pass_probation_rate: '82%', avg_kpi_score: '7.9 / 10', retention_1year: '75%', overall_rating: 'Khá ⭐⭐⭐' },
-                    { source_name: 'LinkedIn Direct Sourcing', pass_probation_rate: '90%', avg_kpi_score: '8.5 / 10', retention_1year: '85%', overall_rating: 'Tốt ⭐⭐⭐⭐' }
-                ];
-                summary = { topSource: 'Nguồn nội bộ / Giới thiệu', avgRetention: '83%' };
+                rows = await query(
+                    `SELECT COALESCE(NULLIF(c.source, ''), N'Không xác định') as source_name,
+                            COUNT(DISTINCT c.candidate_id) as candidate_count,
+                            AVG(ev.total_score) as avg_kpi_score,
+                            SUM(CASE WHEN e.join_date <= ? AND e.is_active = 1 THEN 1 ELSE 0 END) as retained_count,
+                            COUNT(DISTINCT e.employee_id) as hired_count
+                     FROM Candidate c
+                     LEFT JOIN Employee e ON e.candidate_id = c.candidate_id
+                     LEFT JOIN EmployeeEvaluation ev ON ev.employee_id = e.employee_id
+                     GROUP BY COALESCE(NULLIF(c.source, ''), N'Không xác định')`,
+                    [Date.now() - 365 * 86400000]
+                ).map((row) => {
+                    const score = row.avg_kpi_score === null ? '-' : `${Number(row.avg_kpi_score).toFixed(1)} / 10`;
+                    const retention = Number(row.hired_count || 0) ? `${Math.round(Number(row.retained_count || 0) / Number(row.hired_count) * 100)}%` : '-';
+                    return { ...row, pass_probation_rate: '-', avg_kpi_score: score, retention_1year: retention, overall_rating: score === '-' ? 'Chưa đủ dữ liệu' : Number(row.avg_kpi_score) >= 8.5 ? 'Tốt' : 'Theo dõi' };
+                });
+                summary = { totalSources: rows.length, note: 'Tỷ lệ đạt thử việc chưa có trường dữ liệu riêng trong hệ thống.' };
                 break;
 
             case 'rec_candidates_interview': // Danh sách ứng viên tham gia phỏng vấn, thi tuyển
                 rows = await query(
-                    `SELECT c.candidate_code, c.full_name, c.email, c.phone,
+                    `SELECT c.candidate_code, c.full_name, c.email, c.phone, d.department_name as dept_name,
                   COALESCE(direct_pos.position_name, request_pos.position_name) as apply_position,
                   rr.round_name as interview_round, i.interview_date,
                   e.full_name as interviewer_name, i.result
@@ -559,21 +625,15 @@ router.post('/query', async (req, res) => {
            LEFT JOIN Position direct_pos ON direct_pos.position_id = c.position_id
            LEFT JOIN RecruitmentPlan pl ON pl.recruitment_plan_id = c.recruitment_plan_id
            LEFT JOIN RecruitmentRequest request ON request.recruitment_request_id = pl.recruitment_request_id
-           LEFT JOIN Position request_pos ON request_pos.position_id = request.position_id`
+           LEFT JOIN Department d ON d.department_id = COALESCE(request.department_id, c.department_id)
+             LEFT JOIN Position request_pos ON request_pos.position_id = request.position_id`
                 );
-                if (!rows || rows.length === 0) {
-                    rows = [
-                        { candidate_code: 'UV-2026-001', full_name: 'Đỗ Hoàng Anh', apply_position: 'Lập trình viên React', interview_round: 'Vòng 2 - Phỏng vấn Kỹ thuật', interview_date: '2026-08-15', interviewer_name: 'Nguyễn Văn Quản Lý', result: 'PASSED' },
-                        { candidate_code: 'UV-2026-002', full_name: 'Trần Thị Mai', apply_position: 'Chuyên viên Kiểm thử QA', interview_round: 'Vòng 1 - Test chuyên môn', interview_date: '2026-08-14', interviewer_name: 'Phạm Thị Trưởng Phòng', result: 'PASSED' },
-                        { candidate_code: 'UV-2026-003', full_name: 'Lê Hoàng Nam', apply_position: 'Chuyên viên Tư vấn ERP', interview_round: 'Vòng 2 - Phỏng vấn Trưởng bộ phận', interview_date: '2026-08-16', interviewer_name: 'Trần Đình Trưởng', result: 'PENDING' }
-                    ];
-                }
                 summary = { totalInterviews: rows.length, passedCount: rows.filter(r => r.result === 'PASSED').length };
                 break;
 
             case 'rec_candidates_offer': // Danh sách ứng viên trúng offer
                 rows = await query(
-                    `SELECT c.candidate_code, c.full_name,
+                    `SELECT c.candidate_code, c.full_name, d.department_name as dept_name,
                   COALESCE(direct_pos.position_name, request_pos.position_name) as apply_position,
                   c.phone, o.offer_id as offer_code, o.salary_offer as offered_salary,
                   o.expected_start_date as start_date, o.offer_status
@@ -582,58 +642,62 @@ router.post('/query', async (req, res) => {
            LEFT JOIN Position direct_pos ON direct_pos.position_id = c.position_id
            LEFT JOIN RecruitmentPlan pl ON pl.recruitment_plan_id = c.recruitment_plan_id
            LEFT JOIN RecruitmentRequest request ON request.recruitment_request_id = pl.recruitment_request_id
-           LEFT JOIN Position request_pos ON request_pos.position_id = request.position_id`
+           LEFT JOIN Department d ON d.department_id = COALESCE(request.department_id, c.department_id)
+             LEFT JOIN Position request_pos ON request_pos.position_id = request.position_id`
                 );
-                if (!rows || rows.length === 0) {
-                    rows = [
-                        { candidate_code: 'UV-2026-001', full_name: 'Đỗ Hoàng Anh', apply_position: 'Lập trình viên React', offer_code: 'OFF-2026-01', offered_salary: 22000000, start_date: '2026-09-01', offer_status: 'ACCEPTED' },
-                        { candidate_code: 'UV-2026-002', full_name: 'Trần Thị Mai', apply_position: 'Chuyên viên Kiểm thử QA', offer_code: 'OFF-2026-02', offered_salary: 16000000, start_date: '2026-09-01', offer_status: 'PENDING' }
-                    ];
-                }
                 summary = { totalOffers: rows.length, acceptedOffers: rows.filter(r => r.offer_status === 'ACCEPTED').length };
                 break;
 
             case 'rec_candidates_hired': // Danh sách ứng viên đi làm
-                rows = [
-                    { candidate_code: 'UV-2026-001', full_name: 'Đỗ Hoàng Anh', emp_code: 'NV-2026-088', dept_name: 'Khối Kỹ thuật Phần mềm', position_name: 'Kỹ sư Phần mềm', onboard_date: '2026-09-01', mentor_name: 'Nguyễn Văn A', status: 'Đã nhận việc' },
-                    { candidate_code: 'UV-2026-005', full_name: 'Phạm Minh Đức', emp_code: 'NV-2026-089', dept_name: 'Phòng Tư vấn Giải pháp ERP', position_name: 'Chuyên viên ERP', onboard_date: '2026-08-01', mentor_name: 'Lê Văn B', status: 'Đã thử việc' }
-                ];
-                summary = { totalHiredThisMonth: 2, onboardingSuccessRate: '100%' };
+                rows = await query(
+                    `SELECT c.candidate_code, e.employee_code as emp_code, c.full_name,
+                            d.department_name as dept_name, p.position_name,
+                            e.join_date as onboard_date, manager.full_name as mentor_name,
+                            e.employment_status as status
+                     FROM Candidate c
+                     JOIN Employee e ON e.candidate_id = c.candidate_id
+                     LEFT JOIN Department d ON d.department_id = e.department_id
+                     LEFT JOIN Position p ON p.position_id = e.position_id
+                     LEFT JOIN Employee manager ON manager.employee_id = e.manager_id
+                     WHERE e.is_active = 1 AND e.employment_status = 'WORKING'
+                     ORDER BY e.join_date DESC`
+                );
+                summary = { totalHired: rows.length };
                 break;
 
             // 2. HR REPORTS
             case 'hr_turnover': // Báo cáo biến động nhân sự
-                rows = [
-                    { period: 'Tháng 05/2026', start_count: 145, new_hired: 6, resigned: 2, end_count: 149, turnover_rate: '1.35%' },
-                    { period: 'Tháng 06/2026', start_count: 149, new_hired: 8, resigned: 1, end_count: 156, turnover_rate: '0.65%' },
-                    { period: 'Tháng 07/2026', start_count: 156, new_hired: 5, resigned: 3, end_count: 158, turnover_rate: '1.91%' },
-                    { period: 'Tháng 08/2026', start_count: 158, new_hired: 4, resigned: 1, end_count: 161, turnover_rate: '0.63%' }
-                ];
-                summary = { avgTurnoverRate: '1.13%', netGrowth: '+16 nhân sự' };
+                {
+                    const employees = await query(`SELECT e.join_date, e.resignation_date, d.department_name as dept_name FROM Employee e LEFT JOIN Department d ON d.department_id = e.department_id`);
+                    const scopedEmployees = filters.department && filters.department !== 'ALL' ? employees.filter((employee) => employee.dept_name === filters.department) : employees;
+                    const year = Number(String(filters.startDate || new Date().getFullYear()).slice(0, 4));
+                    rows = Array.from({ length: 12 }, (_, monthIndex) => {
+                        const start = new Date(year, monthIndex, 1).getTime();
+                        const end = new Date(year, monthIndex + 1, 1).getTime();
+                        const startCount = scopedEmployees.filter((employee) => Number(employee.join_date || 0) < start && (!employee.resignation_date || Number(employee.resignation_date) >= start)).length;
+                        const newHired = scopedEmployees.filter((employee) => Number(employee.join_date || 0) >= start && Number(employee.join_date || 0) < end).length;
+                        const resigned = scopedEmployees.filter((employee) => Number(employee.resignation_date || 0) >= start && Number(employee.resignation_date || 0) < end).length;
+                        return { period: `Tháng ${String(monthIndex + 1).padStart(2, '0')}/${year}`, period_start: start, start_count: startCount, new_hired: newHired, resigned, end_count: startCount + newHired - resigned, turnover_rate: `${startCount ? ((resigned / startCount) * 100).toFixed(2) : '0.00'}%` };
+                    });
+                    summary = { totalMonths: rows.length, totalNewHires: rows.reduce((sum, row) => sum + row.new_hired, 0), totalResigned: rows.reduce((sum, row) => sum + row.resigned, 0) };
+                }
                 break;
 
             case 'hr_summary': // Báo cáo tổng hợp nhân sự
                 rows = await query(
                     `SELECT d.department_code as dept_code, d.department_name as dept_name,
-                  COUNT(e.employee_id) as total_emp,
-                  SUM(CASE WHEN e.gender = 'Nam' THEN 1 ELSE 0 END) as male_count,
-                  SUM(CASE WHEN e.gender = 'Nữ' THEN 1 ELSE 0 END) as female_count,
-                  0 as bachelor_count,
-                  0 as master_count
+                   COUNT(e.employee_id) as total_emp,
+                   SUM(CASE WHEN e.gender = 'Nam' THEN 1 ELSE 0 END) as male_count,
+                   SUM(CASE WHEN e.gender = 'Nữ' THEN 1 ELSE 0 END) as female_count,
+                   SUM(CASE WHEN LOWER(COALESCE(e.education_level, '')) LIKE N'%đại học%' OR LOWER(COALESCE(e.education_level, '')) LIKE N'%cử nhân%' THEN 1 ELSE 0 END) as bachelor_count,
+                   SUM(CASE WHEN LOWER(COALESCE(e.education_level, '')) LIKE N'%thạc sĩ%' OR LOWER(COALESCE(e.education_level, '')) LIKE N'%tiến sĩ%' THEN 1 ELSE 0 END) as master_count
            FROM Department d
            LEFT JOIN Employee e ON d.department_id = e.department_id AND e.is_active = 1
            WHERE d.status = 1
            GROUP BY d.department_id, d.department_code, d.department_name`
                 );
-                if (!rows || rows.length === 0) {
-                    rows = [
-                        { dept_code: 'P-BAN-01', dept_name: 'Ban Giám đốc', total_emp: 4, male_count: 3, female_count: 1, bachelor_count: 2, master_count: 2 },
-                        { dept_code: 'P-KNS-02', dept_name: 'Khối Kỹ thuật Phần mềm', total_emp: 85, male_count: 65, female_count: 20, bachelor_count: 80, master_count: 5 },
-                        { dept_code: 'P-KD-03', dept_name: 'Khối Kinh doanh ERP', total_emp: 42, male_count: 22, female_count: 20, bachelor_count: 40, master_count: 2 },
-                        { dept_code: 'P-NS-04', dept_name: 'Phòng Hành chính Nhân sự', total_emp: 15, male_count: 3, female_count: 12, bachelor_count: 14, master_count: 1 }
-                    ];
-                }
-                summary = { totalCompanyEmp: 146, maleRatio: '63%', femaleRatio: '37%' };
+                const totalEmployees = rows.reduce((sum, row) => sum + Number(row.total_emp || 0), 0);
+                summary = { totalCompanyEmp: totalEmployees, maleRatio: totalEmployees ? `${Math.round(rows.reduce((sum, row) => sum + Number(row.male_count || 0), 0) / totalEmployees * 100)}%` : '0%', femaleRatio: totalEmployees ? `${Math.round(rows.reduce((sum, row) => sum + Number(row.female_count || 0), 0) / totalEmployees * 100)}%` : '0%' };
                 break;
 
             case 'hr_contracts': // Báo cáo danh sách nhân viên theo hợp đồng lao động
@@ -646,22 +710,21 @@ router.post('/query', async (req, res) => {
            LEFT JOIN Position pos ON e.position_id = pos.position_id
            WHERE c.status = 'ACTIVE'`
                 );
-                if (!rows || rows.length === 0) {
-                    rows = [
-                        { employee_code: 'NV-2026-001', full_name: 'Nguyễn Văn Admin', dept_name: 'Khối Kỹ thuật Phần mềm', position_name: 'Quản trị hệ thống', contract_code: 'HĐ-KTH-001', contract_type: 'HĐLD Không xác định thời hạn', start_date: '2020-01-01', end_date: 'Vĩnh viễn', contract_status: 'ACTIVE' },
-                        { employee_code: 'NV-2026-002', full_name: 'Trần Thị Trưởng Phòng', dept_name: 'Phòng Hành chính Nhân sự', position_name: 'Trưởng phòng Nhân sự', contract_code: 'HĐ-XTH-002', contract_type: 'HĐLĐ Xác định thời hạn (36 tháng)', start_date: '2024-01-01', end_date: '2026-12-31', contract_status: 'ACTIVE' }
-                    ];
-                }
                 summary = { totalContracts: rows.length, indefiniteCount: rows.filter(r => r.contract_type?.includes('Không xác định')).length };
                 break;
 
             case 'hr_seniority': // Báo cáo thâm niên làm việc
-                rows = [
-                    { employee_code: 'NV-2020-001', full_name: 'Nguyễn Văn Admin', dept_name: 'Khối Kỹ thuật Phần mềm', position_name: 'Giám đốc Kỹ thuật', join_date: '2018-03-15', seniority_years: '8 năm 5 tháng', seniority_group: 'Trên 5 năm' },
-                    { employee_code: 'NV-2022-014', full_name: 'Lê Minh Tuấn', dept_name: 'Khối Kinh doanh ERP', position_name: 'Trưởng nhóm Kinh doanh', join_date: '2022-06-01', seniority_years: '4 năm 2 tháng', seniority_group: 'Từ 3 - 5 năm' },
-                    { employee_code: 'NV-2025-045', full_name: 'Phạm Thanh Hương', dept_name: 'Phòng Hành chính Nhân sự', position_name: 'Chuyên viên C&B', join_date: '2025-02-10', seniority_years: '1 năm 6 tháng', seniority_group: 'Từ 1 - 3 năm' }
-                ];
-                summary = { avgSeniority: '3.8 năm', over5YearsCount: 18 };
+                rows = (await query(
+                    `SELECT e.employee_code, e.full_name, d.department_name as dept_name, p.position_name, e.join_date
+                     FROM Employee e LEFT JOIN Department d ON d.department_id = e.department_id LEFT JOIN Position p ON p.position_id = e.position_id
+                     WHERE e.is_active = 1 AND e.join_date IS NOT NULL ORDER BY e.join_date`
+                )).map((employee) => {
+                    const months = Math.max(0, Math.floor((Date.now() - Number(employee.join_date)) / (30.4375 * 86400000)));
+                    const years = Math.floor(months / 12);
+                    const remainingMonths = months % 12;
+                    return { ...employee, seniority_years: `${years} năm ${remainingMonths} tháng`, seniority_group: years >= 5 ? 'Trên 5 năm' : years >= 3 ? 'Từ 3 - 5 năm' : years >= 1 ? 'Từ 1 - 3 năm' : 'Dưới 1 năm' };
+                });
+                summary = { totalEmployees: rows.length, over5YearsCount: rows.filter((row) => row.seniority_group === 'Trên 5 năm').length };
                 break;
 
             case 'hr_birthdays': // Danh sách CBNV sinh nhật
@@ -677,85 +740,101 @@ router.post('/query', async (req, res) => {
 
             case 'hr_contract_terminated': // Danh sách nhân viên chấm dứt hợp đồng lao động
             case 'hr_resigned': // Danh sách nhân viên nghỉ việc
-                rows = [
-                    { employee_code: 'NV-2024-032', full_name: 'Hoàng Văn Nam', dept_name: 'Khối Kỹ thuật Phần mềm', position_name: 'Lập trình viên Java', resign_date: '2026-07-31', resign_reason: 'Lý do cá nhân / Chuyển nơi ở', handoff_status: 'Hoàn tất bàn giao' },
-                    { employee_code: 'NV-2023-019', full_name: 'Nguyễn Thị Hoa', dept_name: 'Khối Kinh doanh ERP', position_name: 'Chuyên viên Marketing', resign_date: '2026-06-15', resign_reason: 'Hết hạn HĐLĐ không tái ký', handoff_status: 'Hoàn tất bàn giao' }
-                ];
-                summary = { totalResigned: 2, handoffCompleted: '100%' };
+                rows = await query(
+                    `SELECT e.employee_code, e.full_name, d.department_name as dept_name, p.position_name,
+                            COALESCE(rd.official_resign_date, e.resignation_date) as resign_date,
+                            COALESCE(rd.reason, ra.reason, e.note) as resign_reason,
+                            COALESCE(rd.handover_status, ra.handover_notes, N'Chưa xác định') as handoff_status
+                     FROM Employee e
+                     LEFT JOIN Department d ON d.department_id = e.department_id
+                     LEFT JOIN Position p ON p.position_id = e.position_id
+                     LEFT JOIN ResignationDecision rd ON rd.employee_id = e.employee_id
+                     LEFT JOIN ResignationApplication ra ON ra.employee_id = e.employee_id
+                     WHERE e.employment_status = 'RESIGNED' OR rd.status = 'EXECUTED' OR ra.status = 'APPROVED'`
+                );
+                summary = { totalResigned: rows.length, handoffCompleted: `${rows.filter((row) => String(row.handoff_status).toLowerCase().includes('hoàn tất') || String(row.handoff_status).toLowerCase().includes('completed')).length}/${rows.length}` };
                 break;
 
             case 'hr_asof_date': // Báo cáo nhân sự quản lý theo thời điểm
-                rows = [
-                    { dept_name: 'Ban Giám đốc', active_emp_asof: 4, manager_count: 4, intern_count: 0 },
-                    { dept_name: 'Khối Kỹ thuật Phần mềm', active_emp_asof: 85, manager_count: 8, intern_count: 6 },
-                    { dept_name: 'Khối Kinh doanh ERP', active_emp_asof: 42, manager_count: 5, intern_count: 4 },
-                    { dept_name: 'Phòng Hành chính Nhân sự', active_emp_asof: 15, manager_count: 2, intern_count: 1 }
-                ];
-                summary = { totalHeadcountAsOfDate: 146 };
+                rows = await query(
+                    `SELECT d.department_name as dept_name,
+                            SUM(CASE WHEN e.is_active = 1 AND e.employment_status = 'WORKING' AND e.level IN (N'Nhân viên', N'Chuyên viên') THEN 1 ELSE 0 END) as active_emp_asof,
+                            SUM(CASE WHEN e.is_active = 1 AND e.level NOT IN (N'Nhân viên', N'Chuyên viên') THEN 1 ELSE 0 END) as manager_count,
+                            SUM(CASE WHEN e.is_active = 1 AND (e.level LIKE N'%thử việc%' OR e.level LIKE N'%thực tập%') THEN 1 ELSE 0 END) as intern_count,
+                            COALESCE(d.target_headcount, 0) as total_headcount
+                     FROM Department d LEFT JOIN Employee e ON e.department_id = d.department_id
+                     WHERE d.status = 1 GROUP BY d.department_id, d.department_name, d.target_headcount ORDER BY d.department_name`
+                );
+                summary = { totalHeadcountAsOfDate: rows.reduce((sum, row) => sum + Number(row.active_emp_asof || 0) + Number(row.manager_count || 0), 0) };
                 break;
 
             // 3. PERFORMANCE & EVALUATION REPORTS
             case 'eval_detail': // Đánh giá chi tiết nhân viên
-                rows = [
-                    { criteria_code: 'TC-01', criteria_name: 'Kết quả hoàn thành công việc (KPI)', self_score: '9.0', manager_score: '9.2', final_score: '9.1', notes: 'Hoàn thành xuất sắc 100% nhiệm vụ' },
-                    { criteria_code: 'TC-02', criteria_name: 'Kỷ luật & Chấp hành quy định công ty', self_score: '10.0', manager_score: '10.0', final_score: '10.0', notes: 'Đi làm đúng giờ, tuân thủ quy trình' },
-                    { criteria_code: 'TC-03', criteria_name: 'Tinh thần làm việc nhóm & Hợp tác', self_score: '8.5', manager_score: '9.0', final_score: '8.8', notes: 'Chủ động hỗ trợ đồng nghiệp' },
-                    { criteria_code: 'TC-04', criteria_name: 'Sáng kiến & Cải tiến kỹ thuật', self_score: '8.0', manager_score: '8.5', final_score: '8.3', notes: 'Có 2 đề xuất tối ưu hóa quy trình' }
-                ];
-                summary = { totalScore: '9.05 / 10', finalGrade: 'Xuất sắc (Loại A)' };
+                rows = await query(
+                    `SELECT detail.criteria_code, detail.criteria_name, '-' as self_score,
+                            detail.score as manager_score, detail.weight, detail.score as final_score, detail.note as notes,
+                            ev.evaluation_date, d.department_name as dept_name
+                     FROM EmployeeEvaluationDetail detail
+                     JOIN EmployeeEvaluation ev ON ev.evaluation_id = detail.evaluation_id
+                     JOIN Employee employee ON employee.employee_id = ev.employee_id
+                     LEFT JOIN Department d ON d.department_id = employee.department_id
+                     WHERE ev.status = 'COMPLETED' ORDER BY ev.evaluation_date DESC, detail.criteria_code`
+                );
+                summary = { totalCriteriaScores: rows.length, note: 'Hệ thống hiện lưu điểm quản lý; chưa có trường tự đánh giá độc lập.' };
                 break;
 
             case 'eval_summary': // Báo cáo tổng hợp đánh giá nhân viên
-                rows = [
-                    { employee_code: 'NV-2026-001', full_name: 'Nguyễn Văn Admin', dept_name: 'Khối Kỹ thuật', period: 'Năm 2026', self_score: '9.2', manager_score: '9.5', final_grade: 'A+ (Xuất sắc)', rank: '1 / 85' },
-                    { employee_code: 'NV-2026-002', full_name: 'Trần Thị Trưởng Phòng', dept_name: 'Phòng Hành chính Nhân sự', period: 'Năm 2026', self_score: '9.0', manager_score: '9.2', final_grade: 'A (Xuất sắc)', rank: '1 / 15' },
-                    { employee_code: 'NV-2026-003', full_name: 'Lê Văn C', dept_name: 'Khối Kinh doanh ERP', period: 'Năm 2026', self_score: '8.2', manager_score: '8.5', final_grade: 'B (Tốt)', rank: '5 / 42' }
-                ];
-                summary = { totalEvaluated: 142, gradeARatio: '35%', gradeBRatio: '55%' };
+                rows = await query(
+                    `SELECT e.employee_code, e.full_name, d.department_name as dept_name,
+                            CONCAT(N'Năm ', ev.year) as period, '-' as self_score,
+                            ev.total_score as manager_score, ev.grade_result as final_grade,
+                            RANK() OVER (PARTITION BY ev.year ORDER BY ev.total_score DESC) as rank,
+                            ev.evaluation_date
+                     FROM EmployeeEvaluation ev JOIN Employee e ON e.employee_id = ev.employee_id
+                     LEFT JOIN Department d ON d.department_id = e.department_id
+                     WHERE ev.status = 'COMPLETED' ORDER BY ev.year DESC, ev.total_score DESC`
+                );
+                summary = { totalEvaluated: rows.length, gradeARatio: rows.length ? `${Math.round(rows.filter((row) => Number(row.manager_score) >= 8).length / rows.length * 100)}%` : '0%' };
                 break;
 
             case 'eval_ranking': // Báo cáo tổng hợp xếp loại
-                rows = [
-                    { grade_name: 'Loại A+ / A (Xuất sắc)', criteria: 'Điểm tổng hợp >= 9.0', count: 48, percentage: '33.8%', bonus_proposed: 'Thưởng 2 - 3 tháng lương' },
-                    { grade_name: 'Loại B (Tốt / Khá)', criteria: '7.0 <= Điểm < 9.0', count: 82, percentage: '57.7%', bonus_proposed: 'Thưởng 1 - 1.5 tháng lương' },
-                    { grade_name: 'Loại C (Trung bình)', criteria: '5.0 <= Điểm < 7.0', count: 12, percentage: '8.5%', bonus_proposed: 'Giữ nguyên lương' },
-                    { grade_name: 'Loại D (Yếu / Không đạt)', criteria: 'Điểm < 5.0', count: 0, percentage: '0.0%', bonus_proposed: 'Xem xét đào tạo lại' }
-                ];
-                summary = { totalGraded: 142, topPerformers: 48 };
+                rows = await query(
+                    `SELECT grade_result as grade_name,
+                            CASE WHEN grade_result LIKE N'%A+%' THEN N'Điểm >= 9.0' WHEN grade_result LIKE N'%A %' THEN N'8.0 <= Điểm < 9.0' WHEN grade_result LIKE N'%B%' THEN N'6.5 <= Điểm < 8.0' WHEN grade_result LIKE N'%C%' THEN N'5.0 <= Điểm < 6.5' ELSE N'Điểm < 5.0' END as criteria,
+                            COUNT(*) as count
+                      FROM EmployeeEvaluation WHERE status = 'COMPLETED' GROUP BY grade_result`
+                );
+                {
+                    const totalGraded = rows.reduce((sum, row) => sum + Number(row.count || 0), 0);
+                    rows = rows.map((row) => ({ ...row, percentage: totalGraded ? `${Math.round(Number(row.count || 0) / totalGraded * 1000) / 10}%` : '0%', bonus_proposed: row.grade_name && String(row.grade_name).includes('A') ? 'Theo chính sách thưởng' : 'Theo chính sách nhân sự' }));
+                    summary = { totalGraded };
+                }
                 break;
 
             case 'eval_reward_discipline': // Báo cáo đề xuất thưởng phạt
                 rows = await query(
-                    `SELECT rd.decision_no as decision_number, rd.content as title, e.employee_code, e.full_name,
-                  d.department_name as dept_name, rd.decision_type as record_type, 0 as amount,
+                     `SELECT rd.decision_no as decision_number, COALESCE(rd.content, rd.reason) as title, e.employee_code, e.full_name,
+                   d.department_name as dept_name, CASE WHEN rd.decision_type IN ('REWARD', 'KHEN_THUONG') THEN 'KHEN_THUONG' ELSE 'KY_LUAT' END as record_type, rd.amount,
                   rd.effective_date, rd.reason
            FROM RewardDiscipline rd
            JOIN Employee e ON rd.employee_id = e.employee_id
            LEFT JOIN Department d ON e.department_id = d.department_id`
                 );
-                if (!rows || rows.length === 0) {
-                    rows = [
-                        { decision_number: 'QĐ-KT-2026-01', title: 'Khen thưởng Cá nhân xuất sắc Q2/2026', full_name: 'Nguyễn Văn Admin', dept_name: 'Khối Kỹ thuật Phần mềm', record_type: 'KHEN_THUONG', amount: 5000000, effective_date: '2026-07-01', reason: 'Hoàn thành xuất sắc dự án ERP đúng tiến độ' },
-                        { decision_number: 'QĐ-KT-2026-02', title: 'Khen thưởng Sáng kiến Đổi mới', full_name: 'Trần Thị Trưởng Phòng', dept_name: 'Phòng Hành chính Nhân sự', record_type: 'KHEN_THUONG', amount: 3000000, effective_date: '2026-07-15', reason: 'Cải tiến quy trình onboarding ứng viên' }
-                    ];
-                }
-                summary = { totalRewards: rows.filter(r => r.record_type === 'KHEN_THUONG').length, totalRewardAmount: '8,000,000 VNĐ' };
+                summary = { totalRewards: rows.filter(r => r.record_type === 'KHEN_THUONG' || r.record_type === 'REWARD').length, totalRewardAmount: rows.reduce((sum, row) => sum + Number(row.amount || 0), 0) };
                 break;
 
             default:
-                rows = [
-                    { id: 1, code: 'BC-001', name: 'Báo cáo mẫu BRAVO HRM System', date: new Date().toISOString().split('T')[0], status: 'HOÀN THÀNH' }
-                ];
-                summary = { status: 'OK' };
+                summary = { status: 'EMPTY' };
                 break;
         }
 
+        const filteredRows = applyReportFilters(rows, filters);
         res.json({
             success: true,
             reportId,
             filters: filters || {},
-            data: rows,
-            summary
+            data: filteredRows,
+            summary: { ...summary, total: filteredRows.length }
         });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });

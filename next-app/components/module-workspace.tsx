@@ -46,6 +46,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Popup, type PopupVariant } from "@/components/ui/popup";
+import { ReportsWorkspace } from "@/components/reports-workspace";
 
 type Row = Record<string, unknown>;
 type ModuleName = WorkspaceName | "reports";
@@ -640,7 +641,7 @@ function EmployeeAvatarUploader({
   );
 }
 
-function ReportsWorkspace() {
+function LegacyReportsWorkspace() {
   const { data, isLoading } = useQuery({
     queryKey: ["reports-workspace"],
     queryFn: () => api.module("reports"),

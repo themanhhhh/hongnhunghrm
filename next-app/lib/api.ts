@@ -25,6 +25,14 @@ export type DashboardData = {
   pipeline: Array<{ label: string; count: number }>;
 };
 
+export type ReportQueryResult = {
+  success: boolean;
+  reportId: string;
+  filters: Record<string, string>;
+  data: Array<Record<string, unknown>>;
+  summary: Record<string, unknown>;
+};
+
 export class ApiError extends Error {
   status: number;
   constructor(message: string, status = 500) {
@@ -127,6 +135,13 @@ export const api = {
       };
     }
     return dashboardData;
+  },
+  async queryReport(reportId: string, filters: Record<string, string>) {
+    return this.request<ReportQueryResult>(
+      "/reports/query",
+      { method: "POST", body: JSON.stringify({ reportId, filters }) },
+      { resource: "reports" },
+    );
   },
   async uploadEmployeeAvatar(employeeId: string, file: File) {
     const session = readSession();
