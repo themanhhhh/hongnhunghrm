@@ -11,6 +11,7 @@ const idFields: Record<string, string> = {
   "/hr/contracts": "contract_id",
   "/hr/contract-proposals": "proposal_id",
   "/hr/contract-extensions": "extension_id",
+  "/hr/expiring-contracts": "contract_id",
   "/hr/leave-applications": "leave_id",
   "/hr/transfer-proposals": "proposal_id",
   "/hr/transfer-decisions": "decision_id",
@@ -67,7 +68,41 @@ const initialStore: MockStore = {
     { schedule_id: "schedule-demo-01", schedule_code: "PV/2026-012", round_type: "Vòng phỏng vấn", format_type: "Online", start_time: "2026-09-10T09:00", location: "Microsoft Teams", status: "Đã lên lịch" },
   ],
   "/recruitment/interview-evaluations": [
-    { interview_eval_id: "interview-demo-01", eval_code: "DGPV/2026-001", candidate_name: "Vũ Minh Khôi", schedule_code: "PV/2026-011", level_score: 8.5, overall_result: "ĐẠT", overall_comment: "Kỹ năng tư vấn tốt, phù hợp vị trí." },
+    {
+      interview_eval_id: "interview-demo-01",
+      eval_code: "DGPV/2026-001",
+      evaluation_date: "2026-09-03",
+      schedule_id: "schedule-demo-01",
+      candidate_id: "cand-demo-02",
+      candidate_name: "Vũ Minh Khôi",
+      schedule_code: "PV/2026-011",
+      duration_minutes: 60,
+      level_score: 8.5,
+      overall_result: "ĐẠT",
+      overall_comment: "Kỹ năng tư vấn tốt, phù hợp vị trí.",
+      script: [
+        {
+          script_id: "script-demo-01",
+          row_order: 1,
+          question: "Hãy mô tả quy trình tư vấn khách hàng doanh nghiệp.",
+          expectation: "Trình bày được các bước khám phá nhu cầu và đề xuất giải pháp.",
+          answer: "Ứng viên trình bày rõ ràng, có ví dụ thực tế.",
+        },
+      ],
+      criteria: [
+        {
+          criteria_detail_id: "criteria-detail-demo-01",
+          row_order: 1,
+          criteria_type: "Năng lực chuyên môn",
+          required_from: "Kinh nghiệm tư vấn ERP",
+          required_description: "Hiểu quy trình bán hàng giải pháp phần mềm.",
+          candidate_value: "Tốt",
+          candidate_description: "Có kinh nghiệm tư vấn khách hàng doanh nghiệp.",
+          is_passed: 1,
+          note: "Đáp ứng yêu cầu",
+        },
+      ],
+    },
   ],
   "/recruitment/offers": [
     { offer_id: "offer-demo-01", candidate_code: "UV-2026-002", candidate_name: "Vũ Minh Khôi", offer_date: "2026-09-03", expected_start_date: "2026-09-15", salary_offer: 18000000, offer_status: "Đã chấp nhận" },
@@ -205,6 +240,11 @@ export async function mockApiRequest<T>(path: string, init: RequestInit = {}): P
   const action = segments[1];
   const method = init.method ?? "GET";
   const rows = store[route] ?? [];
+
+  if (path === "/hr/employees/me" && method === "GET") {
+    const employee = store["/hr/employees"].find((row) => row.employee_id === "emp-kd-02") ?? store["/hr/employees"][0];
+    return envelope(employee ?? null) as T;
+  }
 
   if (method === "GET") {
     if (id) return envelope(rows.find((row) => String(row[idField]) === id) ?? null) as T;

@@ -100,7 +100,7 @@ export const api = {
       return response.json() as Promise<T>;
     } catch (error) {
       if (error instanceof ApiError) throw error;
-      return mockApiRequest<T>(path, init);
+      throw new ApiError("Không thể kết nối đến máy chủ. Vui lòng kiểm tra backend và thử lại.");
     }
   },
   async dashboard(): Promise<DashboardData> {

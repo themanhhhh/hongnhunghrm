@@ -7,6 +7,7 @@ export type WorkspaceField = {
   label: string;
   type?: FieldType;
   required?: boolean;
+  disabled?: boolean;
   placeholder?: string;
   options?: FieldOption[];
   span?: 1 | 2;
@@ -59,6 +60,28 @@ const employeeFields: WorkspaceField[] = [
   text("ethnicity", "Dân tộc"),
   text("religion", "Tôn giáo"),
   text("marital_status", "Tình trạng hôn nhân"),
+  select("is_foreign", "Nhân sự nước ngoài", [{ value: "0", label: "Không" }, { value: "1", label: "Có" }]),
+  text("citizen_issue_place", "Nơi cấp CCCD"),
+  date("citizen_issue_date", "Ngày cấp CCCD"),
+  date("citizen_expiry_date", "Ngày hết hạn CCCD"),
+  date("resignation_date", "Ngày nghỉ việc"),
+  date("initial_contract_date", "Ngày hợp đồng đầu tiên"),
+  text("blood_type", "Nhóm máu"),
+  text("tax_code", "Mã số thuế"),
+  text("emergency_contact_name", "Người liên hệ khẩn cấp"),
+  text("emergency_contact_relationship", "Quan hệ liên hệ khẩn cấp"),
+  text("emergency_contact_phone", "SĐT liên hệ khẩn cấp"),
+  text("bank_account_number", "Số tài khoản"),
+  text("bank_account_holder", "Chủ tài khoản"),
+  text("bank_name", "Ngân hàng"),
+  text("bank_branch", "Chi nhánh ngân hàng"),
+  text("culture_level", "Trình độ văn hóa"),
+  text("education_level", "Trình độ đào tạo"),
+  text("education_school", "Trường đào tạo"),
+  text("major", "Chuyên ngành"),
+  number("gpa", "Điểm trung bình"),
+  number("graduation_year", "Năm tốt nghiệp"),
+  text("candidate_id", "Mã ứng viên"),
   area("note", "Ghi chú"),
 ];
 
@@ -139,7 +162,7 @@ const peopleTabs: WorkspaceTab[] = [
   {
     id: "contracts", label: "Hợp đồng lao động", endpoint: "/hr/contracts", idField: "contract_id",
     columns: [{ key: "contract_no", label: "Số hợp đồng" }, { key: "employee_name", label: "Nhân viên" }, { key: "contract_type", label: "Loại hợp đồng" }, { key: "start_date", label: "Từ ngày" }, { key: "end_date", label: "Đến ngày" }, { key: "status", label: "Trạng thái" }],
-    fields: [text("contract_no", "Số hợp đồng"), date("contract_date", "Ngày ký", true), text("signer_id", "Mã người ký"), text("signer_name", "Người ký"), text("signer_position", "Chức vụ người ký"), text("employee_id", "Mã nhân viên", undefined, true), text("employee_position", "Vị trí nhân viên"), text("contract_type", "Loại hợp đồng", undefined, true), date("start_date", "Ngày bắt đầu", true), date("end_date", "Ngày kết thúc"), date("probation_from_date", "Bắt đầu thử việc"), date("probation_to_date", "Kết thúc thử việc"), text("salary_scale", "Thang lương"), text("salary_grade", "Bậc lương"), number("base_salary", "Lương cơ sở"), number("social_insurance_salary", "Lương đóng BHXH"), json("allowance_details", "Phụ cấp (JSON)", '[{"allowance_type":"Ăn trưa","amount":500000}]'), area("job_description", "Mô tả công việc"), area("note", "Ghi chú")],
+    fields: [text("contract_no", "Số hợp đồng"), date("contract_date", "Ngày ký", true), date("sign_date", "Ngày ký chính thức"), text("signer_id", "Mã người ký"), text("signer_name", "Người ký"), text("signer_position", "Chức vụ người ký"), text("employee_id", "Mã nhân viên", undefined, true), text("employee_position", "Vị trí nhân viên"), text("contract_type", "Loại hợp đồng", undefined, true), date("start_date", "Ngày bắt đầu", true), date("end_date", "Ngày kết thúc"), select("has_probation", "Có thử việc", [{ value: "0", label: "Không" }, { value: "1", label: "Có" }]), date("probation_from_date", "Bắt đầu thử việc"), date("probation_to_date", "Kết thúc thử việc"), number("probation_salary_rate", "Tỷ lệ lương thử việc"), text("salary_scale", "Thang lương"), text("salary_grade", "Bậc lương"), number("base_salary", "Lương cơ sở"), number("social_insurance_salary", "Lương đóng BHXH"), number("salary", "Mức lương hợp đồng"), select("status", "Trạng thái", [{ value: "ACTIVE", label: "Đang hiệu lực" }, { value: "TERMINATED", label: "Đã chấm dứt" }]), json("allowance_details", "Phụ cấp (JSON)", '[{"allowance_type":"Ăn trưa","amount":500000}]'), area("job_description", "Mô tả công việc"), text("attachment_url", "Tệp đính kèm"), area("note", "Ghi chú")],
   },
   {
     id: "expiring-contracts", label: "HĐ sắp hết hạn", endpoint: "/hr/expiring-contracts", idField: "contract_id", readOnly: true,
@@ -154,7 +177,7 @@ const peopleTabs: WorkspaceTab[] = [
   {
     id: "leave", label: "Đơn xin nghỉ phép", endpoint: "/hr/leave-applications", idField: "leave_id", approve: true,
     columns: [{ key: "leave_code", label: "Mã đơn" }, { key: "employee_name", label: "Nhân viên" }, { key: "start_date", label: "Từ ngày" }, { key: "end_date", label: "Đến ngày" }, { key: "total_days", label: "Số ngày" }, { key: "status", label: "Trạng thái" }],
-    fields: [text("employee_id", "Mã nhân viên", undefined, true), date("start_date", "Ngày bắt đầu", true), date("end_date", "Ngày kết thúc", true), number("total_days", "Tổng số ngày", true), text("approver_id", "Mã người duyệt"), text("related_person_id", "Người liên quan"), area("reason", "Lý do", undefined, 2), area("approver_note", "Ghi chú người duyệt", undefined, 2), json("details_json", "Chi tiết ngày nghỉ (JSON)", '[{"date":"2026-01-01","time_option":"Cả ngày","days":1,"note":""}]')],
+    fields: [text("employee_id", "Mã nhân viên", undefined, true), date("start_date", "Ngày bắt đầu", true), date("end_date", "Ngày kết thúc", true), number("total_days", "Tổng số ngày", true), select("leave_type", "Loại nghỉ phép", [{ value: "ANNUAL", label: "Nghỉ phép năm" }, { value: "SICK", label: "Nghỉ ốm" }, { value: "MATERNITY", label: "Nghỉ thai sản" }, { value: "UNPAID", label: "Nghỉ không lương" }], true), text("approver_id", "Mã người duyệt"), text("related_person_id", "Người liên quan"), area("reason", "Lý do", undefined, 2), area("approver_note", "Ghi chú người duyệt", undefined, 2), json("details_json", "Chi tiết ngày nghỉ (JSON)", '[{"date":"2026-01-01","time_option":"Cả ngày","days":1,"note":""}]')],
   },
   {
     id: "transfer-proposals", label: "Đề xuất thuyên chuyển, bổ nhiệm", endpoint: "/hr/transfer-proposals", idField: "proposal_id", approve: true,

@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNotification } from '../context/NotificationContext';
-import { CheckCircle2, AlertTriangle, Info, XCircle, X } from 'lucide-react';
+import { CheckCircle2, AlertTriangle, XCircle, X } from 'lucide-react';
 
 export const ToastContainer = () => {
   const { toasts, removeToast } = useNotification();
@@ -10,15 +10,22 @@ export const ToastContainer = () => {
   return (
     <div style={{
       position: 'fixed',
-      bottom: '1.5rem',
-      right: '1.5rem',
+      inset: 0,
       zIndex: 2000,
       display: 'flex',
-      flexDirection: 'column',
-      gap: '0.75rem',
-      maxWidth: '380px'
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: '1rem',
+      background: 'rgba(15, 23, 42, 0.42)',
+      backdropFilter: 'blur(3px)'
     }}>
-      {toasts.map((toast) => {
+      <div style={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '0.75rem',
+        width: 'min(100%, 440px)'
+      }}>
+        {toasts.map((toast) => {
         let bg = 'white';
         let borderColor = 'var(--bravo-teal)';
         let Icon = CheckCircle2;
@@ -37,16 +44,19 @@ export const ToastContainer = () => {
         return (
           <div
             key={toast.id}
+            role="alertdialog"
+            aria-live="assertive"
             style={{
               background: bg,
-              borderRadius: '8px',
-              borderLeft: `4px solid ${borderColor}`,
-              boxShadow: '0 10px 25px -5px rgba(0,0,0,0.15)',
-              padding: '0.875rem 1rem',
+              borderRadius: '12px',
+              border: `1px solid ${borderColor}`,
+              borderTop: `4px solid ${borderColor}`,
+              boxShadow: '0 20px 45px -12px rgba(0,0,0,0.3)',
+              padding: '1.25rem',
               display: 'flex',
               alignItems: 'flex-start',
               gap: '0.75rem',
-              animation: 'slideUp 0.25 ease-out'
+              animation: 'slideUp 0.25s ease-out'
             }}
           >
             <Icon size={20} color={iconColor} style={{ marginTop: '2px', flexShrink: 0 }} />
@@ -68,7 +78,8 @@ export const ToastContainer = () => {
             </button>
           </div>
         );
-      })}
+        })}
+      </div>
     </div>
   );
 };

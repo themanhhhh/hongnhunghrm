@@ -178,6 +178,7 @@ router.post('/employees', authorizeRole('Administrator', 'HR Staff'), async (req
         const jDate = parseDate(join_date) || now;
         const oDate = parseDate(official_date) || (now + 60 * 86400000);
         const resDate = parseDate(resignation_date);
+        const isForeign = is_foreign === true || Number(is_foreign) === 1;
 
         await run(
             `INSERT INTO Employee (
@@ -188,7 +189,7 @@ router.post('/employees', authorizeRole('Administrator', 'HR Staff'), async (req
        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
             [
                 id, now, now, empCode, short_name || empCode, full_name, gender || 'Nam', dob, place_of_birth,
-                is_foreign ? 1 : 0, hometown, nationality || 'Việt Nam', ethnicity || 'Kinh', religion || 'Không', marital_status || 'Độc thân',
+                 isForeign ? 1 : 0, hometown, nationality || 'Việt Nam', ethnicity || 'Kinh', religion || 'Không', marital_status || 'Độc thân',
                 citizen_id, cidDate, citizen_issue_place, phone, email || company_email || personal_email, personal_email || email, company_email || email, address, permanent_address,
                 department_id || null, position_id || null, manager_id || null, level || 'Nhân viên', jDate, oDate, resDate, employment_status || 'WORKING', note || ''
             ]
@@ -218,6 +219,7 @@ router.put('/employees/:id', authorizeRole('Administrator', 'HR Staff'), async (
         const jDate = parseDate(join_date);
         const oDate = parseDate(official_date);
         const resDate = parseDate(resignation_date);
+        const isForeign = is_foreign === true || Number(is_foreign) === 1;
 
         await run(
             `UPDATE Employee 
@@ -230,7 +232,7 @@ router.put('/employees/:id', authorizeRole('Administrator', 'HR Staff'), async (
        WHERE employee_id = ?`,
             [
                 employee_code, short_name || employee_code, full_name, gender, dob, place_of_birth,
-                is_foreign ? 1 : 0, hometown, nationality || 'Việt Nam', ethnicity || 'Kinh', religion || 'Không', marital_status || 'Độc thân',
+                 isForeign ? 1 : 0, hometown, nationality || 'Việt Nam', ethnicity || 'Kinh', religion || 'Không', marital_status || 'Độc thân',
                 citizen_id, cidDate, citizen_issue_place,
                 phone, email || company_email || personal_email, personal_email || email, company_email || email, address, permanent_address,
                 department_id || null, position_id || null, manager_id || null, level || 'Nhân viên',
@@ -313,7 +315,7 @@ router.post('/employees/:id/avatar', authorizeRole('Administrator', 'HR Staff'),
 });
 
 // --- 2. HỢP ĐỒNG LAO ĐỘNG (EMPLOYEE CONTRACTS) ---
-router.get('/contracts', async (req, res) => {
+router.get('/contracts', authorizeRole('Administrator', 'HR Staff', 'Ban Giám Đốc', 'Trưởng Khối', 'Trưởng Phòng'), async (req, res) => {
     const contracts = await query(
         `SELECT c.*, e.full_name as employee_name, e.employee_code, d.department_name, p.position_name
      FROM EmployeeContract c
@@ -335,11 +337,31 @@ router.get('/contracts', async (req, res) => {
     res.json({ success: true, data: parsed });
 });
 
+router.get('/contracts/:id', authorizeRole('Administrator', 'HR Staff', 'Ban Giám Đốc', 'Trưởng Khối', 'Trưởng Phòng'), async (req, res) => {
+    try {
+        const contract = await queryOne(
+            `SELECT c.*, e.full_name as employee_name, e.employee_code, d.department_name, p.position_name
+             FROM EmployeeContract c
+             JOIN Employee e ON c.employee_id = e.employee_id
+             LEFT JOIN Department d ON e.department_id = d.department_id
+             LEFT JOIN Position p ON e.position_id = p.position_id
+             WHERE c.contract_id = ?`,
+            [req.params.id]
+        );
+        if (!contract) return res.status(404).json({ success: false, message: 'Không tìm thấy hợp đồng lao động.' });
+        try { contract.allowance_details = contract.allowance_details ? JSON.parse(contract.allowance_details) : []; } catch { contract.allowance_details = []; }
+        res.json({ success: true, data: contract });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
 router.post('/contracts', authorizeRole('Administrator', 'HR Staff'), async (req, res) => {
     try {
         const {
             contract_no,
             contract_date,
+            sign_date,
             signer_id,
             signer_name,
             signer_position,
@@ -360,6 +382,7 @@ router.post('/contracts', authorizeRole('Administrator', 'HR Staff'), async (req
             social_insurance_salary,
             salary,
             status,
+            attachment_url,
             note
         } = req.body;
 
@@ -376,6 +399,7 @@ router.post('/contracts', authorizeRole('Administrator', 'HR Staff'), async (req
         const parseDate = (d) => (d ? (typeof d === 'number' ? d : new Date(d).getTime()) : null);
 
         const cDate = parseDate(contract_date) || now;
+        const signedDate = parseDate(sign_date) || cDate;
         const sDate = parseDate(start_date) || now;
         const eDate = parseDate(end_date);
         const pFrom = parseDate(probation_from_date);
@@ -387,18 +411,20 @@ router.post('/contracts', authorizeRole('Administrator', 'HR Staff'), async (req
 
         await run(
             `INSERT INTO EmployeeContract (
-        contract_id, created_date, last_modified_date, contract_no, contract_date,
+         contract_id, created_date, last_modified_date, contract_no, contract_date, sign_date,
         signer_id, signer_name, signer_position, employee_id, employee_position,
          contract_type, start_date, end_date, has_probation, probation_from_date, probation_to_date, probation_salary_rate,
          job_description, salary_scale, salary_grade, allowance_details, base_salary,
-         social_insurance_salary, salary, status, note
-       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          social_insurance_salary, salary, status, attachment_url, note
+         ) VALUES (
+             ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+         )`,
             [
-                id, now, now, finalContractNo, cDate,
+                 id, now, now, finalContractNo, cDate, signedDate,
                 signer_id || null, signer_name || '', signer_position || '', employee_id, employee_position || '',
                  contract_type || 'Hợp đồng thử việc', sDate, eDate, hasProbation ? 1 : 0, pFrom, pTo, hasProbation ? Number(probation_salary_rate || 0) : null,
                 job_description || '', salary_scale || '', salary_grade || '', allowanceJson, Number(base_salary || 0),
-                Number(social_insurance_salary || 0), finalSalary, status || 'ACTIVE', note || ''
+                 Number(social_insurance_salary || 0), finalSalary, status || 'ACTIVE', attachment_url || '', note || ''
             ]
         );
 
@@ -413,6 +439,7 @@ router.put('/contracts/:id', authorizeRole('Administrator', 'HR Staff'), async (
         const {
             contract_no,
             contract_date,
+            sign_date,
             signer_id,
             signer_name,
             signer_position,
@@ -433,6 +460,7 @@ router.put('/contracts/:id', authorizeRole('Administrator', 'HR Staff'), async (
             social_insurance_salary,
             salary,
             status,
+            attachment_url,
             note
         } = req.body;
 
@@ -442,6 +470,7 @@ router.put('/contracts/:id', authorizeRole('Administrator', 'HR Staff'), async (
         const parseDate = (d) => (d ? (typeof d === 'number' ? d : new Date(d).getTime()) : null);
 
         const cDate = parseDate(contract_date);
+        const signedDate = parseDate(sign_date) || cDate;
         const sDate = parseDate(start_date);
         const eDate = parseDate(end_date);
         const pFrom = parseDate(probation_from_date);
@@ -453,18 +482,18 @@ router.put('/contracts/:id', authorizeRole('Administrator', 'HR Staff'), async (
 
         await run(
             `UPDATE EmployeeContract SET
-        contract_no = ?, contract_date = ?, signer_id = ?, signer_name = ?, signer_position = ?,
+         contract_no = ?, contract_date = ?, sign_date = ?, signer_id = ?, signer_name = ?, signer_position = ?,
          employee_id = ?, employee_position = ?, contract_type = ?, start_date = ?, end_date = ?, has_probation = ?,
          probation_from_date = ?, probation_to_date = ?, probation_salary_rate = ?, job_description = ?, salary_scale = ?, salary_grade = ?,
-        allowance_details = ?, base_salary = ?, social_insurance_salary = ?, salary = ?, status = ?,
-        note = ?, last_modified_date = ?
+         allowance_details = ?, base_salary = ?, social_insurance_salary = ?, salary = ?, status = ?,
+         attachment_url = ?, note = ?, last_modified_date = ?
        WHERE contract_id = ?`,
             [
-                contract_no, cDate, signer_id || null, signer_name || '', signer_position || '',
+                 contract_no, cDate, signedDate, signer_id || null, signer_name || '', signer_position || '',
                  employee_id, employee_position || '', contract_type, sDate, eDate, hasProbation ? 1 : 0,
                  pFrom, pTo, hasProbation ? Number(probation_salary_rate || 0) : null, job_description || '', salary_scale || '', salary_grade || '',
-                allowanceJson, Number(base_salary || 0), Number(social_insurance_salary || 0), finalSalary, status || 'ACTIVE',
-                note || '', now, contractId
+                 allowanceJson, Number(base_salary || 0), Number(social_insurance_salary || 0), finalSalary, status || 'ACTIVE',
+                 attachment_url || '', note || '', now, contractId
             ]
         );
 
@@ -536,7 +565,7 @@ router.post('/contracts/:id/appendices', authorizeRole('Administrator', 'HR Staf
 });
 
 // --- 3. QUÁ TRÌNH CÔNG TÁC (WORK HISTORY) ---
-router.get('/work-history', async (req, res) => {
+router.get('/work-history', authorizeRole('Administrator', 'HR Staff', 'Ban Giám Đốc', 'Trưởng Khối', 'Trưởng Phòng'), async (req, res) => {
     const histories = await query(
         `SELECT wh.*, e.full_name as employee_name, e.employee_code,
             d.department_name, p.position_name
@@ -547,6 +576,25 @@ router.get('/work-history', async (req, res) => {
      ORDER BY wh.effective_date DESC`
     );
     res.json({ success: true, data: histories });
+});
+
+router.get('/work-history/:id', authorizeRole('Administrator', 'HR Staff', 'Ban Giám Đốc', 'Trưởng Khối', 'Trưởng Phòng'), async (req, res) => {
+    try {
+        const history = await queryOne(
+            `SELECT wh.*, e.full_name as employee_name, e.employee_code,
+                d.department_name, p.position_name
+             FROM WorkHistory wh
+             JOIN Employee e ON wh.employee_id = e.employee_id
+             LEFT JOIN Department d ON wh.department_id = d.department_id
+             LEFT JOIN Position p ON wh.position_id = p.position_id
+             WHERE wh.work_history_id = ?`,
+            [req.params.id]
+        );
+        if (!history) return res.status(404).json({ success: false, message: 'Không tìm thấy quá trình công tác.' });
+        res.json({ success: true, data: history });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
 });
 
 router.post('/work-history', authorizeRole('Administrator', 'HR Staff'), async (req, res) => {
@@ -582,18 +630,19 @@ router.post('/work-history', authorizeRole('Administrator', 'HR Staff'), async (
 });
 
 // --- 4. CẢNH BÁO HỢP ĐỒNG LAO ĐỘNG SẮP HẾT HẠN (< 30 NGÀY) ---
-router.get('/expiring-contracts', async (req, res) => {
+router.get('/expiring-contracts', authorizeRole('Administrator', 'HR Staff', 'Ban Giám Đốc', 'Trưởng Khối', 'Trưởng Phòng'), async (req, res) => {
     try {
-        const thirtyDaysFromNow = Date.now() + 30 * 86400000;
+        const now = Date.now();
+        const thirtyDaysFromNow = now + 30 * 86400000;
         const expiringContracts = await query(
             `SELECT c.*, e.full_name as employee_name, e.employee_code, d.department_name, p.position_name
        FROM EmployeeContract c
        JOIN Employee e ON c.employee_id = e.employee_id
        LEFT JOIN Department d ON e.department_id = d.department_id
        LEFT JOIN Position p ON e.position_id = p.position_id
-       WHERE c.status = 'ACTIVE' AND c.end_date IS NOT NULL AND c.end_date <= ?
+        WHERE c.status = 'ACTIVE' AND c.end_date IS NOT NULL AND c.end_date >= ? AND c.end_date <= ?
        ORDER BY c.end_date ASC`,
-            [thirtyDaysFromNow]
+            [now, thirtyDaysFromNow]
         );
         res.json({ success: true, data: expiringContracts });
     } catch (error) {
@@ -602,7 +651,7 @@ router.get('/expiring-contracts', async (req, res) => {
 });
 
 // --- 5. ĐỀ XUẤT HỢP ĐỒNG LAO ĐỘNG (CONTRACT PROPOSALS) ---
-router.get('/contract-proposals', async (req, res) => {
+router.get('/contract-proposals', authorizeRole('Administrator', 'HR Staff', 'Ban Giám Đốc', 'Trưởng Khối', 'Trưởng Phòng'), async (req, res) => {
     const list = await query(
         `SELECT cp.*, e.full_name as employee_name, e.employee_code, d.department_name
      FROM ContractProposal cp
@@ -613,7 +662,20 @@ router.get('/contract-proposals', async (req, res) => {
     res.json({ success: true, data: list });
 });
 
-router.post('/contract-proposals', async (req, res) => {
+router.get('/contract-proposals/:id', authorizeRole('Administrator', 'HR Staff', 'Ban Giám Đốc', 'Trưởng Khối', 'Trưởng Phòng'), async (req, res) => {
+    const item = await queryOne(
+        `SELECT cp.*, e.full_name as employee_name, e.employee_code, d.department_name
+         FROM ContractProposal cp
+         JOIN Employee e ON cp.employee_id = e.employee_id
+         LEFT JOIN Department d ON e.department_id = d.department_id
+         WHERE cp.proposal_id = ?`,
+        [req.params.id]
+    );
+    if (!item) return res.status(404).json({ success: false, message: 'Không tìm thấy đề xuất hợp đồng.' });
+    res.json({ success: true, data: item });
+});
+
+router.post('/contract-proposals', authorizeRole('Administrator', 'HR Staff'), async (req, res) => {
     try {
         const { employee_id, contract_type, proposed_salary, proposed_start_date, reason } = req.body;
         const now = Date.now();
@@ -643,7 +705,7 @@ router.delete('/contract-proposals/:id', authorizeRole('Administrator', 'HR Staf
 });
 
 // --- 6. GIA HẠN HỢP ĐỒNG LAO ĐỘNG (CONTRACT EXTENSIONS) ---
-router.get('/contract-extensions', async (req, res) => {
+router.get('/contract-extensions', authorizeRole('Administrator', 'HR Staff', 'Ban Giám Đốc', 'Trưởng Khối', 'Trưởng Phòng'), async (req, res) => {
     const list = await query(
         `SELECT ce.*, e.full_name as employee_name, e.employee_code, c.contract_no
      FROM ContractExtension ce
@@ -654,7 +716,20 @@ router.get('/contract-extensions', async (req, res) => {
     res.json({ success: true, data: list });
 });
 
-router.post('/contract-extensions', async (req, res) => {
+router.get('/contract-extensions/:id', authorizeRole('Administrator', 'HR Staff', 'Ban Giám Đốc', 'Trưởng Khối', 'Trưởng Phòng'), async (req, res) => {
+    const item = await queryOne(
+        `SELECT ce.*, e.full_name as employee_name, e.employee_code, c.contract_no
+         FROM ContractExtension ce
+         JOIN Employee e ON ce.employee_id = e.employee_id
+         LEFT JOIN EmployeeContract c ON ce.contract_id = c.contract_id
+         WHERE ce.extension_id = ?`,
+        [req.params.id]
+    );
+    if (!item) return res.status(404).json({ success: false, message: 'Không tìm thấy phiếu gia hạn hợp đồng.' });
+    res.json({ success: true, data: item });
+});
+
+router.post('/contract-extensions', authorizeRole('Administrator', 'HR Staff'), async (req, res) => {
     try {
         const { contract_id, employee_id, new_end_date, new_salary, extension_term, reason } = req.body;
         const now = Date.now();
@@ -689,7 +764,7 @@ router.delete('/contract-extensions/:id', authorizeRole('Administrator', 'HR Sta
 });
 
 // --- 7. ĐỀ XUẤT THUYÊN CHUYỂN, BỔ NHIỆM, MIỄN NHIỆM (TRANSFER PROPOSALS) ---
-router.get('/transfer-proposals', async (req, res) => {
+router.get('/transfer-proposals', authorizeRole('Administrator', 'HR Staff', 'Ban Giám Đốc', 'Trưởng Khối', 'Trưởng Phòng'), async (req, res) => {
     const list = await query(
         `SELECT tp.*, e.full_name as employee_name, e.employee_code,
             cd.department_name as current_dept_name, td.department_name as target_dept_name,
@@ -709,18 +784,40 @@ router.get('/transfer-proposals', async (req, res) => {
         } catch (e) { }
         return {
             ...item,
+            effective_date: item.proposed_effective_date,
             detail_items: details
         };
     });
     res.json({ success: true, data: parsed });
 });
 
-router.post('/transfer-proposals', async (req, res) => {
+router.get('/transfer-proposals/:id', authorizeRole('Administrator', 'HR Staff', 'Ban Giám Đốc', 'Trưởng Khối', 'Trưởng Phòng'), async (req, res) => {
+    const item = await queryOne(
+        `SELECT tp.*, e.full_name as employee_name, e.employee_code,
+            cd.department_name as current_dept_name, td.department_name as target_dept_name,
+            cp.position_name as current_pos_name, tp_pos.position_name as target_pos_name
+         FROM TransferProposal tp
+         LEFT JOIN Employee e ON tp.employee_id = e.employee_id
+         LEFT JOIN Department cd ON tp.current_department_id = cd.department_id
+         LEFT JOIN Department td ON tp.target_department_id = td.department_id
+         LEFT JOIN Position cp ON tp.current_position_id = cp.position_id
+         LEFT JOIN Position tp_pos ON tp.target_position_id = tp_pos.position_id
+         WHERE tp.proposal_id = ?`,
+        [req.params.id]
+    );
+    if (!item) return res.status(404).json({ success: false, message: 'Không tìm thấy đề xuất điều chuyển.' });
+    try { item.detail_items = item.detail_items ? JSON.parse(item.detail_items) : []; } catch { item.detail_items = []; }
+    item.effective_date = item.proposed_effective_date;
+    res.json({ success: true, data: item });
+});
+
+router.post('/transfer-proposals', authorizeRole('Administrator', 'HR Staff'), async (req, res) => {
     try {
         const {
             proposal_code,
             proposal_date,
             effective_date,
+            proposed_effective_date,
             decision_type,
             proposer_id,
             proposer_name,
@@ -769,7 +866,7 @@ router.post('/transfer-proposals', async (req, res) => {
     }
 });
 
-router.put('/transfer-proposals/:id', async (req, res) => {
+router.put('/transfer-proposals/:id', authorizeRole('Administrator', 'HR Staff'), async (req, res) => {
     try {
         const {
             proposal_code,
@@ -791,7 +888,7 @@ router.put('/transfer-proposals/:id', async (req, res) => {
         const parseDate = (d) => (d ? (typeof d === 'number' ? d : new Date(d).getTime()) : null);
 
         const pDate = parseDate(proposal_date);
-        const effDate = parseDate(effective_date);
+        const effDate = parseDate(proposed_effective_date ?? effective_date);
 
         const detailsJson = Array.isArray(detail_items) ? JSON.stringify(detail_items) : (typeof detail_items === 'string' ? detail_items : '[]');
 
@@ -817,6 +914,16 @@ router.put('/transfer-proposals/:id', async (req, res) => {
     }
 });
 
+router.put('/transfer-proposals/:id/status', authorizeRole('Administrator', 'HR Staff', 'Ban Giám Đốc', 'Trưởng Khối', 'Trưởng Phòng'), async (req, res) => {
+    const status = req.body.status === 'REJECTED' ? 'REJECTED' : 'APPROVED';
+    const result = await run(
+        `UPDATE TransferProposal SET status = ?, last_modified_date = ? WHERE proposal_id = ?`,
+        [status, Date.now(), req.params.id]
+    );
+    if (!result || result.changes === 0) return res.status(404).json({ success: false, message: 'Không tìm thấy đề xuất điều chuyển.' });
+    res.json({ success: true, message: status === 'APPROVED' ? 'Đã phê duyệt đề xuất điều chuyển.' : 'Đã từ chối đề xuất điều chuyển.' });
+});
+
 router.delete('/transfer-proposals/:id', authorizeRole('Administrator', 'HR Staff'), async (req, res) => {
     try {
         await run(`DELETE FROM TransferProposal WHERE proposal_id = ?`, [req.params.id]);
@@ -827,7 +934,7 @@ router.delete('/transfer-proposals/:id', authorizeRole('Administrator', 'HR Staf
 });
 
 // --- 8. QUYẾT ĐỊNH THUYÊN CHUYỂN, BỔ NHIỆM (TRANSFER DECISIONS) ---
-router.get('/transfer-decisions', async (req, res) => {
+router.get('/transfer-decisions', authorizeRole('Administrator', 'HR Staff', 'Ban Giám Đốc', 'Trưởng Khối', 'Trưởng Phòng'), async (req, res) => {
     const list = await query(
         `SELECT td.*, e.full_name as employee_name, e.employee_code,
             dept.department_name as target_dept_name, pos.position_name as target_pos_name
@@ -840,7 +947,22 @@ router.get('/transfer-decisions', async (req, res) => {
     res.json({ success: true, data: list });
 });
 
-router.post('/transfer-decisions', async (req, res) => {
+router.get('/transfer-decisions/:id', authorizeRole('Administrator', 'HR Staff', 'Ban Giám Đốc', 'Trưởng Khối', 'Trưởng Phòng'), async (req, res) => {
+    const item = await queryOne(
+        `SELECT td.*, e.full_name as employee_name, e.employee_code,
+            dept.department_name as target_dept_name, pos.position_name as target_pos_name
+         FROM TransferDecision td
+         JOIN Employee e ON td.employee_id = e.employee_id
+         LEFT JOIN Department dept ON td.target_department_id = dept.department_id
+         LEFT JOIN Position pos ON td.target_position_id = pos.position_id
+         WHERE td.decision_id = ?`,
+        [req.params.id]
+    );
+    if (!item) return res.status(404).json({ success: false, message: 'Không tìm thấy quyết định điều chuyển.' });
+    res.json({ success: true, data: item });
+});
+
+router.post('/transfer-decisions', authorizeRole('Administrator', 'HR Staff'), async (req, res) => {
     try {
         const {
             proposal_id,
@@ -903,7 +1025,7 @@ router.delete('/transfer-decisions/:id', authorizeRole('Administrator', 'HR Staf
 });
 
 // --- 9. ĐƠN XIN NGHỈ VIỆC (RESIGNATION APPLICATIONS) ---
-router.get('/resignation-applications', async (req, res) => {
+router.get('/resignation-applications', authorizeRole('Administrator', 'HR Staff', 'Ban Giám Đốc', 'Trưởng Khối', 'Trưởng Phòng'), async (req, res) => {
     const list = await query(
         `SELECT ra.*, e.full_name as employee_name, e.employee_code, d.department_name, p.position_name
      FROM ResignationApplication ra
@@ -915,9 +1037,30 @@ router.get('/resignation-applications', async (req, res) => {
     res.json({ success: true, data: list });
 });
 
+router.get('/resignation-applications/:id', authorizeRole('Administrator', 'HR Staff', 'Ban Giám Đốc', 'Trưởng Khối', 'Trưởng Phòng'), async (req, res) => {
+    const item = await queryOne(
+        `SELECT ra.*, e.full_name as employee_name, e.employee_code, d.department_name, p.position_name
+         FROM ResignationApplication ra
+         JOIN Employee e ON ra.employee_id = e.employee_id
+         LEFT JOIN Department d ON e.department_id = d.department_id
+         LEFT JOIN Position p ON e.position_id = p.position_id
+         WHERE ra.application_id = ?`,
+        [req.params.id]
+    );
+    if (!item) return res.status(404).json({ success: false, message: 'Không tìm thấy đơn xin nghỉ việc.' });
+    res.json({ success: true, data: item });
+});
+
 router.post('/resignation-applications', async (req, res) => {
     try {
         const { employee_id, desired_resign_date, reason, handover_notes } = req.body;
+        const privileged = ['Administrator', 'HR Staff'].includes(req.user.roleName);
+        const subjectEmployeeId = privileged ? (employee_id || req.user.employeeId || '') : (req.user.employeeId || '');
+        if (!subjectEmployeeId) {
+            return res.status(400).json({ success: false, message: 'Phải xác định nhân viên xin nghỉ việc.' });
+        }
+        const employee = await queryOne('SELECT employee_id FROM Employee WHERE employee_id = ?', [subjectEmployeeId]);
+        if (!employee) return res.status(404).json({ success: false, message: 'Không tìm thấy nhân viên xin nghỉ việc.' });
         const now = Date.now();
         const id = crypto.randomUUID();
         const code = 'DXNV-' + new Date().getFullYear() + '-' + Math.floor(100 + Math.random() * 900);
@@ -926,13 +1069,23 @@ router.post('/resignation-applications', async (req, res) => {
         await run(
             `INSERT INTO ResignationApplication (application_id, created_date, last_modified_date, application_code, employee_id, desired_resign_date, reason, handover_notes, status)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'PENDING')`,
-            [id, now, now, code, employee_id, rDate, reason || '', handover_notes || '']
+             [id, now, now, code, subjectEmployeeId, rDate, reason || '', handover_notes || '']
         );
 
         res.json({ success: true, message: 'Tiếp nhận Đơn xin nghỉ việc thành công!' });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }
+});
+
+router.put('/resignation-applications/:id/status', authorizeRole('Administrator', 'HR Staff', 'Ban Giám Đốc', 'Trưởng Khối', 'Trưởng Phòng'), async (req, res) => {
+    const status = req.body.status === 'REJECTED' ? 'REJECTED' : 'APPROVED';
+    const result = await run(
+        `UPDATE ResignationApplication SET status = ?, last_modified_date = ? WHERE application_id = ?`,
+        [status, Date.now(), req.params.id]
+    );
+    if (!result || result.changes === 0) return res.status(404).json({ success: false, message: 'Không tìm thấy đơn xin nghỉ việc.' });
+    res.json({ success: true, message: status === 'APPROVED' ? 'Đã phê duyệt đơn xin nghỉ việc.' : 'Đã từ chối đơn xin nghỉ việc.' });
 });
 
 router.delete('/resignation-applications/:id', authorizeRole('Administrator', 'HR Staff'), async (req, res) => {
@@ -945,7 +1098,7 @@ router.delete('/resignation-applications/:id', authorizeRole('Administrator', 'H
 });
 
 // --- 10. QUYẾT ĐỊNH NGHỈ VIỆC (RESIGNATION DECISIONS) ---
-router.get('/resignation-decisions', async (req, res) => {
+router.get('/resignation-decisions', authorizeRole('Administrator', 'HR Staff', 'Ban Giám Đốc', 'Trưởng Khối', 'Trưởng Phòng'), async (req, res) => {
     const list = await query(
         `SELECT rd.*, e.full_name as employee_name, e.employee_code, d.department_name, p.position_name
      FROM ResignationDecision rd
@@ -957,7 +1110,21 @@ router.get('/resignation-decisions', async (req, res) => {
     res.json({ success: true, data: list });
 });
 
-router.post('/resignation-decisions', async (req, res) => {
+router.get('/resignation-decisions/:id', authorizeRole('Administrator', 'HR Staff', 'Ban Giám Đốc', 'Trưởng Khối', 'Trưởng Phòng'), async (req, res) => {
+    const item = await queryOne(
+        `SELECT rd.*, e.full_name as employee_name, e.employee_code, d.department_name, p.position_name
+         FROM ResignationDecision rd
+         JOIN Employee e ON rd.employee_id = e.employee_id
+         LEFT JOIN Department d ON e.department_id = d.department_id
+         LEFT JOIN Position p ON e.position_id = p.position_id
+         WHERE rd.decision_id = ?`,
+        [req.params.id]
+    );
+    if (!item) return res.status(404).json({ success: false, message: 'Không tìm thấy quyết định nghỉ việc.' });
+    res.json({ success: true, data: item });
+});
+
+router.post('/resignation-decisions', authorizeRole('Administrator', 'HR Staff'), async (req, res) => {
     try {
         const { application_id, employee_id, official_resign_date, handover_status, signed_by, reason } = req.body;
         const now = Date.now();
@@ -1381,7 +1548,12 @@ async function refreshAnnualLeaveBalance(employeeId, leaveYear, now) {
 
 router.get('/leave-applications', async (req, res) => {
     try {
-        const apps = await query(`SELECT * FROM LeaveApplication ORDER BY created_date DESC`);
+        const privileged = ['Administrator', 'HR Staff', 'Ban Giám Đốc', 'Trưởng Khối', 'Trưởng Phòng'].includes(req.user.roleName);
+        const apps = privileged
+            ? await query(`SELECT * FROM LeaveApplication ORDER BY created_date DESC`)
+            : req.user.employeeId
+                ? await query(`SELECT * FROM LeaveApplication WHERE employee_id = ? ORDER BY created_date DESC`, [req.user.employeeId])
+                : [];
         res.json({ success: true, data: apps });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
@@ -1409,11 +1581,22 @@ router.post('/leave-applications', async (req, res) => {
         const requestedDays = leaveDaysFromInput(total_days, details);
 
         // Người nộp đơn thực tế: ưu tiên hồ sơ nhân viên của chính người đăng nhập, nếu HR lập hộ thì dùng employee_id gửi lên
-        const subjectEmployeeId = employee_id || req.user.employeeId || '';
+        const privileged = ['Administrator', 'HR Staff'].includes(req.user.roleName);
+        const subjectEmployeeId = privileged ? (employee_id || req.user.employeeId || '') : (req.user.employeeId || '');
         if (!subjectEmployeeId) {
             return res.status(400).json({ success: false, message: 'Phải chọn nhân viên lập đơn nghỉ phép.' });
         }
-        const leaveType = leave_type || 'ANNUAL';
+        const leaveType = String(leave_type || 'ANNUAL').toUpperCase();
+        if (!['ANNUAL', 'SICK', 'MATERNITY', 'UNPAID'].includes(leaveType)) {
+            return res.status(400).json({ success: false, message: 'Loại nghỉ phép không hợp lệ.' });
+        }
+        const subject = await queryOne(
+            `SELECT e.employee_code, e.full_name, e.department_id, d.department_name
+             FROM Employee e LEFT JOIN Department d ON e.department_id = d.department_id
+             WHERE e.employee_id = ?`,
+            [subjectEmployeeId]
+        );
+        if (!subject) return res.status(404).json({ success: false, message: 'Không tìm thấy nhân viên lập đơn nghỉ phép.' });
         const leaveYear = new Date(startTs).getFullYear();
         let entitlement = null;
         let usedDaysBefore = null;
@@ -1440,7 +1623,7 @@ router.post('/leave-applications', async (req, res) => {
         await run(
             `INSERT INTO LeaveApplication (leave_id, created_date, last_modified_date, leave_code, employee_id, employee_code, employee_name, department_id, department_name, approver_id, approver_name, related_person_id, related_person_name, start_date, end_date, total_days, leave_type, leave_year, entitled_days, used_days_before, remaining_days_before, remaining_days_after, reason, details_json, approver_note, status)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '', ?)`,
-            [id, now, now, finalCode, subjectEmployeeId, employee_code || '', employee_name || '', department_id || '', department_name || '', approver_id || '', approver_name || '', related_person_id || '', related_person_name || '', startTs, endTs, requestedDays, leaveType, leaveYear, entitlement, usedDaysBefore, remainingDaysBefore, remainingDaysBefore === null ? null : remainingDaysBefore - requestedDays, reason || '', detailsStr, initialStatus]
+             [id, now, now, finalCode, subjectEmployeeId, subject.employee_code || employee_code || '', subject.full_name || employee_name || '', subject.department_id || department_id || '', subject.department_name || department_name || '', approver_id || '', approver_name || '', related_person_id || '', related_person_name || '', startTs, endTs, requestedDays, leaveType, leaveYear, entitlement, usedDaysBefore, remainingDaysBefore, remainingDaysBefore === null ? null : remainingDaysBefore - requestedDays, reason || '', detailsStr, initialStatus]
         );
 
         res.json({ success: true, message: 'Tạo Đơn xin nghỉ phép thành công! Đơn đã được gửi tới cấp duyệt đầu tiên.' });
@@ -1452,6 +1635,12 @@ router.post('/leave-applications', async (req, res) => {
 // Xem lịch sử phê duyệt đầy đủ của 1 đơn nghỉ phép (ai duyệt, khi nào, ý kiến gì, cấp mấy)
 router.get('/leave-applications/:id/approval-history', async (req, res) => {
     try {
+        const application = await queryOne('SELECT employee_id FROM LeaveApplication WHERE leave_id = ?', [req.params.id]);
+        const privileged = ['Administrator', 'HR Staff', 'Ban Giám Đốc', 'Trưởng Khối', 'Trưởng Phòng'].includes(req.user.roleName);
+        if (!application) return res.status(404).json({ success: false, message: 'Không tìm thấy đơn nghỉ phép.' });
+        if (!privileged && application.employee_id !== req.user.employeeId) {
+            return res.status(403).json({ success: false, message: 'Bạn không có quyền xem lịch sử đơn nghỉ phép này.' });
+        }
         const history = await approvalWorkflow.getApprovalHistory('LeaveApplication', req.params.id);
         res.json({ success: true, data: history });
     } catch (error) {

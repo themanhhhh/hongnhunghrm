@@ -45,9 +45,18 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Popup, type PopupVariant } from "@/components/ui/popup";
 
 type Row = Record<string, unknown>;
 type ModuleName = WorkspaceName | "reports";
+type PopupState = {
+  variant: PopupVariant;
+  title: string;
+  message: string;
+  confirmLabel?: string;
+  cancelLabel?: string;
+  resolve?: (confirmed: boolean) => void;
+};
 
 const editableTabs = new Set([
   "quota",
@@ -140,6 +149,7 @@ const detailLabels: Record<string, string> = {
   manager_name: "Quản lý trực tiếp",
   level: "Cấp bậc",
   join_date: "Ngày vào làm",
+  initial_contract_date: "Ngày hợp đồng đầu tiên",
   official_date: "Ngày chính thức",
   resignation_date: "Ngày nghỉ việc",
   date_of_birth: "Ngày sinh",
@@ -275,6 +285,7 @@ const detailLabels: Record<string, string> = {
   proposed_by: "Người đề xuất",
   proposed_by_employee_id: "Mã nhân viên đề xuất",
   effective_date: "Ngày hiệu lực",
+  proposed_effective_date: "Ngày hiệu lực đề xuất",
   decision_id: "Mã quyết định",
   decision_no: "Số quyết định",
   decision_number: "Số quyết định",
@@ -325,6 +336,32 @@ const detailLabels: Record<string, string> = {
   uploaded_date: "Ngày tải lên",
   is_active: "Đang hoạt động",
   is_foreign: "Nhân sự nước ngoài",
+  contracts: "Danh sách hợp đồng",
+  sign_date: "Ngày ký",
+  has_probation: "Có thử việc",
+  probation_from_date: "Bắt đầu thử việc",
+  probation_to_date: "Kết thúc thử việc",
+  probation_salary_rate: "Tỷ lệ lương thử việc",
+  salary: "Mức lương",
+  attachment_url: "Tệp đính kèm",
+  workHistory: "Quá trình công tác",
+  source_type: "Nguồn biến động",
+  source_id: "Mã nguồn biến động",
+  rewards: "Khen thưởng / kỷ luật",
+  reward_discipline_id: "Mã khen thưởng / kỷ luật",
+  amount: "Số tiền",
+  leaveBalances: "Số dư ngày phép",
+  leave_balance_id: "Mã số dư ngày phép",
+  leave_year: "Năm phép",
+  entitled_days: "Ngày phép được hưởng",
+  carried_forward_days: "Ngày phép chuyển kỳ",
+  used_days_before: "Đã dùng trước đó",
+  used_days: "Đã sử dụng",
+  remaining_days_before: "Còn lại trước đó",
+  remaining_days_after: "Còn lại sau đó",
+  remaining_days: "Ngày phép còn lại",
+  calculation_note: "Ghi chú tính phép",
+  last_calculated_date: "Ngày tính phép gần nhất",
 };
 
 const detailTermLabels: Record<string, string> = {
@@ -369,17 +406,27 @@ function detailLabel(tab: WorkspaceTab, key: string) {
     .replace(/^./, (value) => value.toUpperCase());
 }
 
-function localizeDetailObject(value: unknown, tab: WorkspaceTab): unknown {
+function localizeDetailObject(value: unknown, tab: WorkspaceTab, key = ""): unknown {
   if (Array.isArray(value))
     return value.map((item) => localizeDetailObject(item, tab));
+  if (
+    typeof value === "string" &&
+    (key.endsWith("_json") || key.endsWith("_details"))
+  ) {
+    try {
+      return localizeDetailObject(JSON.parse(value), tab, key);
+    } catch {
+      return value;
+    }
+  }
   if (value && typeof value === "object")
     return Object.fromEntries(
       Object.entries(value).map(([key, item]) => [
         detailLabel(tab, key),
-        localizeDetailObject(item, tab),
+        localizeDetailObject(item, tab, key),
       ]),
     );
-  return value;
+  return key ? displayCell(key, value) : value;
 }
 
 function displayDetailValue(tab: WorkspaceTab, key: string, value: unknown) {
@@ -397,7 +444,9 @@ function displayValue(value: unknown) {
 
 function displayCell(key: string, value: unknown) {
   if (value === null || value === undefined || value === "") return "-";
-  if (/(date|_time|_at)$/i.test(key)) {
+  if (["is_active", "is_foreign", "has_probation"].includes(key))
+    return Number(value) ? "Có" : "Không";
+  if (/date|_time|_at$/i.test(key)) {
     const date =
       typeof value === "number" ? new Date(value) : new Date(String(value));
     if (!Number.isNaN(date.getTime()))
@@ -791,10 +840,28 @@ function OperationalWorkspace({
   const [formValues, setFormValues] = useState<Record<string, string>>(() =>
     defaultForm(firstTab),
   );
-  const [formError, setFormError] = useState("");
-  const [notice, setNotice] = useState("");
+  const [popup, setPopup] = useState<PopupState | null>(null);
+  const [dismissedQueryError, setDismissedQueryError] = useState<unknown>(null);
   const [historyEmployeeId, setHistoryEmployeeId] = useState("");
   const queryClient = useQueryClient();
+
+  const showPopup = (variant: PopupVariant, title: string, message: string) =>
+    setPopup({ variant, title, message });
+  const requestConfirmation = (message: string) =>
+    new Promise<boolean>((resolve) =>
+      setPopup({
+        variant: "warning",
+        title: "Xác nhận thao tác",
+        message,
+        confirmLabel: "Xác nhận",
+        resolve,
+      }),
+    );
+  const closePopup = (confirmed = false) => {
+    const resolve = popup?.resolve;
+    setPopup(null);
+    resolve?.(confirmed);
+  };
 
   const rowsQuery = useQuery({
     queryKey: ["workspace", name, tab.id],
@@ -916,12 +983,13 @@ function OperationalWorkspace({
     onSuccess: () => {
       setShowForm(false);
       setEditingRow(null);
-      setFormError("");
-      setNotice("Đã lưu dữ liệu thành công.");
+      showPopup("success", "Thành công", "Đã lưu dữ liệu thành công.");
       queryClient.invalidateQueries({ queryKey: ["workspace", name] });
     },
     onError: (error) =>
-      setFormError(
+      showPopup(
+        "error",
+        "Không thể lưu dữ liệu",
         error instanceof Error ? error.message : "Không thể lưu dữ liệu.",
       ),
   });
@@ -933,11 +1001,13 @@ function OperationalWorkspace({
         action: "delete",
       }),
     onSuccess: () => {
-      setNotice("Đã xóa bản ghi.");
+      showPopup("success", "Thành công", "Đã xóa bản ghi.");
       queryClient.invalidateQueries({ queryKey: ["workspace", name] });
     },
     onError: (error) =>
-      setNotice(
+      showPopup(
+        "error",
+        "Không thể xóa bản ghi",
         error instanceof Error ? error.message : "Không thể xóa bản ghi.",
       ),
   });
@@ -992,6 +1062,20 @@ function OperationalWorkspace({
           { status: action === "reject" ? "Từ chối" : "Đã hoàn thiện" },
           { resource, action: "approve" },
         );
+      if (tab.id === "transfer-proposals")
+        return api.write(
+          `/hr/transfer-proposals/${id}/status`,
+          "PUT",
+          { status },
+          { resource, action: "approve" },
+        );
+      if (tab.id === "resignation-applications")
+        return api.write(
+          `/hr/resignation-applications/${id}/status`,
+          "PUT",
+          { status },
+          { resource, action: "approve" },
+        );
       return api.write(
         `${tab.endpoint}/${id}`,
         "PUT",
@@ -1000,7 +1084,9 @@ function OperationalWorkspace({
       );
     },
     onSuccess: (_, variables) => {
-      setNotice(
+      showPopup(
+        "success",
+        "Thành công",
         variables.action === "convert"
           ? "Đã chuyển ứng viên thành nhân viên và tạo hợp đồng thử việc."
           : variables.action === "reject"
@@ -1011,7 +1097,9 @@ function OperationalWorkspace({
       queryClient.invalidateQueries({ queryKey: ["people"] });
     },
     onError: (error) =>
-      setNotice(
+      showPopup(
+        "error",
+        "Không thể thực hiện thao tác",
         error instanceof Error
           ? error.message
           : "Không thể thực hiện thao tác.",
@@ -1051,8 +1139,9 @@ function OperationalWorkspace({
     session?.role === "Administrator" || session?.role === "HR Staff";
   const canManage = Boolean(
     session &&
-    ((!catalogNeedsAdmin && !restrictedRewardAction && !recruitmentHrOnly) ||
-      isHrOrAdmin),
+      (catalogNeedsAdmin
+        ? session.role === "Administrator"
+        : (!restrictedRewardAction && !recruitmentHrOnly) || isHrOrAdmin),
   );
   const workflowCreate =
     name === "people" &&
@@ -1095,21 +1184,38 @@ function OperationalWorkspace({
     if (name === "people" && tab.id === "leave" && session?.employeeId)
       values.employee_id = session.employeeId;
     setFormValues(values);
-    setFormError("");
     setShowForm(true);
   };
 
-  const openEdit = (row: Row) => {
+  const openEdit = async (row: Row) => {
+    let editRow = row;
+    if (tab.id === "interview-evaluations") {
+      try {
+        const detail = await api.list(
+          `${tab.endpoint}/${rowId(tab, row)}`,
+          { resource },
+        );
+        if (detail[0]) editRow = detail[0];
+      } catch (error) {
+        showPopup(
+          "error",
+          "Không thể tải chi tiết",
+          error instanceof Error
+            ? error.message
+            : "Không thể tải chi tiết đánh giá phỏng vấn.",
+        );
+        return;
+      }
+    }
     setEditingRow(row);
     setFormValues(
       Object.fromEntries(
         tab.fields.map((field) => [
           field.name,
-          fieldValue(field, row[field.name]),
+          fieldValue(field, editRow[field.name]),
         ]),
       ),
     );
-    setFormError("");
     setShowForm(true);
   };
 
@@ -1124,6 +1230,14 @@ function OperationalWorkspace({
         "interview-evaluations",
         "employees",
         "leave",
+        "contract-proposals",
+        "contracts",
+        "contract-extensions",
+        "transfer-proposals",
+        "transfer-decisions",
+        "resignation-applications",
+        "resignation-decisions",
+        "work-history",
         "departments",
         "positions",
       ].includes(tab.id)
@@ -1166,7 +1280,9 @@ function OperationalWorkspace({
       });
       if (detail[0]) setShowDetail(detail[0]);
     } catch (error) {
-      setNotice(
+      showPopup(
+        "error",
+        "Không thể tải chi tiết",
         error instanceof Error
           ? error.message
           : "Không thể tải chi tiết hồ sơ.",
@@ -1174,20 +1290,20 @@ function OperationalWorkspace({
     }
   };
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     try {
       toPayload(tab, formValues);
       const actionLabel = editingRow ? "cập nhật" : "tạo mới";
-      if (
-        !window.confirm(
-          `Bạn có chắc chắn muốn ${actionLabel} ${tab.label.toLowerCase()} với thông tin đã nhập không?`,
-        )
-      )
-        return;
+      const confirmed = await requestConfirmation(
+        `Bạn có chắc chắn muốn ${actionLabel} ${tab.label.toLowerCase()} với thông tin đã nhập không?`,
+      );
+      if (!confirmed) return;
       saveMutation.mutate(formValues);
     } catch (error) {
-      setFormError(
+      showPopup(
+        "error",
+        "Dữ liệu không hợp lệ",
         error instanceof Error ? error.message : "Dữ liệu không hợp lệ.",
       );
     }
@@ -1282,10 +1398,22 @@ function OperationalWorkspace({
       }));
     if (
       name === "people" &&
-      ["employees", "quotas", "positions"].includes(tab.id) &&
+      ["employees", "quotas", "positions", "work-history"].includes(tab.id) &&
       field.name === "department_id"
     )
       return departmentOptions;
+    if (
+      name === "people" &&
+      tab.id === "departments" &&
+      field.name === "parent_department_id"
+    )
+      return departmentOptions;
+    if (
+      name === "people" &&
+      tab.id === "departments" &&
+      field.name === "manager_id"
+    )
+      return employeeOptions;
     if (
       name === "people" &&
       [
@@ -1413,7 +1541,7 @@ function OperationalWorkspace({
                 setTabId(item.id);
                 setSearch("");
                 setPage(1);
-                setNotice("");
+                setPopup(null);
                 setHistoryEmployeeId("");
               }}
               className={`whitespace-nowrap rounded-t-lg border-b-2 px-4 py-3 text-xs font-bold transition ${tab.id === item.id ? "border-teal-600 text-teal-700" : "border-transparent text-slate-400 hover:text-slate-700"}`}
@@ -1475,18 +1603,6 @@ function OperationalWorkspace({
               </Button>
             </div>
           </div>
-          {notice && (
-            <div className="mx-5 mt-4 flex items-center gap-2 rounded-xl border border-teal-100 bg-teal-50 px-3 py-2 text-xs font-semibold text-teal-800">
-              <CheckCircle2 size={15} /> {notice}
-            </div>
-          )}
-          {rowsQuery.error && (
-            <div className="mx-5 mt-4 rounded-xl border border-rose-100 bg-rose-50 px-3 py-2 text-xs text-rose-700">
-              {rowsQuery.error instanceof ApiError
-                ? rowsQuery.error.message
-                : "Không thể tải dữ liệu. Kiểm tra kết nối backend."}
-            </div>
-          )}
           <div className="overflow-x-auto">
             <table className="w-full min-w-[980px] text-left text-sm">
               <thead className="bg-slate-50/70 text-[10px] uppercase tracking-wider text-slate-400">
@@ -1599,17 +1715,17 @@ function OperationalWorkspace({
                               <Button
                                 variant="soft"
                                 size="sm"
-                                onClick={() => {
-                                  if (
-                                    window.confirm(
-                                      "Bạn có chắc chắn muốn duyệt bản ghi này?",
-                                    )
-                                  )
-                                    actionMutation.mutate({
-                                      row,
-                                      action: "approve",
-                                    });
-                                }}
+                                onClick={() =>
+                                  requestConfirmation(
+                                    "Bạn có chắc chắn muốn duyệt bản ghi này?",
+                                  ).then((confirmed) => {
+                                    if (confirmed)
+                                      actionMutation.mutate({
+                                        row,
+                                        action: "approve",
+                                      });
+                                  })
+                                }
                                 disabled={actionMutation.isPending}
                                 title="Duyệt"
                               >
@@ -1618,17 +1734,17 @@ function OperationalWorkspace({
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                onClick={() => {
-                                  if (
-                                    window.confirm(
-                                      "Bạn có chắc chắn muốn từ chối bản ghi này?",
-                                    )
-                                  )
-                                    actionMutation.mutate({
-                                      row,
-                                      action: "reject",
-                                    });
-                                }}
+                                onClick={() =>
+                                  requestConfirmation(
+                                    "Bạn có chắc chắn muốn từ chối bản ghi này?",
+                                  ).then((confirmed) => {
+                                    if (confirmed)
+                                      actionMutation.mutate({
+                                        row,
+                                        action: "reject",
+                                      });
+                                  })
+                                }
                                 disabled={actionMutation.isPending}
                                 title="Từ chối"
                               >
@@ -1642,17 +1758,17 @@ function OperationalWorkspace({
                               <Button
                                 variant="soft"
                                 size="sm"
-                                onClick={() => {
-                                  if (
-                                    window.confirm(
-                                      "Bạn có chắc chắn muốn chuyển ứng viên này thành nhân viên?",
-                                    )
-                                  )
-                                    actionMutation.mutate({
-                                      row,
-                                      action: "convert",
-                                    });
-                                }}
+                                onClick={() =>
+                                  requestConfirmation(
+                                    "Bạn có chắc chắn muốn chuyển ứng viên này thành nhân viên?",
+                                  ).then((confirmed) => {
+                                    if (confirmed)
+                                      actionMutation.mutate({
+                                        row,
+                                        action: "convert",
+                                      });
+                                  })
+                                }
                                 disabled={actionMutation.isPending}
                                 title="Chuyển thành nhân viên"
                               >
@@ -1661,16 +1777,15 @@ function OperationalWorkspace({
                             )}
                           {canDelete && (
                             <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => {
-                                if (
-                                  window.confirm(
+                                variant="ghost"
+                                size="sm"
+                                onClick={() =>
+                                  requestConfirmation(
                                     "Bạn có chắc chắn muốn xóa bản ghi này?",
-                                  )
-                                )
-                                  removeMutation.mutate(row);
-                              }}
+                                  ).then((confirmed) => {
+                                    if (confirmed) removeMutation.mutate(row);
+                                  })
+                                }
                               title="Xóa"
                             >
                               <Trash2 size={15} />
@@ -1750,7 +1865,8 @@ function OperationalWorkspace({
                     options &&
                     options.length > 0 &&
                     [
-                      "department_id",
+                       "department_id",
+                       "parent_department_id",
                       "position_id",
                       "requested_by",
                       "recruitment_request_id",
@@ -1779,10 +1895,16 @@ function OperationalWorkspace({
                           ],
                         }
                       : field;
+                  const scopedInputField =
+                    tab.id === "leave" &&
+                    field.name === "employee_id" &&
+                    session?.role === "Nhân viên"
+                      ? { ...inputField, disabled: true }
+                      : inputField;
                   return (
                     <WorkspaceInput
                       key={field.name}
-                      field={inputField}
+                      field={scopedInputField}
                       tabId={tab.id}
                       value={formValues[field.name] ?? ""}
                       onChange={(value) =>
@@ -1795,11 +1917,6 @@ function OperationalWorkspace({
                   );
                 })}
               </div>
-              {formError && (
-                <p className="mt-4 rounded-xl border border-rose-100 bg-rose-50 px-3 py-2 text-xs text-rose-700">
-                  {formError}
-                </p>
-              )}
               <div className="mt-5 flex justify-end gap-2 border-t border-slate-100 pt-4">
                 <Button
                   type="button"
@@ -1852,7 +1969,7 @@ function OperationalWorkspace({
                       setShowDetail((current) =>
                         current ? { ...current, avatar_url: avatarUrl } : current,
                       );
-                      setNotice("Đã cập nhật ảnh hồ sơ trên Pinata.");
+                      showPopup("success", "Thành công", "Đã cập nhật ảnh hồ sơ trên Pinata.");
                       queryClient.invalidateQueries({
                         queryKey: ["workspace", name],
                       });
@@ -1884,6 +2001,25 @@ function OperationalWorkspace({
             </div>
           </Card>
         </div>
+      )}
+      {popup && (
+        <Popup
+          variant={popup.variant}
+          title={popup.title}
+          message={popup.message}
+          confirmLabel={popup.confirmLabel}
+          cancelLabel={popup.cancelLabel}
+          onClose={() => closePopup(false)}
+          onConfirm={popup.resolve ? () => closePopup(true) : undefined}
+        />
+      )}
+      {!popup && rowsQuery.error && dismissedQueryError !== rowsQuery.error && (
+        <Popup
+          variant="error"
+          title="Không thể tải dữ liệu"
+          message={rowsQuery.error instanceof ApiError ? rowsQuery.error.message : "Không thể tải dữ liệu. Kiểm tra kết nối backend."}
+          onClose={() => setDismissedQueryError(rowsQuery.error)}
+        />
       )}
     </div>
   );
@@ -2200,6 +2336,7 @@ function WorkspaceInput({
   const common = {
     value,
     required: field.required,
+    disabled: field.disabled,
     placeholder: field.placeholder,
     onChange: onInputChange,
   };
