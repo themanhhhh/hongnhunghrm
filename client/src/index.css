@@ -40,6 +40,24 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* Compact login layout matching the HR portal reference screen. */
+.login-branding-col { display: none !important; }
+.login-form-col {
+  width: 100% !important;
+  min-height: 100vh !important;
+  padding: 1rem !important;
+}
+.login-form-col > div:first-child {
+  max-width: 360px !important;
+  padding: 1.5rem !important;
+  border-radius: 6px !important;
+  box-shadow: 0 8px 24px rgba(31, 65, 58, 0.06) !important;
+}
+.login-form-col > div:last-child {
+  margin-top: 1.25rem !important;
+  font-size: 0.625rem !important;
+}
+
 /* ERP Layout Structure */
 .app-container {
   display: flex;
