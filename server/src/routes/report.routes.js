@@ -4,7 +4,174 @@ const { query, queryOne } = require('../db/connection');
 const { authenticateToken, authorizeRole } = require('../middleware/auth');
 
 router.use(authenticateToken);
-// Báo cáo thống kê: dành cho Admin/HR/Ban Giám Đốc/Trưởng Khối/Trưởng Phòng - Nhân viên thường không được xem
+
+// Hai dashboard này dùng dữ liệu đã giới hạn theo phạm vi người dùng.
+router.get('/dashboard/manager', authorizeRole('Trưởng Khối', 'Trưởng Phòng'), async (req, res) => {
+    try {
+        const departmentId = req.user.deptId;
+        const departments = await query(
+            `SELECT department_id, department_name FROM Department
+             WHERE status = 1 AND (department_id = ? OR parent_department_id = ?)`,
+            [departmentId, departmentId]
+        );
+        const departmentIds = departments.map((item) => item.department_id);
+        if (!departmentIds.length && departmentId) departmentIds.push(departmentId);
+        const placeholders = departmentIds.map(() => '?').join(', ') || '?';
+        const departmentParams = departmentIds.length ? departmentIds : [departmentId];
+
+        const activeEmployees = (await queryOne(
+            `SELECT COUNT(*) as c FROM Employee
+             WHERE is_active = 1 AND employment_status = 'WORKING' AND department_id IN (${placeholders})`,
+            departmentParams
+        ))?.c || 0;
+        const totalRequests = (await queryOne(
+            `SELECT COUNT(*) as c FROM RecruitmentRequest WHERE department_id IN (${placeholders})`,
+            departmentParams
+        ))?.c || 0;
+        const pendingRequests = (await queryOne(
+            `SELECT COUNT(*) as c FROM RecruitmentRequest WHERE department_id IN (${placeholders}) AND status = 'PENDING'`,
+            departmentParams
+        ))?.c || 0;
+        const processingCandidates = (await queryOne(
+            `SELECT COUNT(*) as c FROM Candidate WHERE department_id IN (${placeholders}) AND status NOT IN ('HIRED', 'REJECTED', 'OFFER_REJECTED')`,
+            departmentParams
+        ))?.c || 0;
+        const pendingLeaves = await query(
+            `SELECT TOP (5) leave_id as id, leave_code as code, 'NGHI_PHEP' as type,
+                    'Nghỉ phép' as typeName, employee_name as employeeName,
+                    reason, department_name as deptName, status, created_date
+             FROM LeaveApplication WHERE department_id IN (${placeholders}) AND status = 'PENDING'
+             ORDER BY created_date DESC`,
+            departmentParams
+        );
+        const pendingRecruitment = await query(
+            `SELECT TOP (5) recruitment_request_id as id, request_code as code,
+                    'TUYEN_DUNG' as type, 'Yêu cầu tuyển dụng' as typeName,
+                    reason as title, status, created_date
+             FROM RecruitmentRequest WHERE department_id IN (${placeholders}) AND status = 'PENDING'
+             ORDER BY created_date DESC`,
+            departmentParams
+        );
+        const pendingTransfers = await query(
+            `SELECT TOP (5) proposal_id as id, proposal_code as code,
+                    'THUYEN_CHUYEN' as type, 'Đề xuất thuyên chuyển' as typeName,
+                    reason as title, status, created_date
+             FROM TransferProposal WHERE current_department_id IN (${placeholders}) AND status = 'PENDING'
+             ORDER BY created_date DESC`,
+            departmentParams
+        );
+        const rawPipeline = await query(
+            `SELECT status, COUNT(*) as count FROM Candidate
+             WHERE department_id IN (${placeholders}) GROUP BY status`,
+            departmentParams
+        );
+        const pipelineMap = {};
+        rawPipeline.forEach((row) => { pipelineMap[row.status] = row.count; });
+        const deptStructure = await query(
+            `SELECT d.department_name, COUNT(e.employee_id) as count
+             FROM Department d LEFT JOIN Employee e
+               ON d.department_id = e.department_id AND e.is_active = 1 AND e.employment_status = 'WORKING'
+             WHERE d.department_id IN (${placeholders})
+             GROUP BY d.department_id, d.department_name ORDER BY count DESC`,
+            departmentParams
+        );
+        const pendingApprovals = [...pendingRecruitment, ...pendingTransfers, ...pendingLeaves]
+            .sort((a, b) => b.created_date - a.created_date)
+            .slice(0, 5);
+
+        return res.json({
+            success: true,
+            data: {
+                teamName: departments.map((item) => item.department_name).join(' / ') || req.user.deptName,
+                kpi: {
+                    activeEmployees,
+                    totalEmployees: activeEmployees,
+                    totalRequests,
+                    pendingRequests,
+                    openPositionsCount: Math.max(0, totalRequests - pendingRequests),
+                    processingCandidates,
+                    pendingApprovalsCount: pendingApprovals.length
+                },
+                pendingApprovals,
+                deptStructure,
+                pipelineStages: [
+                    { label: 'Mới tiếp nhận', count: (pipelineMap.NEW || 0) + (pipelineMap.SUBMITTED || 0) },
+                    { label: 'Đã sàng lọc', count: pipelineMap.SCREENED || 0 },
+                    { label: 'Phỏng vấn', count: (pipelineMap.INTERVIEWED || 0) + (pipelineMap['S2: Phỏng vấn'] || 0) },
+                    { label: 'Đã tiếp nhận', count: pipelineMap.HIRED || 0 }
+                ]
+            }
+        });
+    } catch (error) {
+        return res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+router.get('/dashboard/employee', authorizeRole('Nhân viên'), async (req, res) => {
+    try {
+        if (!req.user.employeeId) {
+            return res.status(404).json({ success: false, message: 'Tài khoản chưa được liên kết với hồ sơ nhân viên.' });
+        }
+        const year = new Date().getFullYear();
+        const employee = await queryOne(
+            `SELECT e.employee_id, e.full_name, e.join_date, e.employment_status,
+                    d.department_name, m.full_name as manager_name
+             FROM Employee e LEFT JOIN Department d ON e.department_id = d.department_id
+             LEFT JOIN Employee m ON e.manager_id = m.employee_id
+             WHERE e.employee_id = ?`,
+            [req.user.employeeId]
+        );
+        if (!employee) return res.status(404).json({ success: false, message: 'Không tìm thấy hồ sơ nhân viên.' });
+        const balance = await queryOne(
+            `SELECT entitled_days, used_days, remaining_days FROM EmployeeLeaveBalance
+             WHERE employee_id = ? AND leave_year = ?`,
+            [req.user.employeeId, year]
+        );
+        const pendingLeaves = await query(
+            `SELECT TOP (5) leave_id as id, leave_code as code, reason, status, created_date
+             FROM LeaveApplication WHERE employee_id = ? AND status = 'PENDING'
+             ORDER BY created_date DESC`,
+            [req.user.employeeId]
+        );
+        const latestEvaluation = await queryOne(
+            `SELECT TOP (1) total_score, grade_result FROM EmployeeEvaluation
+             WHERE employee_id = ? ORDER BY evaluation_date DESC, created_date DESC`,
+            [req.user.employeeId]
+        );
+        const contract = await queryOne(
+            `SELECT TOP (1) status FROM EmployeeContract
+             WHERE employee_id = ? ORDER BY end_date DESC`,
+            [req.user.employeeId]
+        );
+
+        return res.json({
+            success: true,
+            data: {
+                kpi: {
+                    remainingLeave: balance?.remaining_days ?? 0,
+                    pendingLeaveCount: pendingLeaves.length
+                },
+                personal: {
+                    leaveYear: year,
+                    usedLeave: balance?.used_days ?? 0,
+                    entitledLeave: balance?.entitled_days ?? 0,
+                    latestScore: latestEvaluation?.total_score,
+                    latestGrade: latestEvaluation?.grade_result,
+                    contractStatus: contract?.status === 'ACTIVE' ? 'Hiệu lực' : (contract?.status || 'Chưa cập nhật'),
+                    employmentStatus: employee.employment_status,
+                    joinDate: employee.join_date,
+                    department: employee.department_name,
+                    managerName: employee.manager_name
+                },
+                pendingApprovals: pendingLeaves
+            }
+        });
+    } catch (error) {
+        return res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// Báo cáo thống kê: dành cho Admin/HR/Ban Giám Đốc/Trưởng Khối/Trưởng Phòng.
 router.use(authorizeRole('Administrator', 'HR Staff', 'Ban Giám Đốc', 'Trưởng Khối', 'Trưởng Phòng'));
 
 const parseReportDate = (value) => {

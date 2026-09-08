@@ -1,4 +1,4 @@
-import { canAccess, defaultSession, DEMO_USERS, type Action, type Resource, type Session } from "./permissions";
+import { canAccess, defaultSession, DEMO_USERS, type Action, type Resource, type Role, type Session } from "./permissions";
 import { dashboardData, moduleData } from "./mock-data";
 import { isMockMode, mockApiRequest, mockUploadEmployeeAvatar } from "./mock-api";
 
@@ -23,6 +23,17 @@ export type DashboardData = {
     priority: string;
   }>;
   pipeline: Array<{ label: string; count: number }>;
+  focus?: {
+    eyebrow: string;
+    title: string;
+    description: string;
+    items: Array<{
+      label: string;
+      value: number | string;
+      detail: string;
+      tone: "teal" | "amber" | "violet" | "rose";
+    }>;
+  };
 };
 
 export type ReportQueryResult = {
@@ -85,6 +96,65 @@ function roleResource(name: keyof typeof moduleData): Resource {
   return name === "people" ? "people" : name;
 }
 
+function fallbackDashboard(role: Role): DashboardData {
+  const base = dashboardData as DashboardData;
+  if (role === "Administrator") {
+    return {
+      ...base,
+      kpis: [
+        { label: "Tổng số tài khoản", value: 24, trend: "22 hoạt động", tone: "teal", detail: "Quản trị hệ thống" },
+        { label: "Tài khoản bị khóa", value: 2, trend: "Cần theo dõi", tone: "rose", detail: "Bảo mật tài khoản" },
+        { label: "Tổng số phòng ban", value: 14, trend: "Sơ đồ tổ chức", tone: "violet", detail: "Danh mục hệ thống" },
+        { label: "Tổng số vị trí", value: 38, trend: "Danh mục dùng chung", tone: "amber", detail: "Định biên nhân sự" },
+      ],
+    };
+  }
+  if (role === "HR Staff") {
+    return {
+      ...base,
+      kpis: [
+        { label: "Yêu cầu tuyển dụng", value: 24, trend: "6 chờ duyệt", tone: "teal", detail: "Điều phối tuyển dụng" },
+        { label: "Ứng viên đang xử lý", value: 64, trend: "12 lịch phỏng vấn", tone: "violet", detail: "Theo pipeline tuyển dụng" },
+        { label: "Offer cần theo dõi", value: 4, trend: "Trong tháng này", tone: "amber", detail: "Chờ ứng viên phản hồi" },
+        { label: "Hồ sơ cần xử lý", value: 9, trend: "Cần ưu tiên", tone: "rose", detail: "Các tác vụ nghiệp vụ HR" },
+      ],
+    };
+  }
+  if (role === "Ban Giám Đốc") {
+    return {
+      ...base,
+      kpis: [
+        { label: "Nhân sự đang làm việc", value: 146, trend: "+9 từ đầu năm", tone: "teal", detail: "Toàn doanh nghiệp" },
+        { label: "Tuyển dụng đang mở", value: 18, trend: "6 yêu cầu chờ duyệt", tone: "amber", detail: "Theo kế hoạch nhân sự" },
+        { label: "Nghỉ việc từ đầu năm", value: 3, trend: "Cần theo dõi", tone: "rose", detail: "Biến động nhân sự" },
+        { label: "Phiếu chờ phê duyệt", value: 9, trend: "Cấp Ban Giám Đốc", tone: "violet", detail: "Quyết định cần xem xét" },
+      ],
+    };
+  }
+  if (role === "Nhân viên") {
+    return {
+      ...base,
+      kpis: [
+        { label: "Phép còn lại", value: 8, trend: "Năm 2026", tone: "teal", detail: "Ngày phép khả dụng" },
+        { label: "Đơn nghỉ phép", value: 1, trend: "Đang chờ duyệt", tone: "amber", detail: "Của bạn" },
+        { label: "Điểm đánh giá gần nhất", value: "8.7 / 10", trend: "Loại A", tone: "violet", detail: "Kỳ đánh giá gần nhất" },
+        { label: "Hợp đồng", value: "Hiệu lực", trend: "Đang làm việc", tone: "rose", detail: "Tình trạng hồ sơ" },
+      ],
+      departments: [],
+      pipeline: [],
+    };
+  }
+  return {
+    ...base,
+    kpis: [
+      { label: "Nhân sự trong đơn vị", value: 31, trend: "Đang làm việc", tone: "teal", detail: "Phạm vi quản lý" },
+      { label: "Yêu cầu tuyển dụng", value: 5, trend: "2 đang xử lý", tone: "amber", detail: "Của đơn vị" },
+      { label: "Ứng viên đang xử lý", value: 12, trend: "Trong pipeline", tone: "violet", detail: "Theo nhu cầu đơn vị" },
+      { label: "Phiếu cần phê duyệt", value: 3, trend: "Cần xử lý", tone: "rose", detail: "Trong phạm vi đơn vị" },
+    ],
+  };
+}
+
 export const api = {
   async request<T>(path: string, init: RequestInit = {}, permission?: { resource: Resource; action?: Action }): Promise<T> {
     const session = readSession();
@@ -92,35 +162,44 @@ export const api = {
       throw new ApiError("Bạn không có quyền thực hiện thao tác này.", 403);
     }
 
-    if (isMockMode()) return mockApiRequest<T>(path, init);
+    if (isMockMode()) return mockApiRequest<T>(path, init, session);
 
     const headers = new Headers(init.headers);
     headers.set("Content-Type", "application/json");
-    headers.set("X-HRM-Role", session.role);
     const token = typeof window !== "undefined" ? window.localStorage.getItem("bravo_next_token") : null;
     if (token) headers.set("Authorization", `Bearer ${token}`);
     try {
       const response = await fetch(`${API_URL}${path}`, { ...init, headers, cache: "no-store" });
       if (!response.ok) {
         const body = await response.json().catch(() => null) as ApiEnvelope<unknown> | null;
-        if (response.status >= 500) return mockApiRequest<T>(path, init);
+      if (response.status >= 500) return mockApiRequest<T>(path, init, session);
         throw new ApiError(body?.message ?? `API request failed: ${response.status}`, response.status);
       }
       return response.json() as Promise<T>;
     } catch (error) {
       if (error instanceof ApiError && error.status < 500) throw error;
-      return mockApiRequest<T>(path, init);
+      return mockApiRequest<T>(path, init, session);
     }
   },
   async dashboard(): Promise<DashboardData> {
     const session = readSession();
-    const endpoint = session.role === "Administrator" ? "/reports/dashboard/admin" : session.role === "HR Staff" ? "/reports/dashboard/hr" : session.role === "Ban Giám Đốc" ? "/reports/dashboard/bgd" : "/reports/dashboard/summary";
+    const endpoint = session.role === "Administrator" ? "/reports/dashboard/admin" : session.role === "HR Staff" ? "/reports/dashboard/hr" : session.role === "Ban Giám Đốc" ? "/reports/dashboard/bgd" : session.role === "Nhân viên" ? "/reports/dashboard/employee" : ["Trưởng Khối", "Trưởng Phòng"].includes(session.role) ? "/reports/dashboard/manager" : "/reports/dashboard/summary";
     const result = await this.request<ApiEnvelope<Record<string, unknown>>>(endpoint, {}, { resource: "dashboard" });
     const source = unwrap<Record<string, unknown>>(result);
-    if (!source) return dashboardData;
+    if (!source) return fallbackDashboard(session.role);
     const sourceKpi = (source.kpi ?? source) as Record<string, number>;
     if (sourceKpi && "totalUsers" in sourceKpi) {
-      return { kpis: [{ label: "Tổng số tài khoản", value: sourceKpi.totalUsers ?? 0, trend: `${sourceKpi.activeUsers ?? 0} hoạt động`, tone: "teal", detail: "Quản trị hệ thống" }, { label: "Tài khoản bị khóa", value: sourceKpi.lockedUsers ?? 0, trend: "Cần theo dõi", tone: "rose", detail: "Bảo mật tài khoản" }, { label: "Tổng số nhân sự", value: sourceKpi.totalEmployees ?? 0, trend: `${sourceKpi.totalDepartments ?? 0} phòng ban`, tone: "violet", detail: "Sơ đồ tổ chức" }, { label: "Tổng số vị trí", value: sourceKpi.totalPositions ?? 0, trend: "Danh mục dùng chung", tone: "amber", detail: "Vị trí công việc" }], departments: ((source.employeesByDept ?? []) as Array<Record<string, unknown>>).map((item) => ({ name: String(item.department_name ?? "Chưa phân loại"), count: Number(item.count ?? 0) })), approvals: [], pipeline: [] };
+      return { kpis: [{ label: "Tổng số tài khoản", value: sourceKpi.totalUsers ?? 0, trend: `${sourceKpi.activeUsers ?? 0} hoạt động`, tone: "teal", detail: "Quản trị hệ thống" }, { label: "Tài khoản bị khóa", value: sourceKpi.lockedUsers ?? 0, trend: "Cần theo dõi", tone: "rose", detail: "Bảo mật tài khoản" }, { label: "Tổng số phòng ban", value: sourceKpi.totalDepartments ?? 0, trend: `${sourceKpi.totalEmployees ?? 0} nhân sự`, tone: "violet", detail: "Sơ đồ tổ chức" }, { label: "Tổng số vị trí", value: sourceKpi.totalPositions ?? 0, trend: "Danh mục dùng chung", tone: "amber", detail: "Vị trí công việc" }], departments: ((source.employeesByDept ?? []) as Array<Record<string, unknown>>).map((item) => ({ name: String(item.department_name ?? "Chưa phân loại"), count: Number(item.count ?? 0) })), approvals: [], pipeline: [], focus: { eyebrow: "SYSTEM CONTROL", title: "Sức khỏe hệ thống", description: "Theo dõi người dùng, danh mục và cấu trúc tổ chức trong một màn hình quản trị.", items: [{ label: "Tài khoản hoạt động", value: sourceKpi.activeUsers ?? 0, detail: `Trên ${sourceKpi.totalUsers ?? 0} tài khoản`, tone: "teal" }, { label: "Tài khoản bị khóa", value: sourceKpi.lockedUsers ?? 0, detail: "Cần rà soát bảo mật", tone: "rose" }, { label: "Phòng ban", value: sourceKpi.totalDepartments ?? 0, detail: "Đang hoạt động", tone: "violet" }, { label: "Vị trí công việc", value: sourceKpi.totalPositions ?? 0, detail: "Danh mục dùng chung", tone: "amber" }] } };
+    }
+    if (session.role === "Ban Giám Đốc") {
+      const recruitment = source.recruitmentOverview as Record<string, number> | undefined;
+      const pendingApprovals = (source.pendingApprovals ?? []) as Array<Record<string, unknown>>;
+      return { kpis: [{ label: "Nhân sự đang làm việc", value: sourceKpi.activeEmployees ?? sourceKpi.totalEmployees ?? 0, trend: `+${sourceKpi.newEmployeesPeriod ?? 0} từ đầu năm`, tone: "teal", detail: "Toàn doanh nghiệp" }, { label: "Tuyển dụng đang mở", value: sourceKpi.openPositionsCount ?? 0, trend: `${sourceKpi.pendingRequestsCount ?? 0} yêu cầu chờ duyệt`, tone: "amber", detail: "Theo kế hoạch nhân sự" }, { label: "Nghỉ việc từ đầu năm", value: sourceKpi.resignedEmployeesPeriod ?? 0, trend: "Cần theo dõi", tone: "rose", detail: "Biến động nhân sự" }, { label: "Phiếu chờ phê duyệt", value: sourceKpi.pendingApprovalsCount ?? pendingApprovals.length, trend: "Cấp Ban Giám Đốc", tone: "violet", detail: "Quyết định cần xem xét" }], departments: ((source.deptStructure ?? []) as Array<Record<string, unknown>>).map((item) => ({ name: String(item.department_name ?? "Chưa phân loại"), count: Number(item.count ?? 0) })), approvals: pendingApprovals.map((item) => ({ id: String(item.id ?? ""), code: String(item.code ?? "CHỜ DUYỆT"), type: String(item.typeName ?? item.type ?? "Nghiệp vụ"), title: String(item.title ?? item.reason ?? item.employeeName ?? "Chứng từ cần xem xét"), owner: String(item.employeeName ?? item.currentLevel ?? "Cấp Ban Giám Đốc"), age: String(item.status ?? "Đang chờ xử lý"), priority: "Cần phê duyệt" })), pipeline: [], focus: { eyebrow: "EXECUTIVE VIEW", title: "Tình hình nhân sự và tuyển dụng", description: "Tập trung vào quy mô, biến động và các quyết định cần Ban Giám Đốc xem xét.", items: [{ label: "Tuyển mới từ đầu năm", value: sourceKpi.newEmployeesPeriod ?? 0, detail: "Nhân sự gia nhập", tone: "teal" }, { label: "Nghỉ việc từ đầu năm", value: sourceKpi.resignedEmployeesPeriod ?? 0, detail: "Biến động cần theo dõi", tone: "rose" }, { label: "Đã tuyển / mục tiêu", value: `${recruitment?.totalHired ?? 0} / ${recruitment?.totalTarget ?? 0}`, detail: `${recruitment?.completionRate ?? 0}% hoàn thành`, tone: "violet" }, { label: "Còn thiếu nhân sự", value: recruitment?.remainingShortfall ?? 0, detail: "Theo nhu cầu tuyển dụng", tone: "amber" }] } };
+    }
+    if (session.role === "Nhân viên") {
+      const personal = source.personal as Record<string, unknown> | undefined;
+      const pendingLeaves = (source.pendingApprovals ?? []) as Array<Record<string, unknown>>;
+      return { kpis: [{ label: "Phép còn lại", value: sourceKpi.remainingLeave ?? 0, trend: `Năm ${String(personal?.leaveYear ?? new Date().getFullYear())}`, tone: "teal", detail: "Ngày phép khả dụng" }, { label: "Đơn nghỉ phép", value: sourceKpi.pendingLeaveCount ?? pendingLeaves.length, trend: "Đang chờ duyệt", tone: "amber", detail: "Của bạn" }, { label: "Điểm đánh giá gần nhất", value: personal?.latestScore ? `${String(personal.latestScore)} / 10` : "Chưa có", trend: String(personal?.latestGrade ?? "Chưa xếp loại"), tone: "violet", detail: "Kỳ đánh giá gần nhất" }, { label: "Hợp đồng", value: String(personal?.contractStatus ?? "Chưa cập nhật"), trend: String(personal?.employmentStatus ?? ""), tone: "rose", detail: "Tình trạng hồ sơ" }], departments: [], approvals: pendingLeaves.map((item) => ({ id: String(item.id ?? ""), code: String(item.code ?? "ĐƠN PHÉP"), type: "Nghỉ phép", title: String(item.title ?? item.reason ?? "Đơn nghỉ phép"), owner: "Hồ sơ của bạn", age: String(item.status ?? "Đang chờ xử lý"), priority: "Theo dõi" })), pipeline: [], focus: { eyebrow: "MY WORKSPACE", title: "Thông tin cá nhân", description: "Theo dõi ngày phép, đánh giá và hồ sơ lao động của chính bạn.", items: [{ label: "Phép đã dùng", value: Number(personal?.usedLeave ?? 0), detail: `Trên ${String(personal?.entitledLeave ?? 0)} ngày được hưởng`, tone: "amber" }, { label: "Ngày vào làm", value: String(personal?.joinDate ?? "Chưa cập nhật"), detail: String(personal?.department ?? ""), tone: "teal" }, { label: "Đánh giá gần nhất", value: personal?.latestScore ? `${String(personal.latestScore)} / 10` : "Chưa có", detail: String(personal?.latestGrade ?? "Chưa xếp loại"), tone: "violet" }, { label: "Quản lý trực tiếp", value: String(personal?.managerName ?? "Chưa cập nhật"), detail: "Liên hệ khi cần hỗ trợ", tone: "rose" }] } };
     }
     if ("totalEmployees" in sourceKpi || "totalRequests" in sourceKpi) {
       const kpi = sourceKpi;
@@ -129,13 +208,14 @@ export const api = {
       const pendingApprovals = (source.pendingApprovals ?? source.pendingTasks ?? actionNeeded?.recruitment?.pendingRequests ?? []) as Array<Record<string, unknown>>;
       const actionCount = pendingApprovals.length || Number(kpi.pendingApprovalsCount ?? kpi.pendingRequests ?? 0);
       return {
-        kpis: [{ label: "Nhân sự đang làm việc", value: kpi.activeEmployees ?? kpi.totalEmployees ?? 0, trend: `${kpi.totalEmployees ?? 0} hồ sơ nhân sự`, tone: "teal", detail: "Theo dữ liệu hiện tại" }, { label: "Vị trí đang tuyển", value: kpi.openPositionsCount ?? kpi.recruitingRequests ?? kpi.totalRequests ?? 0, trend: `${kpi.pendingRequests ?? 0} yêu cầu chờ duyệt`, tone: "amber", detail: "Theo nhu cầu tuyển dụng" }, { label: "Ứng viên đang xử lý", value: kpi.processingCandidates ?? kpi.totalCandidates ?? 0, trend: `${kpi.upcomingInterviews ?? 0} lịch phỏng vấn sắp tới`, tone: "violet", detail: "Trong pipeline tuyển dụng" }, { label: "Việc cần xử lý", value: actionCount, trend: actionCount ? "Cần được xem xét" : "Không có phiếu tồn", tone: "rose", detail: "Theo workflow hiện tại" }],
+        kpis: session.role === "HR Staff" ? [{ label: "Yêu cầu tuyển dụng", value: kpi.totalRequests ?? 0, trend: `${kpi.pendingRequests ?? 0} chờ duyệt`, tone: "teal", detail: "Điều phối tuyển dụng" }, { label: "Ứng viên đang xử lý", value: kpi.processingCandidates ?? kpi.totalCandidates ?? 0, trend: `${kpi.upcomingInterviews ?? 0} lịch phỏng vấn`, tone: "violet", detail: "Theo pipeline tuyển dụng" }, { label: "Offer cần theo dõi", value: kpi.pendingOffers ?? 0, trend: "Chờ ứng viên phản hồi", tone: "amber", detail: "Công việc tuyển dụng" }, { label: "Hồ sơ cần xử lý", value: actionCount, trend: actionCount ? "Cần ưu tiên" : "Không có phiếu tồn", tone: "rose", detail: "Các tác vụ nghiệp vụ HR" }] : [{ label: "Nhân sự trong đơn vị", value: kpi.activeEmployees ?? kpi.totalEmployees ?? 0, trend: "Đang làm việc", tone: "teal", detail: "Phạm vi quản lý" }, { label: "Yêu cầu tuyển dụng", value: kpi.openPositionsCount ?? kpi.recruitingRequests ?? kpi.totalRequests ?? 0, trend: `${kpi.pendingRequests ?? 0} đang xử lý`, tone: "amber", detail: "Của đơn vị" }, { label: "Ứng viên đang xử lý", value: kpi.processingCandidates ?? kpi.totalCandidates ?? 0, trend: "Trong pipeline", tone: "violet", detail: "Theo nhu cầu đơn vị" }, { label: "Phiếu cần phê duyệt", value: actionCount, trend: actionCount ? "Cần xử lý" : "Không có phiếu tồn", tone: "rose", detail: "Trong phạm vi đơn vị" }],
         departments: ((charts?.deptStructure ?? source.deptStructure ?? []) as Array<Record<string, unknown>>).map((item) => ({ name: String(item.department_name ?? "Chưa phân loại"), count: Number(item.count ?? 0) })),
         approvals: pendingApprovals.map((item) => ({ id: String(item.id ?? ""), code: String(item.code ?? "CHỜ DUYỆT"), type: String(item.typeName ?? item.type ?? "Nghiệp vụ"), title: String(item.title ?? item.reason ?? item.positionName ?? item.employeeName ?? "Chứng từ cần xem xét"), owner: String(item.deptName ?? item.employeeName ?? item.currentLevel ?? "Chưa xác định"), age: String(item.status ?? "Đang chờ xử lý"), priority: String(item.priority ?? "Chờ duyệt") })),
         pipeline: ((source.pipelineStages ?? []) as Array<Record<string, unknown>>).map((item) => ({ label: String(item.label ?? item.status ?? "Giai đoạn"), count: Number(item.count ?? 0) })),
+        focus: { eyebrow: session.role === "HR Staff" ? "HR OPERATIONS" : "TEAM MANAGEMENT", title: session.role === "HR Staff" ? "Bảng điều phối nhân sự" : `Tình hình ${session.department || "đơn vị"}`, description: session.role === "HR Staff" ? "Ưu tiên các hồ sơ tuyển dụng và tác vụ nhân sự cần xử lý trong ngày." : "Theo dõi nhân sự, tuyển dụng và các phiếu đang chờ trong phạm vi đơn vị.", items: session.role === "HR Staff" ? [{ label: "Yêu cầu chờ duyệt", value: kpi.pendingRequests ?? 0, detail: "Cần rà soát", tone: "amber" }, { label: "Ứng viên cần xử lý", value: kpi.processingCandidates ?? 0, detail: "Trong pipeline", tone: "violet" }, { label: "Phỏng vấn sắp tới", value: kpi.upcomingInterviews ?? 0, detail: "Đã lên lịch", tone: "teal" }, { label: "Offer đang mở", value: kpi.pendingOffers ?? 0, detail: "Chờ phản hồi", tone: "rose" }] : [{ label: "Nhân sự đang làm việc", value: kpi.activeEmployees ?? kpi.totalEmployees ?? 0, detail: "Trong phạm vi quản lý", tone: "teal" }, { label: "Tuyển dụng đang mở", value: kpi.openPositionsCount ?? 0, detail: "Theo nhu cầu đơn vị", tone: "amber" }, { label: "Ứng viên đang xử lý", value: kpi.processingCandidates ?? 0, detail: "Trong pipeline", tone: "violet" }, { label: "Phiếu chờ xử lý", value: actionCount, detail: "Cần xem xét", tone: "rose" }] },
       };
     }
-    return dashboardData;
+    return fallbackDashboard(session.role);
   },
   async queryReport(reportId: string, filters: Record<string, string>) {
     return this.request<ReportQueryResult>(
@@ -153,7 +233,7 @@ export const api = {
 
     const formData = new FormData();
     formData.append("avatar", file);
-    const headers = new Headers({ "X-HRM-Role": session.role });
+    const headers = new Headers();
     const token = typeof window !== "undefined" ? window.localStorage.getItem("bravo_next_token") : null;
     if (token) headers.set("Authorization", `Bearer ${token}`);
 

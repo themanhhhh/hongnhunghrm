@@ -13,7 +13,7 @@ import {
   Search,
   SlidersHorizontal,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import {
@@ -54,12 +54,6 @@ function lastWeekFilters(): ReportFilters {
   };
 }
 
-const initialFilters: ReportFilters = {
-    ...lastWeekFilters(),
-    department: "ALL",
-    position: "ALL",
-};
-
 const fallbackDepartments = [
   "Khối Kỹ thuật Phần mềm",
   "Khối Kinh doanh ERP",
@@ -94,14 +88,19 @@ function filtersForPeriod(period: string, current: ReportFilters) {
   return { ...current, period, startDate: "2026-01-01", endDate: "2026-12-31" };
 }
 
+function filtersForReport(reportId: string) {
+  const current = lastWeekFilters();
+  return reportId.startsWith("eval_") ? filtersForPeriod("Năm 2026", current) : current;
+}
+
 function formatValue(value: unknown, key: string) {
   if (value === null || value === undefined || value === "") return "-";
-  if (typeof value === "number") return value.toLocaleString("vi-VN");
   if (key.includes("date") || key === "dob" || key === "join_date") {
     const date =
       typeof value === "number" ? new Date(value) : new Date(String(value));
     if (!Number.isNaN(date.getTime())) return date.toLocaleDateString("vi-VN");
   }
+  if (typeof value === "number") return value.toLocaleString("vi-VN");
   return String(value);
 }
 
@@ -206,7 +205,7 @@ function ReportPaper({
 export function ReportsWorkspace() {
   const [selectedReport, setSelectedReport] =
     useState<ReportDefinition>(defaultReport);
-  const [filters, setFilters] = useState<ReportFilters>(initialFilters);
+  const [filters, setFilters] = useState<ReportFilters>(() => filtersForReport(defaultReport.id));
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>(
     {
       recruitment: true,
@@ -229,6 +228,11 @@ export function ReportsWorkspace() {
     mutationFn: () => api.queryReport(selectedReport.id, filters),
     onSuccess: () => setHasRun(true),
   });
+  useEffect(() => {
+    reportMutation.mutate();
+    // Load the selected report immediately; the run button still applies filter changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedReport.id]);
   const reportData = reportMutation.data;
   const departments =
     departmentsQuery.data
@@ -241,7 +245,7 @@ export function ReportsWorkspace() {
 
   const chooseReport = (report: ReportDefinition) => {
     setSelectedReport(report);
-    setFilters(lastWeekFilters());
+    setFilters(filtersForReport(report.id));
     setHasRun(false);
     reportMutation.reset();
   };
@@ -541,10 +545,10 @@ export function ReportsWorkspace() {
                   </div>
                 </div>
                 <div className="legacy-filter-banner">
-                  <span>🗓 <b>Thời gian:</b> {filters.startDate} đến {filters.endDate}</span>
-                  <span>🏢 <b>Phòng ban:</b> {filters.department === "ALL" ? "Toàn công ty" : filters.department}</span>
-                  <span>💼 <b>Vị trí:</b> {filters.position === "ALL" ? "Tất cả vị trí" : filters.position}</span>
-                  <span>📊 <b>Số bản ghi:</b> {reportData?.data?.length ?? 0} kết quả</span>
+                  <span> <b>Thời gian:</b> {filters.startDate} đến {filters.endDate}</span>
+                  <span> <b>Phòng ban:</b> {filters.department === "ALL" ? "Toàn công ty" : filters.department}</span>
+                  <span> <b>Vị trí:</b> {filters.position === "ALL" ? "Tất cả vị trí" : filters.position}</span>
+                  <span> <b>Số bản ghi:</b> {reportData?.data?.length ?? 0} kết quả</span>
                 </div>
                 <ReportPaper report={selectedReport} filters={filters} rows={reportData?.data ?? []} />
               </div>

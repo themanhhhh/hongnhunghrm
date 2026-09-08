@@ -70,7 +70,7 @@ const navItems: NavItem[] = [
   },
   {
     href: "/rewards",
-    label: "Đánh giá & ghi nhận",
+    label: "Khen thưởng & kỷ luật",
     icon: Sparkles,
     resource: "rewards",
     subItems: workspaceTabs.rewards.map((item) => ({

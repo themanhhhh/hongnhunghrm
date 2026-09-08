@@ -3,6 +3,7 @@
 import Link from "next/link";
 import {
   ArrowUpRight,
+  BarChart3,
   BriefcaseBusiness,
   Building2,
   CheckCircle2,
@@ -17,7 +18,7 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import { useSyncExternalStore } from "react";
 import { api, type DashboardData } from "@/lib/api";
-import { type Session } from "@/lib/permissions";
+import { type Role, type Session } from "@/lib/permissions";
 import { getStoredSession, subscribeToSession } from "@/lib/session";
 import { buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -38,6 +39,140 @@ const approvalTones = {
   "Khen thưởng": "violet",
 } as const;
 
+type DashboardLink = { href: string; label: string; description: string };
+type DashboardRoleConfig = {
+  eyebrow: string;
+  title: string;
+  description: string;
+  primaryAction: DashboardLink;
+  showPipeline: boolean;
+  pipelineTitle: string;
+  pipelineDescription: string;
+  departmentTitle: string;
+  departmentDescription: string;
+  approvalTitle: string;
+  approvalDescription: string;
+  approvalHref: string;
+  links: DashboardLink[];
+};
+
+const roleDashboardConfig: Record<Role, DashboardRoleConfig> = {
+  Administrator: {
+    eyebrow: "SYSTEM CONTROL",
+    title: "Trung tâm điều hành hệ thống",
+    description: "Theo dõi sức khỏe tài khoản, danh mục và cấu trúc tổ chức trong toàn hệ thống.",
+    primaryAction: { href: "/admin", label: "Quản trị hệ thống", description: "Tài khoản, phòng ban và danh mục dùng chung." },
+    showPipeline: false,
+    pipelineTitle: "",
+    pipelineDescription: "",
+    departmentTitle: "Cấu trúc tổ chức",
+    departmentDescription: "Phân bổ nhân sự theo các đơn vị đang hoạt động.",
+    approvalTitle: "Hoạt động cần chú ý",
+    approvalDescription: "Rà soát các thiết lập và danh mục quản trị hệ thống.",
+    approvalHref: "/admin",
+    links: [
+      { href: "/admin?tab=users", label: "Quản lý tài khoản", description: "Phân quyền và trạng thái truy cập" },
+      { href: "/admin?tab=departments", label: "Cơ cấu phòng ban", description: "Cập nhật sơ đồ tổ chức" },
+      { href: "/reports", label: "Báo cáo hệ thống", description: "Kiểm tra dữ liệu vận hành" },
+    ],
+  },
+  "HR Staff": {
+    eyebrow: "HR OPERATIONS",
+    title: "Bảng điều phối nhân sự",
+    description: "Ưu tiên tuyển dụng, hồ sơ nhân sự và các tác vụ cần xử lý trong ngày.",
+    primaryAction: { href: "/recruitment?tab=requests", label: "Mở công việc HR", description: "Tuyển dụng và xử lý hồ sơ nhân sự." },
+    showPipeline: true,
+    pipelineTitle: "Pipeline tuyển dụng",
+    pipelineDescription: "Ứng viên theo từng điểm chạm tuyển dụng.",
+    departmentTitle: "Cơ cấu nhân sự",
+    departmentDescription: "Phân bổ nhân sự đang làm việc theo đơn vị.",
+    approvalTitle: "Tác vụ HR cần xử lý",
+    approvalDescription: "Các hồ sơ đang chờ HR rà soát và cập nhật.",
+    approvalHref: "/recruitment?tab=requests",
+    links: [
+      { href: "/recruitment?tab=requests", label: "Yêu cầu tuyển dụng", description: "Rà soát nhu cầu và phê duyệt" },
+      { href: "/people?tab=contracts", label: "Hợp đồng sắp hết hạn", description: "Theo dõi hồ sơ lao động" },
+      { href: "/reports", label: "Báo cáo nhân sự", description: "Xem biến động và hiệu quả tuyển dụng" },
+    ],
+  },
+  "Ban Giám Đốc": {
+    eyebrow: "EXECUTIVE VIEW",
+    title: "Trung tâm điều hành nhân sự",
+    description: "Nắm quy mô, biến động, tiến độ tuyển dụng và các quyết định cần phê duyệt.",
+    primaryAction: { href: "/reports", label: "Mở báo cáo quản trị", description: "Phân tích dữ liệu nhân sự toàn doanh nghiệp." },
+    showPipeline: false,
+    pipelineTitle: "",
+    pipelineDescription: "",
+    departmentTitle: "Quy mô theo đơn vị",
+    departmentDescription: "Cơ cấu nhân sự đang làm việc trong toàn doanh nghiệp.",
+    approvalTitle: "Quyết định cần phê duyệt",
+    approvalDescription: "Các đề xuất đang chờ Ban Giám Đốc xem xét.",
+    approvalHref: "/reports",
+    links: [
+      { href: "/reports", label: "Báo cáo quản trị", description: "Theo dõi chỉ số và xu hướng nhân sự" },
+      { href: "/people?tab=transfer-proposals", label: "Điều chuyển & bổ nhiệm", description: "Xem các quyết định tổ chức" },
+      { href: "/rewards?tab=proposals", label: "Đề xuất khen thưởng", description: "Ghi nhận thành tích và kỷ luật" },
+    ],
+  },
+  "Trưởng Khối": {
+    eyebrow: "DIVISION MANAGEMENT",
+    title: "Tình hình trong khối",
+    description: "Theo dõi nguồn lực, nhu cầu tuyển dụng và công việc đang chờ trong phạm vi khối.",
+    primaryAction: { href: "/people?tab=employees", label: "Xem nhân sự trong khối", description: "Danh sách nhân sự thuộc phạm vi quản lý." },
+    showPipeline: true,
+    pipelineTitle: "Pipeline của khối",
+    pipelineDescription: "Ứng viên theo các nhu cầu tuyển dụng thuộc khối.",
+    departmentTitle: "Cơ cấu trong khối",
+    departmentDescription: "Phân bổ nhân sự tại các đơn vị trực thuộc.",
+    approvalTitle: "Phiếu chờ xử lý",
+    approvalDescription: "Các đề xuất thuộc phạm vi khối đang chờ xem xét.",
+    approvalHref: "/people?tab=leave",
+    links: [
+      { href: "/people?tab=employees", label: "Nhân sự trong khối", description: "Theo dõi quy mô và hồ sơ" },
+      { href: "/recruitment?tab=requests", label: "Nhu cầu tuyển dụng", description: "Xem tiến độ bổ sung nhân sự" },
+      { href: "/reports", label: "Báo cáo của khối", description: "Đánh giá tình hình đơn vị" },
+    ],
+  },
+  "Trưởng Phòng": {
+    eyebrow: "TEAM MANAGEMENT",
+    title: "Tình hình trong phòng",
+    description: "Quản lý nhân sự, tuyển dụng và các phiếu cần phê duyệt trong phòng ban của bạn.",
+    primaryAction: { href: "/people?tab=employees", label: "Xem nhân sự trong phòng", description: "Danh sách nhân sự thuộc phòng ban." },
+    showPipeline: true,
+    pipelineTitle: "Pipeline của phòng",
+    pipelineDescription: "Ứng viên theo các vị trí phòng ban đang tuyển.",
+    departmentTitle: "Nhân sự trong phòng",
+    departmentDescription: "Quy mô và phân bổ nhân sự của phòng ban.",
+    approvalTitle: "Phiếu cần phê duyệt",
+    approvalDescription: "Các đề xuất và đơn từ đang chờ Trưởng Phòng xử lý.",
+    approvalHref: "/people?tab=leave",
+    links: [
+      { href: "/people?tab=employees", label: "Nhân sự phòng ban", description: "Xem hồ sơ và tình trạng làm việc" },
+      { href: "/people?tab=leave", label: "Đơn nghỉ phép", description: "Xử lý đề nghị của nhân viên" },
+      { href: "/rewards?tab=evaluations", label: "Đánh giá nhân sự", description: "Theo dõi kết quả đội ngũ" },
+    ],
+  },
+  "Nhân viên": {
+    eyebrow: "MY WORKSPACE",
+    title: "Không gian làm việc cá nhân",
+    description: "Theo dõi ngày phép, đánh giá và hồ sơ lao động của chính bạn.",
+    primaryAction: { href: "/people?tab=leave", label: "Gửi đơn nghỉ phép", description: "Tạo và theo dõi đề nghị nghỉ phép." },
+    showPipeline: false,
+    pipelineTitle: "",
+    pipelineDescription: "",
+    departmentTitle: "",
+    departmentDescription: "",
+    approvalTitle: "Trạng thái đơn của bạn",
+    approvalDescription: "Theo dõi các đề nghị nghỉ phép đang chờ xử lý.",
+    approvalHref: "/people?tab=leave",
+    links: [
+      { href: "/people?tab=employees", label: "Hồ sơ cá nhân", description: "Kiểm tra thông tin và hồ sơ lao động" },
+      { href: "/people?tab=leave", label: "Nghỉ phép", description: "Xem số dư và tạo đơn nghỉ phép" },
+      { href: "/rewards?tab=evaluations", label: "Kết quả đánh giá", description: "Xem lịch sử đánh giá cá nhân" },
+    ],
+  },
+};
+
 function greetingHour(hour: number) {
   if (hour < 11) return "Chào buổi sáng";
   if (hour < 14) return "Chào buổi trưa";
@@ -57,17 +192,7 @@ function actionLink(type: string) {
   return "/recruitment?tab=requests";
 }
 
-function primaryAction(session: Session | null) {
-  if (session?.role === "Administrator")
-    return { href: "/admin", label: "Quản trị hệ thống" };
-  if (session?.role === "Ban Giám Đốc")
-    return { href: "/reports", label: "Mở báo cáo quản trị" };
-  return { href: "/recruitment?tab=requests", label: "Mở tuyển dụng" };
-}
-
-function isKnownApprovalTone(
-  type: string,
-): type is keyof typeof approvalTones {
+function isKnownApprovalTone(type: string): type is keyof typeof approvalTones {
   return type in approvalTones;
 }
 
@@ -77,7 +202,10 @@ function DashboardSkeleton() {
       <div className="h-36 animate-pulse rounded-2xl bg-slate-200/70" />
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         {Array.from({ length: 4 }, (_, index) => (
-          <div key={index} className="h-44 animate-pulse rounded-2xl bg-white" />
+          <div
+            key={index}
+            className="h-44 animate-pulse rounded-2xl bg-white"
+          />
         ))}
       </div>
       <div className="grid gap-5 xl:grid-cols-[1.2fr_0.8fr]">
@@ -124,12 +252,58 @@ function EmptyPanel({
   );
 }
 
-function Pipeline({ data }: { data: DashboardData }) {
+function FocusPanel({ focus }: { focus: NonNullable<DashboardData["focus"]> }) {
+  return (
+    <Card className="overflow-hidden border-teal-100 bg-white">
+      <CardHeader className="border-b border-slate-100 bg-gradient-to-r from-teal-50/70 to-white">
+        <div className="mb-2 flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.18em] text-teal-700">
+          <span className="size-1.5 rounded-full bg-teal-500" /> {focus.eyebrow}
+        </div>
+        <CardTitle>{focus.title}</CardTitle>
+        <p className="mt-1 max-w-2xl text-xs leading-5 text-slate-500">{focus.description}</p>
+      </CardHeader>
+      <CardContent className="grid gap-3 p-4 sm:grid-cols-2 xl:grid-cols-4">
+        {focus.items.map((item) => (
+          <div key={item.label} className="rounded-2xl border border-slate-100 bg-slate-50/60 p-4">
+            <div className={cn("mb-4 size-2 rounded-full", { "bg-teal-500": item.tone === "teal", "bg-amber-500": item.tone === "amber", "bg-violet-500": item.tone === "violet", "bg-rose-500": item.tone === "rose" })} />
+            <div className="font-display text-2xl font-bold tracking-tight text-slate-950">{typeof item.value === "number" ? formatNumber(item.value) : item.value}</div>
+            <div className="mt-1 text-sm font-semibold text-slate-700">{item.label}</div>
+            <div className="mt-2 text-xs text-slate-400">{item.detail}</div>
+          </div>
+        ))}
+      </CardContent>
+    </Card>
+  );
+}
+
+function QuickLinks({ links }: { links: DashboardLink[] }) {
+  return (
+    <section className="grid gap-4 md:grid-cols-3">
+      {links.map((link, index) => {
+        const Icon = [ClipboardCheck, Building2, BarChart3][index] ?? ArrowUpRight;
+        return (
+          <Link key={link.href} href={link.href} className="group rounded-2xl border border-slate-100 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-teal-200 hover:shadow-md">
+            <Icon className="mb-5 text-teal-700 transition group-hover:text-teal-500" size={23} />
+            <h2 className="font-display text-lg font-bold text-slate-950">{link.label}</h2>
+            <p className="mt-2 text-xs leading-5 text-slate-500">{link.description}</p>
+            <span className="mt-5 inline-flex items-center gap-1 text-xs font-bold text-teal-700">Mở chức năng <ArrowUpRight size={14} /></span>
+          </Link>
+        );
+      })}
+    </section>
+  );
+}
+
+function Pipeline({ data, config }: { data: DashboardData; config: DashboardRoleConfig }) {
   const highestCount = Math.max(...data.pipeline.map((item) => item.count), 1);
-  const totalCandidates = data.pipeline.reduce((total, item) => total + item.count, 0);
-  const completedCount = data.pipeline.find((item) =>
-    item.label.toLocaleLowerCase().includes("tiếp nhận"),
-  )?.count ?? 0;
+  const totalCandidates = data.pipeline.reduce(
+    (total, item) => total + item.count,
+    0,
+  );
+  const completedCount =
+    data.pipeline.find((item) =>
+      item.label.toLocaleLowerCase().includes("tiếp nhận"),
+    )?.count ?? 0;
   const conversionRate = totalCandidates
     ? Math.round((completedCount / totalCandidates) * 100)
     : 0;
@@ -141,10 +315,8 @@ function Pipeline({ data }: { data: DashboardData }) {
           <div className="mb-2 flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.18em] text-teal-700">
             <span className="size-1.5 rounded-full bg-teal-500" /> Tuyển dụng
           </div>
-          <CardTitle>Nhịp tuyển dụng</CardTitle>
-          {/* <p className="mt-1 text-xs text-slate-400">
-            Ứng viên theo từng điểm chạm của pipeline.
-          </p> */}
+          <CardTitle>{config.pipelineTitle}</CardTitle>
+          <p className="mt-1 text-xs text-slate-400">{config.pipelineDescription}</p>
         </div>
         <Link
           href="/recruitment?tab=candidates"
@@ -210,9 +382,12 @@ function Pipeline({ data }: { data: DashboardData }) {
   );
 }
 
-function DepartmentStructure({ data }: { data: DashboardData }) {
+function DepartmentStructure({ data, config }: { data: DashboardData; config: DashboardRoleConfig }) {
   const total = data.departments.reduce((sum, item) => sum + item.count, 0);
-  const largestCount = Math.max(...data.departments.map((item) => item.count), 1);
+  const largestCount = Math.max(
+    ...data.departments.map((item) => item.count),
+    1,
+  );
 
   return (
     <Card>
@@ -220,10 +395,8 @@ function DepartmentStructure({ data }: { data: DashboardData }) {
         <div className="mb-2 flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.18em] text-violet-700">
           <span className="size-1.5 rounded-full bg-violet-500" /> Tổ chức
         </div>
-        <CardTitle>Cơ cấu nhân sự</CardTitle>
-        {/* <p className="mt-1 text-xs text-slate-400">
-          Phân bổ nhân sự đang hoạt động theo đơn vị.
-        </p> */}
+          <CardTitle>{config.departmentTitle}</CardTitle>
+          <p className="mt-1 text-xs text-slate-400">{config.departmentDescription}</p>
       </CardHeader>
       {data.departments.length === 0 ? (
         <EmptyPanel
@@ -282,7 +455,7 @@ function DepartmentStructure({ data }: { data: DashboardData }) {
   );
 }
 
-function ApprovalQueue({ data }: { data: DashboardData }) {
+function ApprovalQueue({ data, config }: { data: DashboardData; config: DashboardRoleConfig }) {
   return (
     <Card>
       <CardHeader className="flex flex-row items-start justify-between gap-4">
@@ -290,13 +463,11 @@ function ApprovalQueue({ data }: { data: DashboardData }) {
           <div className="mb-2 flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.18em] text-rose-700">
             <span className="size-1.5 rounded-full bg-rose-500" /> Workflow
           </div>
-          <CardTitle>Hàng đợi phê duyệt</CardTitle>
-          {/* <p className="mt-1 text-xs text-slate-400">
-            Các chứng từ đang chờ được xử lý trong luồng công việc.
-          </p> */}
+          <CardTitle>{config.approvalTitle}</CardTitle>
+          <p className="mt-1 text-xs text-slate-400">{config.approvalDescription}</p>
         </div>
         <Link
-          href="/recruitment?tab=requests"
+          href={config.approvalHref}
           className="inline-flex shrink-0 items-center gap-1 text-xs font-bold text-teal-700 hover:text-teal-800"
         >
           Mở danh sách <ArrowUpRight size={14} />
@@ -307,8 +478,8 @@ function ApprovalQueue({ data }: { data: DashboardData }) {
           icon={CheckCircle2}
           title="Không có phiếu chờ xử lý"
           description="Các chứng từ trong phạm vi của bạn đã được xử lý hoặc chưa phát sinh."
-          href="/reports"
-          action="Xem báo cáo"
+          href={config.approvalHref}
+          action="Mở danh sách"
         />
       ) : (
         <CardContent className="p-0">
@@ -333,8 +504,8 @@ function ApprovalQueue({ data }: { data: DashboardData }) {
                       {item.title}
                     </div>
                     <div className="mt-1 truncate text-xs text-slate-400">
-                      {item.owner} <span className="mx-1 text-slate-300">/</span>{" "}
-                      {item.age}
+                      {item.owner}{" "}
+                      <span className="mx-1 text-slate-300">/</span> {item.age}
                     </div>
                   </div>
                   <Link
@@ -374,7 +545,8 @@ export function DashboardOverview() {
     month: "2-digit",
     year: "numeric",
   }).format(now);
-  const action = primaryAction(session);
+  const role = session?.role ?? "HR Staff";
+  const config = roleDashboardConfig[role];
 
   if (isLoading && !data) return <DashboardSkeleton />;
   if (!data)
@@ -386,9 +558,6 @@ export function DashboardOverview() {
       </div>
     );
 
-  const pendingCount = data.approvals.length;
-  const topDepartment = [...data.departments].sort((a, b) => b.count - a.count)[0];
-
   return (
     <div className="space-y-6 lg:space-y-8">
       <section className="relative overflow-hidden rounded-3xl bg-[#0c2429] px-6 py-7 text-white shadow-[0_18px_45px_rgba(12,36,41,0.18)] lg:px-8 lg:py-8">
@@ -398,17 +567,16 @@ export function DashboardOverview() {
           <div>
             <div className="mb-3 flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.18em] text-teal-200">
               <span className="size-1.5 rounded-full bg-teal-300" />{" "}
-              <span suppressHydrationWarning>{today}</span>
+              <span suppressHydrationWarning>{config.eyebrow} · {today}</span>
             </div>
             <h1
               className="max-w-2xl font-display text-3xl font-bold tracking-tight lg:text-4xl"
               suppressHydrationWarning
             >
-              {welcome}, {session?.name?.split(/\s+/).at(-1) ?? "bạn"}.
+              {config.title}
             </h1>
-            <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-300">
-              Theo dõi vận hành nhân sự, tiến độ tuyển dụng và các chứng từ
-              đang chờ trong cùng một không gian.
+            <p className="mt-3 max-w-2xl text-sm leading-6 text-teal-100">
+              {welcome}, {session?.name?.split(/\s+/).at(-1) ?? "bạn"}. {config.description}
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -421,17 +589,20 @@ export function DashboardOverview() {
                 "border-white/15 bg-white/10 text-white hover:border-teal-200 hover:bg-white/15 hover:text-white",
               )}
             >
-              <RefreshCw size={16} className={isFetching ? "animate-spin" : ""} />
+              <RefreshCw
+                size={16}
+                className={isFetching ? "animate-spin" : ""}
+              />
               Làm mới
             </button>
             <Link
-              href={action.href}
+              href={config.primaryAction.href}
               className={cn(
                 buttonVariants({ size: "default" }),
                 "bg-teal-300 text-[#092027] hover:bg-teal-200",
               )}
             >
-              {action.label} <ArrowUpRight size={16} />
+              {config.primaryAction.label} <ArrowUpRight size={16} />
             </Link>
           </div>
         </div>
@@ -446,13 +617,21 @@ export function DashboardOverview() {
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         {data.kpis.map((kpi, index) => {
-          const Icon = [UsersRound, BriefcaseBusiness, TrendingUp, ClipboardCheck][index] ?? ShieldCheck;
+          const Icon =
+            [UsersRound, BriefcaseBusiness, TrendingUp, ClipboardCheck][
+              index
+            ] ?? ShieldCheck;
           return (
             <Card key={kpi.label} className="group relative overflow-hidden">
               <div className="absolute -right-5 -top-5 size-24 rounded-full bg-slate-50 transition group-hover:scale-125" />
               <CardContent className="relative p-5">
                 <div className="mb-6 flex items-start justify-between gap-3">
-                  <div className={cn("grid size-10 place-items-center rounded-xl ring-1", tones[kpi.tone])}>
+                  <div
+                    className={cn(
+                      "grid size-10 place-items-center rounded-xl ring-1",
+                      tones[kpi.tone],
+                    )}
+                  >
                     <Icon size={18} />
                   </div>
                   <span className="max-w-32 text-right text-[11px] font-bold leading-4 text-slate-500">
@@ -460,7 +639,9 @@ export function DashboardOverview() {
                   </span>
                 </div>
                 <div className="font-display text-3xl font-bold tracking-tight text-slate-950">
-                  {typeof kpi.value === "number" ? formatNumber(kpi.value) : kpi.value}
+                  {typeof kpi.value === "number"
+                    ? formatNumber(kpi.value)
+                    : kpi.value}
                 </div>
                 <div className="mt-1 text-sm font-semibold text-slate-700">
                   {kpi.label}
@@ -472,69 +653,18 @@ export function DashboardOverview() {
         })}
       </section>
 
-      <section className="grid gap-5 xl:grid-cols-[1.2fr_0.8fr]">
-        <Pipeline data={data} />
-        <DepartmentStructure data={data} />
-      </section>
+      {data.focus && <FocusPanel focus={data.focus} />}
 
-      <ApprovalQueue data={data} />
+      {(config.showPipeline || Boolean(config.departmentTitle)) && (
+        <section className="grid gap-5 xl:grid-cols-[1.2fr_0.8fr]">
+          {config.showPipeline && <Pipeline data={data} config={config} />}
+          {config.departmentTitle && <DepartmentStructure data={data} config={config} />}
+        </section>
+      )}
 
-      <section className="grid gap-4 md:grid-cols-3">
-        <Card className="border-teal-700 bg-teal-700 text-white shadow-[0_14px_35px_rgba(15,118,110,0.22)]">
-          <CardContent className="p-5">
-            <ClipboardCheck className="mb-5 text-teal-200" size={23} />
-            <h2 className="font-display text-lg font-bold">Hàng đợi của bạn</h2>
-            <p className="mt-2 text-xs leading-5 text-teal-100">
-              {pendingCount
-                ? `${formatNumber(pendingCount)} chứng từ cần được mở và xử lý theo đúng luồng phê duyệt.`
-                : "Không có chứng từ tồn trong phạm vi hiện tại."}
-            </p>
-            <Link
-              href="/recruitment?tab=requests"
-              className="mt-5 inline-flex items-center gap-1 text-xs font-bold text-white hover:text-teal-100"
-            >
-              Xem công việc <ArrowUpRight size={14} />
-            </Link>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-5">
-            <Building2 className="mb-5 text-violet-600" size={23} />
-            <h2 className="font-display text-lg font-bold text-slate-950">
-              {topDepartment ? topDepartment.name : "Cơ cấu tổ chức"}
-            </h2>
-            <p className="mt-2 text-xs leading-5 text-slate-500">
-              {topDepartment
-                ? `Đơn vị có quy mô lớn nhất với ${formatNumber(topDepartment.count)} nhân sự đang hoạt động.`
-                : "Dữ liệu phân bổ phòng ban sẽ xuất hiện khi có hồ sơ nhân sự."}
-            </p>
-            <Link
-              href="/people?tab=employees"
-              className="mt-5 inline-flex items-center gap-1 text-xs font-bold text-teal-700 hover:text-teal-800"
-            >
-              Xem nhân sự <ArrowUpRight size={14} />
-            </Link>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-5">
-            <ShieldCheck className="mb-5 text-amber-600" size={23} />
-            <h2 className="font-display text-lg font-bold text-slate-950">
-              Phạm vi {session?.role ?? "người dùng"}
-            </h2>
-            <p className="mt-2 text-xs leading-5 text-slate-500">
-              Số liệu và thao tác được giới hạn theo vai trò và quyền truy cập
-              của phiên đăng nhập hiện tại.
-            </p>
-            <Link
-              href="/reports"
-              className="mt-5 inline-flex items-center gap-1 text-xs font-bold text-teal-700 hover:text-teal-800"
-            >
-              Mở báo cáo <ArrowUpRight size={14} />
-            </Link>
-          </CardContent>
-        </Card>
-      </section>
+      <ApprovalQueue data={data} config={config} />
+
+      <QuickLinks links={config.links} />
     </div>
   );
 }

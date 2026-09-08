@@ -18,8 +18,10 @@ import {
   XCircle,
 } from "lucide-react";
 import {
+  startTransition,
   useState,
   useSyncExternalStore,
+  useEffect,
   type ChangeEvent,
   type FormEvent,
 } from "react";
@@ -124,6 +126,10 @@ const labels: Record<string, string> = {
   WORKING: "Đang làm việc",
   RESIGNED: "Nghỉ việc",
   COMPLETED: "Hoàn tất",
+  KHEN_THUONG: "Khen thưởng",
+  KY_LUAT: "Kỷ luật",
+  REWARD: "Khen thưởng",
+  DISCIPLINE: "Kỷ luật",
 };
 
 const detailLabels: Record<string, string> = {
@@ -451,6 +457,9 @@ function displayCell(key: string, value: unknown) {
   if (value === null || value === undefined || value === "") return "-";
   if (["is_active", "is_foreign", "has_probation"].includes(key))
     return Number(value) ? "Có" : "Không";
+  if (["amount", "proposed_amount"].includes(key))
+    return `${Number(value).toLocaleString("vi-VN")} VNĐ`;
+  if (key === "weight") return `${Number(value).toLocaleString("vi-VN")} %`;
   if (/date|_time|_at$/i.test(key)) {
     const date =
       typeof value === "number" ? new Date(value) : new Date(String(value));
@@ -524,7 +533,18 @@ function DetailSection({ title, children }: { title: string; children: React.Rea
   return <section><h3 className="mb-3 font-display text-sm font-bold text-slate-900">{title}</h3>{children}</section>;
 }
 
+function EmployeeRelationsDetail({ row }: { row: Row }) {
+  const contracts = parseDetailList(row.contracts);
+  const workHistory = parseDetailList(row.workHistory ?? row.work_history);
+  const rewards = parseDetailList(row.rewards);
+  const leaveBalances = parseDetailList(row.leaveBalances ?? row.leave_balances);
+  return <div className="space-y-5"><DetailSection title="1. Thông tin nhân sự"><DetailGrid items={[["Mã nhân viên", row.employee_code], ["Họ và tên", row.full_name], ["Phòng ban", row.department_name], ["Vị trí", row.position_name], ["Quản lý trực tiếp", row.manager_name], ["Ngày vào làm", row.join_date, "date"], ["Trạng thái", row.employment_status]]} /></DetailSection><DetailSection title="2. Danh sách hợp đồng"><div className="space-y-3">{contracts.length ? contracts.map((contract, index) => <div key={String(contract.contract_id ?? index)} className="rounded-xl border border-slate-100 bg-slate-50/50 p-3"><DetailGrid items={[["Mã hợp đồng", contract.contract_id], ["Số hợp đồng", contract.contract_no], ["Mã nhân viên", contract.employee_id], ["Nhân viên", contract.employee_name ?? row.full_name], ["Vị trí nhân viên", contract.employee_position], ["Mã người ký", contract.signer_id], ["Người ký", contract.signer_name], ["Chức vụ người ký", contract.signer_position], ["Loại hợp đồng", contract.contract_type], ["Ngày hợp đồng", contract.contract_date, "date"], ["Ngày ký", contract.sign_date, "date"], ["Ngày bắt đầu", contract.start_date, "date"], ["Ngày kết thúc", contract.end_date, "date"], ["Có thử việc", Number(contract.has_probation) ? "Có" : "Không"], ["Lương cơ sở", contract.base_salary, "money"], ["Lương đóng BHXH", contract.social_insurance_salary, "money"], ["Mức lương", contract.salary, "money"], ["Thang lương", contract.salary_scale], ["Bậc lương", contract.salary_grade], ["Trạng thái", contract.status], ["Ghi chú", contract.note]]} /><DetailTable columns={[["allowance_type", "Loại phụ cấp"], ["amount", "Số tiền"]]} rows={parseDetailList(contract.allowance_details)} empty="Không có phụ cấp." /></div>) : <div className="rounded-xl border border-dashed border-slate-200 p-6 text-center text-xs text-slate-400">Nhân sự chưa có hợp đồng lao động.</div>}</div></DetailSection><DetailSection title="3. Quá trình công tác"><DetailTable columns={[["work_history_id", "Mã quá trình công tác"], ["employee_id", "Mã nhân viên"], ["employee_name", "Nhân viên"], ["department_name", "Bộ phận"], ["position_name", "Vị trí"], ["decision_type", "Loại quyết định"], ["effective_date", "Ngày hiệu lực"], ["reason", "Lý do"], ["note", "Ghi chú"]]} rows={workHistory} empty="Chưa có quá trình công tác." /></DetailSection><DetailSection title="4. Khen thưởng / Kỷ luật"><DetailTable columns={[["reward_discipline_id", "Mã khen thưởng / kỷ luật"], ["decision_no", "Số quyết định"], ["decision_type", "Loại quyết định"], ["employee_id", "Mã nhân viên"], ["employee_name", "Nhân viên"], ["decision_date", "Ngày ban hành"], ["effective_date", "Ngày hiệu lực"], ["decision_by", "Người ký"], ["amount", "Số tiền"], ["reason", "Lý do"], ["content", "Nội dung"]]} rows={rewards} empty="Chưa có dữ liệu khen thưởng hoặc kỷ luật." /></DetailSection><DetailSection title="5. Số dư ngày phép"><DetailTable columns={[["leave_balance_id", "Mã số dư phép"], ["leave_year", "Năm phép"], ["entitled_days", "Ngày phép được hưởng"], ["carried_forward_days", "Ngày phép chuyển kỳ"], ["used_days_before", "Đã dùng trước đó"], ["used_days", "Đã sử dụng"], ["remaining_days_before", "Còn lại trước đó"], ["remaining_days_after", "Còn lại sau đó"], ["remaining_days", "Ngày phép còn lại"]]} rows={leaveBalances} empty="Chưa có dữ liệu phép năm." /></DetailSection></div>;
+}
+
 function StructuredDetail({ name, tab, row }: { name: WorkspaceName; tab: WorkspaceTab; row: Row }) {
+  if (name === "people" && tab.id === "employees") {
+    return <EmployeeRelationsDetail row={row} />;
+  }
   if (name === "people" && tab.id === "contracts") {
     return <div className="space-y-5"><DetailSection title="1. Thông tin HĐLĐ"><DetailGrid items={[["Số HĐ", row.contract_no], ["Ngày HĐ", row.contract_date, "date"], ["Ngày ký chính thức", row.sign_date, "date"], ["Nhân viên", row.employee_name], ["Vị trí nhân viên", row.employee_position ?? row.position_name], ["Loại HĐLĐ", row.contract_type], ["Từ ngày", row.start_date, "date"], ["Đến ngày", row.end_date, "date"], ["Trạng thái", row.status], ["Ghi chú", row.note]]} /></DetailSection><DetailSection title="2. Thông tin lương"><DetailGrid items={[["Lương cơ bản", row.base_salary], ["Lương đóng BHXH", row.social_insurance_salary], ["Mức lương hợp đồng", row.salary], ["Thang lương", row.salary_scale], ["Bậc lương", row.salary_grade], ["Có thử việc", Number(row.has_probation) ? "Có" : "Không"], ["Từ ngày thử việc", row.probation_from_date, "date"], ["Đến ngày thử việc", row.probation_to_date, "date"], ["Tỷ lệ lương thử việc", row.probation_salary_rate]]} /></DetailSection><DetailSection title="3. Phụ cấp"><DetailTable columns={[["allowance_type", "Loại phụ cấp"], ["amount", "Tiền hưởng"]]} rows={parseDetailList(row.allowance_details)} empty="Không có phụ cấp." /></DetailSection><DetailSection title="4. Phụ lục hợp đồng"><DetailTable columns={[["appendix_no", "Số phụ lục"], ["appendix_type", "Loại phụ lục"], ["effective_date", "Ngày hiệu lực"], ["description", "Nội dung"]]} rows={parseDetailList(row.appendices)} empty="Không có phụ lục hợp đồng." /></DetailSection></div>;
   }
@@ -538,7 +558,17 @@ function StructuredDetail({ name, tab, row }: { name: WorkspaceName; tab: Worksp
   }
   if (name === "rewards" && tab.id === "evaluations") {
     const details = parseDetailList(row.details);
-    return <div className="space-y-5"><DetailSection title="1. Thông tin chung"><DetailGrid items={[["Mã phiếu", row.evaluation_code], ["Ngày đánh giá", row.evaluation_date, "date"], ["Kỳ đánh giá", row.evaluation_quarter ? `Quý ${row.evaluation_quarter}` : "-"], ["Năm", row.year], ["Người đánh giá", row.evaluator_name], ["Nhân viên được đánh giá", row.employee_name], ["Vị trí", row.position_name], ["Bộ phận", row.department_name], ["Tổng điểm", row.total_score], ["Xếp loại", row.grade_result], ["Diễn giải", row.description]]} /></DetailSection><DetailSection title="2. Chi tiết tiêu chí"><DetailTable columns={[["criteria_code", "Mã tiêu chí"], ["criteria_name", "Tên tiêu chí"], ["score", "Quản lý đánh giá"], ["weight", "Trọng số"], ["note", "Ý kiến, đề xuất"]]} rows={details} /></DetailSection></div>;
+    return <div className="space-y-5"><DetailSection title="1. Thông tin chung"><DetailGrid items={[["Mã phiếu", row.evaluation_code], ["Ngày đánh giá", row.evaluation_date, "date"], ["Kỳ đánh giá", row.evaluation_quarter ? `Quý ${row.evaluation_quarter}` : "-"], ["Năm", row.year], ["Người đánh giá", row.evaluator_name], ["Nhân viên được đánh giá", row.employee_name], ["Vị trí", row.position_name], ["Bộ phận", row.department_name], ["Tổng điểm", row.total_score], ["Xếp loại", row.grade_result], ["Trạng thái", row.status], ["Diễn giải", row.description], ["Nhận xét quản lý", row.manager_comment], ["Đề xuất", row.recommendation]]} /></DetailSection><DetailSection title="2. Chi tiết tiêu chí"><DetailTable columns={[["criteria_code", "Mã tiêu chí"], ["criteria_name", "Tên tiêu chí"], ["score", "Quản lý đánh giá"], ["weight", "Trọng số"], ["note", "Ý kiến, đề xuất"]]} rows={details} /></DetailSection></div>;
+  }
+  if (name === "rewards" && tab.id === "criteria") {
+    const scales = parseDetailList(row.scales);
+    return <div className="space-y-5"><DetailSection title="1. Thông tin tiêu chí"><DetailGrid items={[["Mã tiêu chí", row.criteria_code], ["Tên tiêu chí", row.criteria_name], ["Trọng số", row.weight], ["Mô tả", row.description], ["Trạng thái", row.status]]} /></DetailSection><DetailSection title="2. Thang điểm chi tiết"><DetailTable columns={[["grade_name", "Xếp loại"], ["min_score", "Điểm từ"], ["max_score", "Điểm đến"], ["description", "Mô tả"]]} rows={scales} empty="Chưa có thang điểm chi tiết." /></DetailSection></div>;
+  }
+  if (name === "rewards" && tab.id === "proposals") {
+    return <div className="space-y-5"><DetailSection title="1. Thông tin đề xuất"><DetailGrid items={[["Mã đề xuất", row.proposal_code], ["Loại", row.record_type], ["Nhân viên", row.employee_name], ["Mã nhân viên", row.employee_code], ["Ngày đề xuất", row.proposal_date, "date"], ["Người đề xuất", row.proposed_by], ["Số tiền", row.proposed_amount], ["Trạng thái", row.status]]} /></DetailSection><DetailSection title="2. Nội dung"><DetailGrid items={[["Lý do", row.reason], ["Nội dung đề xuất", row.content], ["Tệp đính kèm", row.attachment_url]]} /></DetailSection></div>;
+  }
+  if (name === "rewards" && tab.id === "decisions") {
+    return <div className="space-y-5"><DetailSection title="1. Thông tin quyết định"><DetailGrid items={[["Số quyết định", row.decision_no], ["Loại quyết định", row.decision_type], ["Nhân viên", row.employee_name], ["Mã nhân viên", row.employee_code], ["Đề xuất liên kết", row.proposal_id], ["Ngày ban hành", row.decision_date, "date"], ["Ngày hiệu lực", row.effective_date, "date"], ["Số tiền", row.amount], ["Người ký", row.decision_by], ["Trạng thái", row.status]]} /></DetailSection><DetailSection title="2. Nội dung"><DetailGrid items={[["Lý do", row.reason], ["Nội dung quyết định", row.content], ["Tệp đính kèm", row.attachment_url]]} /></DetailSection></div>;
   }
   if (name === "recruitment" && tab.id === "screenings") {
     const details = parseDetailList(row.criteria);
@@ -617,6 +647,7 @@ type EvaluationLookups = CandidateLookups & {
 type DecisionLookups = CandidateLookups & {
   evaluations: Row[];
   criteria: Row[];
+  rewardProposals: Row[];
 };
 
 type EmployeeLookups = RequestLookups & {
@@ -633,6 +664,10 @@ type TransferDecisionLookups = RequestLookups & {
 
 type EvaluationFormLookups = RequestLookups & {
   criteria: Row[];
+};
+
+type RewardDecisionLookups = RequestLookups & {
+  rewardProposals: Row[];
 };
 
 const screeningCriteriaTypes = [
@@ -838,6 +873,50 @@ function EvaluationForm({
     {activeTab === "general" && <div className="grid gap-4 md:grid-cols-2"><WorkspaceInput field={{ name: "evaluation_date", label: "Ngày đánh giá", type: "date", required: true }} tabId="evaluations" value={values.evaluation_date ?? ""} onChange={(value) => set("evaluation_date", value)} /><WorkspaceInput field={{ name: "evaluation_quarter", label: "Kỳ đánh giá", type: "select", required: true, options: [{ value: "1", label: "Quý I" }, { value: "2", label: "Quý II" }, { value: "3", label: "Quý III" }, { value: "4", label: "Quý IV" }] }} tabId="evaluations" value={values.evaluation_quarter ?? "1"} onChange={(value) => set("evaluation_quarter", value)} /><WorkspaceInput field={{ name: "year", label: "Năm đánh giá", type: "number", required: true }} tabId="evaluations" value={values.year ?? ""} onChange={(value) => set("year", value)} /><div><label className="mb-1.5 block text-xs font-bold text-slate-600">Người đánh giá *</label><select className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm" value={values.evaluator_id ?? session?.employeeId ?? ""} required onChange={(event) => set("evaluator_id", event.target.value)}><option value="">-- Chọn người đánh giá --</option>{lookups.employees.map((item) => <option key={String(item.employee_id)} value={String(item.employee_id)}>{String(item.employee_code ?? item.employee_id)} - {String(item.full_name ?? "")}</option>)}</select></div><div><label className="mb-1.5 block text-xs font-bold text-slate-600">Nhân viên được đánh giá *</label><select className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm" value={values.employee_id ?? ""} required onChange={(event) => selectEmployee(event.target.value)}><option value="">-- Chọn nhân viên --</option>{lookups.employees.map((item) => <option key={String(item.employee_id)} value={String(item.employee_id)}>{String(item.employee_code ?? item.employee_id)} - {String(item.full_name ?? "")}</option>)}</select></div>{display("Vị trí", employee?.position_name ?? values.position_id)}{display("Bộ phận", employee?.department_name ?? values.department_id)}<div className="md:col-span-2"><WorkspaceInput field={{ name: "description", label: "Diễn giải", type: "textarea" }} tabId="evaluations" value={values.description ?? ""} onChange={(value) => set("description", value)} /></div></div>}
     {activeTab === "detail" && <div className="space-y-4"><div className="flex items-center justify-between"><div><h3 className="font-display text-sm font-bold text-slate-900">Chi tiết tiêu chí đánh giá</h3><p className="mt-1 text-xs text-slate-400">Điểm của quản lý được tính theo trọng số tiêu chí.</p></div><Button type="button" variant="secondary" size="sm" onClick={addCriterion}><Plus size={14} /> Thêm tiêu chí</Button></div><div className="overflow-x-auto rounded-xl border border-slate-100"><table className="w-full min-w-[1050px] text-left text-xs"><thead className="bg-slate-50 text-[10px] uppercase tracking-wider text-slate-400"><tr><th className="px-3 py-3">Mã tiêu chí</th><th className="px-3 py-3">Tên TC</th><th className="px-3 py-3">Quản lý đánh giá</th><th className="px-3 py-3">Trọng số (%)</th><th className="px-3 py-3">Ý kiến, đề xuất</th><th className="px-3 py-3">Xóa</th></tr></thead><tbody className="divide-y divide-slate-100">{details.map((item, index) => <tr key={index}><td className="px-3 py-2"><select className="h-9 min-w-36 rounded-lg border border-slate-200 px-2" value={String(item.criteria_id ?? "")} required onChange={(event) => selectCriterion(index, event.target.value)}><option value="">-- Chọn --</option>{lookups.criteria.map((criterion) => <option key={String(criterion.criteria_id)} value={String(criterion.criteria_id)}>{String(criterion.criteria_code ?? criterion.criteria_id)}</option>)}</select></td><td className="px-3 py-2"><Input value={String(item.criteria_name ?? "")} disabled className="h-9 min-w-52 bg-slate-50" /></td><td className="px-3 py-2"><Input type="number" min={0} max={10} step="0.01" value={String(item.score ?? "")} required onChange={(event) => updateDetail(index, "score", event.target.value)} className="h-9 w-28" /></td><td className="px-3 py-2"><Input type="number" min={0.01} value={String(item.weight ?? "")} required onChange={(event) => updateDetail(index, "weight", event.target.value)} className="h-9 w-28" /></td><td className="px-3 py-2"><Input value={String(item.note ?? "")} onChange={(event) => updateDetail(index, "note", event.target.value)} className="h-9 min-w-64" /></td><td className="px-3 py-2"><button type="button" className="rounded-lg p-2 text-rose-500 hover:bg-rose-50" onClick={() => updateDetails(details.filter((_, detailIndex) => detailIndex !== index))} aria-label="Xóa tiêu chí"><X size={15} /></button></td></tr>)}</tbody></table>{details.length === 0 && <p className="p-6 text-center text-xs text-slate-400">Chưa có tiêu chí. Nhấn “Thêm tiêu chí” để bắt đầu.</p>}</div><div className="flex items-center justify-end rounded-xl border border-teal-100 bg-teal-50 px-4 py-3 text-sm font-bold text-teal-800">Tổng điểm: {totalScore.toFixed(2)}</div></div>}
   </div>;
+}
+
+function RewardProposalForm({
+  values,
+  setValues,
+  lookups,
+  session,
+}: {
+  values: Record<string, string>;
+  setValues: (updater: (current: Record<string, string>) => Record<string, string>) => void;
+  lookups: RequestLookups;
+  session: Session | null;
+}) {
+  const employee = lookups.employees.find((item) => String(item.employee_id ?? "") === values.employee_id);
+  const set = (name: string, value: string) => setValues((current) => ({ ...current, [name]: value }));
+  const selectEmployee = (employeeId: string) => setValues((current) => ({ ...current, employee_id: employeeId }));
+  const selectProposer = (employeeId: string) => {
+    const proposer = lookups.employees.find((item) => String(item.employee_id ?? "") === employeeId);
+    setValues((current) => ({ ...current, proposed_by_employee_id: employeeId, proposed_by: String(proposer?.full_name ?? current.proposed_by ?? session?.name ?? "") }));
+  };
+  const employeeOptions = lookups.employees.map((item) => <option key={String(item.employee_id)} value={String(item.employee_id)}>{String(item.employee_code ?? item.employee_id)} - {String(item.full_name ?? "")}</option>);
+  return <div className="space-y-5"><div className="rounded-xl border border-teal-100 bg-teal-50/60 p-4 text-xs text-teal-800">Đề xuất sẽ ở trạng thái <b>Chờ duyệt</b>. Sau khi được duyệt, HR mới có thể ban hành quyết định khen thưởng hoặc kỷ luật.</div><div className="grid gap-4 md:grid-cols-2"><div><label className="mb-1.5 block text-xs font-bold text-slate-600">Loại đề xuất *</label><select className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm" value={values.record_type ?? "KHEN_THUONG"} required onChange={(event) => set("record_type", event.target.value)}><option value="KHEN_THUONG">Khen thưởng</option><option value="KY_LUAT">Kỷ luật</option></select></div><div><label className="mb-1.5 block text-xs font-bold text-slate-600">Nhân viên *</label><select className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm" value={values.employee_id ?? ""} required onChange={(event) => selectEmployee(event.target.value)}><option value="">-- Chọn nhân viên --</option>{employeeOptions}</select></div><div><label className="mb-1.5 block text-xs font-bold text-slate-600">Người đề xuất *</label><select className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm" value={values.proposed_by_employee_id ?? ""} required onChange={(event) => selectProposer(event.target.value)}><option value="">-- Chọn người đề xuất --</option>{employeeOptions}</select></div><WorkspaceInput field={{ name: "proposal_date", label: "Ngày đề xuất", type: "date", required: true }} tabId="proposals" value={values.proposal_date ?? ""} onChange={(value) => set("proposal_date", value)} /><WorkspaceInput field={{ name: "proposed_amount", label: "Số tiền đề xuất", type: "number" }} tabId="proposals" value={values.proposed_amount ?? "0"} onChange={(value) => set("proposed_amount", value)} /><div className="rounded-xl border border-slate-100 bg-slate-50/70 p-3"><div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Thông tin nhân viên</div><div className="mt-1 text-sm text-slate-700">{employee ? `${String(employee.department_name ?? "-")} - ${String(employee.position_name ?? "-")}` : "Chọn nhân viên để xem thông tin"}</div></div><div className="md:col-span-2"><WorkspaceInput field={{ name: "reason", label: "Lý do", type: "textarea", required: true }} tabId="proposals" value={values.reason ?? ""} onChange={(value) => set("reason", value)} /></div><div className="md:col-span-2"><WorkspaceInput field={{ name: "content", label: "Nội dung đề xuất", type: "textarea" }} tabId="proposals" value={values.content ?? ""} onChange={(value) => set("content", value)} /></div><WorkspaceInput field={{ name: "attachment_url", label: "Tệp đính kèm" }} tabId="proposals" value={values.attachment_url ?? ""} onChange={(value) => set("attachment_url", value)} /></div></div>;
+}
+
+function RewardDecisionForm({
+  values,
+  setValues,
+  lookups,
+  session,
+}: {
+  values: Record<string, string>;
+  setValues: (updater: (current: Record<string, string>) => Record<string, string>) => void;
+  lookups: RewardDecisionLookups;
+  session: Session | null;
+}) {
+  const approvedProposals = lookups.rewardProposals.filter((item) => String(item.status ?? "").toUpperCase() === "APPROVED");
+  const proposal = lookups.rewardProposals.find((item) => String(item.proposal_id ?? "") === values.proposal_id);
+  const employee = lookups.employees.find((item) => String(item.employee_id ?? "") === String(values.employee_id ?? proposal?.employee_id ?? ""));
+  const set = (name: string, value: string) => setValues((current) => ({ ...current, [name]: value }));
+  const selectProposal = (proposalId: string) => {
+    const selected = lookups.rewardProposals.find((item) => String(item.proposal_id ?? "") === proposalId);
+    setValues((current) => ({ ...current, proposal_id: proposalId, employee_id: String(selected?.employee_id ?? ""), decision_type: String(selected?.record_type ?? current.decision_type ?? "KHEN_THUONG"), amount: String(selected?.proposed_amount ?? current.amount ?? "0"), reason: String(selected?.reason ?? current.reason ?? "") }));
+  };
+  return <div className="space-y-5"><div className="rounded-xl border border-amber-100 bg-amber-50/70 p-4 text-xs text-amber-800">Chỉ đề xuất đã được duyệt mới xuất hiện trong danh sách và được phép lập quyết định.</div>{approvedProposals.length === 0 && <div className="rounded-xl border border-dashed border-slate-200 p-5 text-center text-xs text-slate-500">Chưa có đề xuất đã duyệt. Hãy duyệt đề xuất trước khi ban hành quyết định.</div>}<div className="grid gap-4 md:grid-cols-2"><div className="md:col-span-2"><label className="mb-1.5 block text-xs font-bold text-slate-600">Đề xuất đã duyệt *</label><select className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm" value={values.proposal_id ?? ""} required onChange={(event) => selectProposal(event.target.value)}><option value="">-- Chọn đề xuất đã duyệt --</option>{approvedProposals.map((item) => <option key={String(item.proposal_id)} value={String(item.proposal_id)}>{String(item.proposal_code ?? item.proposal_id)} - {String(item.employee_name ?? "")}</option>)}</select></div><div><label className="mb-1.5 block text-xs font-bold text-slate-600">Loại quyết định *</label><select className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm" value={values.decision_type ?? "KHEN_THUONG"} required onChange={(event) => set("decision_type", event.target.value)}><option value="KHEN_THUONG">Khen thưởng</option><option value="KY_LUAT">Kỷ luật</option></select></div><div className="rounded-xl border border-slate-100 bg-slate-50/70 p-3"><div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Nhân viên</div><div className="mt-1 text-sm text-slate-700">{employee ? `${String(employee.employee_code ?? "")} - ${String(employee.full_name ?? "")}` : "Tự động theo đề xuất"}</div></div><WorkspaceInput field={{ name: "decision_date", label: "Ngày ban hành", type: "date", required: true }} tabId="decisions" value={values.decision_date ?? ""} onChange={(value) => set("decision_date", value)} /><WorkspaceInput field={{ name: "effective_date", label: "Ngày hiệu lực", type: "date" }} tabId="decisions" value={values.effective_date ?? ""} onChange={(value) => set("effective_date", value)} /><WorkspaceInput field={{ name: "amount", label: "Số tiền", type: "number" }} tabId="decisions" value={values.amount ?? "0"} onChange={(value) => set("amount", value)} /><WorkspaceInput field={{ name: "decision_by", label: "Người ký", placeholder: session?.name }} tabId="decisions" value={values.decision_by ?? ""} onChange={(value) => set("decision_by", value)} /><div className="md:col-span-2"><WorkspaceInput field={{ name: "reason", label: "Lý do", type: "textarea", required: true }} tabId="decisions" value={values.reason ?? ""} onChange={(value) => set("reason", value)} /></div><div className="md:col-span-2"><WorkspaceInput field={{ name: "content", label: "Nội dung quyết định", type: "textarea" }} tabId="decisions" value={values.content ?? ""} onChange={(value) => set("content", value)} /></div><WorkspaceInput field={{ name: "attachment_url", label: "Tệp đính kèm" }} tabId="decisions" value={values.attachment_url ?? ""} onChange={(value) => set("attachment_url", value)} /></div></div>;
 }
 
 function EmployeeForm({
@@ -1898,6 +1977,10 @@ function OperationalWorkspace({
     ].includes(tab.id);
   const isHrOrAdmin =
     session?.role === "Administrator" || session?.role === "HR Staff";
+  const canManageRewardProposal =
+    name === "rewards" &&
+    tab.id === "proposals" &&
+    ["Administrator", "HR Staff", "Ban Giám Đốc", "Trưởng Khối", "Trưởng Phòng"].includes(session?.role ?? "");
   const canManage = Boolean(
     session &&
       (catalogNeedsAdmin
@@ -1922,7 +2005,7 @@ function OperationalWorkspace({
   );
   const canEdit = Boolean(
     session &&
-    (workflowEdit || (canManage && canAccess(session, resource, "edit"))) &&
+    (workflowEdit || canManageRewardProposal || (canManage && canAccess(session, resource, "edit"))) &&
     editableTabs.has(tab.id) &&
     !(name === "recruitment" && tab.id === "decisions"),
   );
@@ -2023,9 +2106,18 @@ function OperationalWorkspace({
       const criteria = lookupQuery.data?.criteria ?? [];
       values.details = JSON.stringify(criteria.length ? criteria.map((item) => ({ criteria_id: item.criteria_id, criteria_code: item.criteria_code, criteria_name: item.criteria_name, weight: item.weight ?? 0, score: 0, note: "" })) : []);
     }
-    if (tab.id === "decisions") {
+    if (name === "rewards" && tab.id === "proposals") {
+      values.proposal_date = new Date().toISOString().slice(0, 10);
+      values.record_type = "KHEN_THUONG";
+      values.proposed_amount = "0";
+      values.proposed_by_employee_id = session?.employeeId ?? "";
+      values.proposed_by = session?.name ?? "";
+    }
+    if (name === "rewards" && tab.id === "decisions") {
       values.decision_date = new Date().toISOString().slice(0, 10);
-      values.result = "ĐẠT";
+      values.effective_date = new Date().toISOString().slice(0, 10);
+      values.amount = "0";
+      values.decision_by = session?.name ?? "";
     }
     if (name === "people" && tab.id === "leave" && session?.employeeId)
       values.employee_id = session.employeeId;
@@ -2077,6 +2169,28 @@ function OperationalWorkspace({
     setShowForm(true);
   };
 
+  useEffect(() => {
+    const requestedEditId = searchParams.get("edit");
+    if (
+      !requestedEditId ||
+      name !== "people" ||
+      tab.id !== "employees" ||
+      !rowsQuery.data?.length ||
+      showForm
+    )
+      return;
+    const row = rowsQuery.data.find((item) => rowId(tab, item) === requestedEditId);
+    if (!row) return;
+    startTransition(() => {
+      void openEdit(row);
+    });
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete("edit");
+    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+  // openEdit is intentionally invoked only for the one-time edit deep link.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [name, pathname, router, rowsQuery.data, searchParams, showForm, tab]);
+
   const openScreeningForm = (candidate: Row) => {
     const screeningTab = getWorkspaceTab(name, "screenings");
     const position = lookupQuery.data?.positions.find((item) => String(item.position_id ?? "") === String(candidate.position_id ?? ""));
@@ -2099,17 +2213,16 @@ function OperationalWorkspace({
   };
 
   const openDetail = async (row: Row) => {
+    if (name === "people" && tab.id === "employees") {
+      router.push(`/people/employees/${rowId(tab, row)}`);
+      return;
+    }
     setShowDetail(row);
     if (
       ![
         "quota",
         "quotas",
-        "screenings",
-        "schedules",
-        "interview-evaluations",
         "employees",
-        "leave",
-        "contract-proposals",
         "contract-extensions",
         "transfer-proposals",
         "transfer-decisions",
@@ -2243,6 +2356,21 @@ function OperationalWorkspace({
         const invalidDetail = details.length === 0 || details.some((detail) => !String(detail.criteria_id ?? "").trim() || Number(detail.weight) <= 0 || !Number.isFinite(Number(detail.score)) || Number(detail.score) < 0 || Number(detail.score) > 10);
         if (missingEvaluationField || invalidDetail) {
           showPopup("error", "Thiếu thông tin bắt buộc", "Vui lòng nhập đủ kỳ đánh giá, người đánh giá, nhân viên, ít nhất một tiêu chí, trọng số hợp lệ và điểm từ 0 đến 10.");
+          return;
+        }
+      }
+      if (name === "rewards" && tab.id === "proposals") {
+        const missingProposalField = ["record_type", "employee_id", "proposal_date", "proposed_by", "reason"].find((field) => !String(formValues[field] ?? "").trim());
+        if (missingProposalField || Number(formValues.proposed_amount ?? 0) < 0) {
+          showPopup("error", "Thiếu thông tin bắt buộc", "Vui lòng chọn loại đề xuất, nhân viên, người đề xuất, ngày đề xuất, số tiền hợp lệ và lý do.");
+          return;
+        }
+      }
+      if (name === "rewards" && tab.id === "decisions") {
+        const missingDecisionField = ["proposal_id", "employee_id", "decision_type", "decision_date", "reason"].find((field) => !String(formValues[field] ?? "").trim());
+        const proposal = lookups.rewardProposals.find((item) => String(item.proposal_id ?? "") === String(formValues.proposal_id ?? ""));
+        if (missingDecisionField || !proposal || String(proposal.status ?? "").toUpperCase() !== "APPROVED" || String(proposal.employee_id ?? "") !== String(formValues.employee_id ?? "") || String(proposal.record_type ?? "") !== String(formValues.decision_type ?? "") || Number(formValues.amount ?? 0) < 0) {
+          showPopup("error", "Không thể ban hành quyết định", "Quyết định phải liên kết với đề xuất đã được duyệt, đúng nhân viên, đúng loại và có số tiền hợp lệ.");
           return;
         }
       }
@@ -2476,7 +2604,7 @@ function OperationalWorkspace({
     if (
       name === "rewards" &&
       ["evaluations", "proposals", "decisions"].includes(tab.id) &&
-      ["employee_id", "evaluator_id"].includes(field.name)
+      ["employee_id", "evaluator_id", "proposed_by_employee_id"].includes(field.name)
     )
       return employeeOptions;
     if (name === "rewards" && tab.id === "decisions" && field.name === "proposal_id")
@@ -2640,11 +2768,14 @@ function OperationalWorkspace({
                           <div className="line-clamp-2">
                             {column.key === "status" ||
                             column.key === "employment_status" ||
-                            column.key === "decision_type" ? (
+                            column.key === "decision_type" ||
+                            column.key === "record_type" ? (
                               <Badge
                                 tone={
                                   String(row[column.key]).includes("REJECT") ||
-                                  String(row[column.key]).includes("KỶ")
+                                  String(row[column.key]).includes("KỶ") ||
+                                  String(row[column.key]).includes("KY_LUAT") ||
+                                  String(row[column.key]).includes("DISCIPLINE")
                                     ? "rose"
                                     : String(row[column.key]).includes(
                                           "PENDING",
@@ -2887,6 +3018,20 @@ function OperationalWorkspace({
                   lookups={(lookupQuery.data ?? { departments: [], positions: [], employees: [], quotas: [], criteria: [] }) as EvaluationFormLookups}
                   session={session}
                 />
+              ) : tab.id === "proposals" && name === "rewards" ? (
+                <RewardProposalForm
+                  values={formValues}
+                  setValues={setFormValues}
+                  lookups={(lookupQuery.data ?? { departments: [], positions: [], employees: [], quotas: [] }) as RequestLookups}
+                  session={session}
+                />
+              ) : tab.id === "decisions" && name === "rewards" ? (
+                <RewardDecisionForm
+                  values={formValues}
+                  setValues={setFormValues}
+                  lookups={(lookupQuery.data ?? { departments: [], positions: [], employees: [], quotas: [], rewardProposals: [] }) as RewardDecisionLookups}
+                  session={session}
+                />
               ) : tab.id === "employees" ? (
                 <EmployeeForm
                   values={formValues}
@@ -3060,6 +3205,8 @@ function OperationalWorkspace({
               )}
               {tab.id === "quota" || tab.id === "quotas" ? (
                 <QuotaDetail row={showDetail} />
+              ) : ["employees", "contracts", "transfer-proposals", "transfer-decisions"].includes(tab.id) || (name === "rewards" && ["criteria", "evaluations", "proposals", "decisions"].includes(tab.id)) || (name === "recruitment" && ["screenings", "interview-evaluations", "decisions"].includes(tab.id)) ? (
+                <StructuredDetail name={name} tab={tab} row={showDetail} />
               ) : (
                 <div className="grid gap-3 sm:grid-cols-2">
                   {Object.entries(showDetail).map(([key, value]) => (

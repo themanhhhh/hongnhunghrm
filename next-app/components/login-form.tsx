@@ -36,7 +36,7 @@ export function LoginForm() {
       return setError(
         result.message ?? "Tên đăng nhập hoặc mật khẩu không chính xác.",
       );
-    router.push(result.session.role === "Nhân viên" ? "/people" : "/dashboard");
+    router.push("/dashboard");
   };
 
   return (
