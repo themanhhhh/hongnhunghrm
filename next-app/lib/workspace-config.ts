@@ -218,14 +218,14 @@ const rewardTabs: WorkspaceTab[] = [
     fields: [date("evaluation_date", "Ngày đánh giá", true), number("year", "Năm đánh giá", true), text("evaluator_id", "Mã người đánh giá", undefined, true), text("employee_id", "Mã nhân viên được đánh giá", undefined, true), area("description", "Nhận xét chung", undefined, 2), json("details", "Chi tiết tiêu chí (JSON)", '[{"criteria_id":"tc-...","criteria_code":"TC-01","criteria_name":"Kết quả KPI","weight":25,"score":8,"note":""}]')],
   },
   {
-    id: "proposals", label: "Đề xuất thưởng phạt", endpoint: "/reward-discipline/proposals", idField: "proposal_id",
+    id: "proposals", label: "Đề xuất thưởng phạt", endpoint: "/reward-discipline/proposals", idField: "proposal_id", approve: true,
     columns: [{ key: "proposal_code", label: "Mã đề xuất" }, { key: "record_type", label: "Loại" }, { key: "employee_name", label: "Nhân viên" }, { key: "proposed_amount", label: "Số tiền" }, { key: "reason", label: "Lý do" }, { key: "status", label: "Trạng thái" }],
-    fields: [select("record_type", "Loại đề xuất", [{ value: "KHEN_THUONG", label: "Khen thưởng" }, { value: "KY_LUAT", label: "Kỷ luật" }], true), text("employee_id", "Mã nhân viên", undefined, true), number("proposed_amount", "Số tiền"), text("proposed_by", "Người đề xuất", undefined, true), area("reason", "Lý do / nội dung", undefined, 2)],
+    fields: [select("record_type", "Loại đề xuất", [{ value: "KHEN_THUONG", label: "Khen thưởng" }, { value: "KY_LUAT", label: "Kỷ luật" }], true), text("employee_id", "Mã nhân viên", undefined, true), number("proposed_amount", "Số tiền"), date("proposal_date", "Ngày đề xuất"), text("proposed_by", "Người đề xuất", undefined, true), text("attachment_url", "Tệp đính kèm"), area("reason", "Lý do", undefined, 2), area("content", "Nội dung đề xuất", undefined, 2)],
   },
   {
     id: "decisions", label: "Quyết định", endpoint: "/reward-discipline", idField: "reward_discipline_id",
     columns: [{ key: "decision_no", label: "Số quyết định" }, { key: "decision_type", label: "Loại quyết định" }, { key: "employee_name", label: "Nhân viên" }, { key: "decision_date", label: "Ngày ban hành" }, { key: "decision_by", label: "Người ký" }],
-    fields: [select("decision_type", "Loại quyết định", [{ value: "KHEN_THUONG", label: "Khen thưởng" }, { value: "KY_LUAT", label: "Kỷ luật" }], true), text("employee_id", "Mã nhân viên", undefined, true), date("decision_date", "Ngày ban hành", true), date("effective_date", "Ngày hiệu lực"), text("decision_by", "Người ký"), text("reason", "Lý do", undefined, true, 2), area("content", "Nội dung quyết định", undefined, 2)],
+    fields: [select("decision_type", "Loại quyết định", [{ value: "KHEN_THUONG", label: "Khen thưởng" }, { value: "KY_LUAT", label: "Kỷ luật" }], true), text("proposal_id", "Mã đề xuất đã duyệt"), text("employee_id", "Mã nhân viên", undefined, true), number("amount", "Số tiền"), date("decision_date", "Ngày ban hành", true), date("effective_date", "Ngày hiệu lực"), text("decision_by", "Người ký"), text("attachment_url", "Tệp đính kèm"), text("reason", "Lý do", undefined, true, 2), area("content", "Nội dung quyết định", undefined, 2)],
   },
   {
     id: "history", label: "Tra cứu lịch sử", endpoint: "/reward-discipline", idField: "reward_discipline_id", query: "history", readOnly: true,

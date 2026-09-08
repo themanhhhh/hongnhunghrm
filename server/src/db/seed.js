@@ -1280,17 +1280,17 @@ const seedData = async (forceClear = false) => {
     }
 
     const rdDecisions = [
-        { id: 'rd-dec-01', emp_id: 'emp-kttk1-02', no: 'QĐKT/2026/001', type: 'REWARD', reason: 'Tuyên dương & Khen thưởng Cá nhân Xuất sắc Quý 2/2026', content: 'Tặng bằng khen công ty và tiền thưởng 5.000.000 VNĐ', signed_by: 'Bùi Xuân Thức' },
-        { id: 'rd-dec-02', emp_id: 'emp-ptsp-05', no: 'QĐKT/2026/002', type: 'REWARD', reason: 'Khen thưởng Sáng kiến Đổi mới Sản phẩm BRAVO ERP 10', content: 'Thưởng sáng kiến 10.000.000 VNĐ và ghi nhận tích lũy thăng tiến', signed_by: 'Bùi Xuân Thức' },
-        { id: 'rd-dec-03', emp_id: 'emp-mkt-12', no: 'QĐKL/2026/001', type: 'DISCIPLINE', reason: 'Khiển trách Kỷ luật Lao động về chấp hành giờ giấc', content: 'Khiển trách bằng văn bản và trừ điểm đánh giá thi đua tháng 7/2026', signed_by: 'Trần Thị Thu Hà' }
+        { id: 'rd-dec-01', proposal_id: 'rd-prop-01', amount: 5000000, emp_id: 'emp-kttk1-02', no: 'QĐKT/2026/001', type: 'REWARD', reason: 'Tuyên dương & Khen thưởng Cá nhân Xuất sắc Quý 2/2026', content: 'Tặng bằng khen công ty và tiền thưởng 5.000.000 VNĐ', signed_by: 'Bùi Xuân Thức' },
+        { id: 'rd-dec-02', proposal_id: 'rd-prop-02', amount: 10000000, emp_id: 'emp-ptsp-05', no: 'QĐKT/2026/002', type: 'REWARD', reason: 'Khen thưởng Sáng kiến Đổi mới Sản phẩm BRAVO ERP 10', content: 'Thưởng sáng kiến 10.000.000 VNĐ và ghi nhận tích lũy thăng tiến', signed_by: 'Bùi Xuân Thức' },
+        { id: 'rd-dec-03', proposal_id: 'rd-prop-03', amount: 0, emp_id: 'emp-mkt-12', no: 'QĐKL/2026/001', type: 'DISCIPLINE', reason: 'Khiển trách Kỷ luật Lao động về chấp hành giờ giấc', content: 'Khiển trách bằng văn bản và trừ điểm đánh giá thi đua tháng 7/2026', signed_by: 'Trần Thị Thu Hà' }
     ];
 
     for (const rdd of rdDecisions) {
         const existing = await queryOne('SELECT reward_discipline_id FROM RewardDiscipline WHERE reward_discipline_id = ?', [rdd.id]);
         if (!existing) {
-            await run(`INSERT INTO RewardDiscipline (reward_discipline_id, created_date, last_modified_date, employee_id, decision_no, decision_type, decision_date, effective_date, reason, content, decision_by)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-                [rdd.id, now, now, rdd.emp_id, rdd.no, rdd.type, now - 5 * 86400000, now - 5 * 86400000, rdd.reason, rdd.content, rdd.signed_by]);
+            await run(`INSERT INTO RewardDiscipline (reward_discipline_id, created_date, last_modified_date, employee_id, decision_no, decision_type, decision_date, effective_date, reason, content, decision_by, proposal_id, amount)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                [rdd.id, now, now, rdd.emp_id, rdd.no, rdd.type, now - 5 * 86400000, now - 5 * 86400000, rdd.reason, rdd.content, rdd.signed_by, rdd.proposal_id, rdd.amount]);
         }
     }
 

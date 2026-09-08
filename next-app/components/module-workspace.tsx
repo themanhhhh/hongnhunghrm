@@ -72,6 +72,10 @@ const editableTabs = new Set([
   "positions",
   "contracts",
   "transfer-proposals",
+  "criteria",
+  "evaluations",
+  "proposals",
+  "decisions",
 ]);
 const undeletableTabs = new Set(["work-history"]);
 
@@ -868,9 +872,10 @@ function OperationalWorkspace({
     enabled: Boolean(session),
     queryFn: async () => {
       if (tab.query === "history") {
-        const [records, evaluations] = await Promise.all([
+        const [records, evaluations, proposals] = await Promise.all([
           api.list("/reward-discipline", { resource }),
           api.list("/reward-discipline/evaluations", { resource }),
+          api.list("/reward-discipline/proposals", { resource }),
         ]);
         return [
           ...evaluations.map((item) => ({
@@ -888,6 +893,14 @@ function OperationalWorkspace({
             score: "-",
             reason: item.reason ?? item.content,
             date: item.decision_date,
+          })),
+          ...proposals.map((item) => ({
+            ...item,
+            kind: "Đề xuất",
+            code: item.proposal_code,
+            score: item.proposed_amount ?? 0,
+            reason: item.reason ?? item.content,
+            date: item.proposal_date ?? item.created_date,
           })),
         ] as Row[];
       }
@@ -934,9 +947,10 @@ function OperationalWorkspace({
         contracts,
         contractProposals,
         leaveApplications,
-        transferProposals,
-        resignationApplications,
-        criteria,
+         transferProposals,
+         resignationApplications,
+         criteria,
+         rewardProposals,
       ] = await Promise.all([
         api.list("/admin/departments", { resource }),
         api.list("/admin/positions", { resource }),
@@ -949,8 +963,9 @@ function OperationalWorkspace({
         api.list("/hr/contract-proposals", { resource }),
         api.list("/hr/leave-applications", { resource }),
         api.list("/hr/transfer-proposals", { resource }),
-        api.list("/hr/resignation-applications", { resource }),
-        api.list("/reward-discipline/criteria", { resource }),
+         api.list("/hr/resignation-applications", { resource }),
+         api.list("/reward-discipline/criteria", { resource }),
+         api.list("/reward-discipline/proposals", { resource }),
       ]);
       return {
         departments,
@@ -964,8 +979,9 @@ function OperationalWorkspace({
         contractProposals,
         leaveApplications,
         transferProposals,
-        resignationApplications,
-        criteria,
+         resignationApplications,
+         criteria,
+         rewardProposals,
       };
     },
   });
@@ -1072,6 +1088,13 @@ function OperationalWorkspace({
       if (tab.id === "resignation-applications")
         return api.write(
           `/hr/resignation-applications/${id}/status`,
+          "PUT",
+          { status },
+          { resource, action: "approve" },
+        );
+      if (tab.id === "proposals")
+        return api.write(
+          `/reward-discipline/proposals/${id}/status`,
           "PUT",
           { status },
           { resource, action: "approve" },
@@ -1498,6 +1521,13 @@ function OperationalWorkspace({
       ["employee_id", "evaluator_id"].includes(field.name)
     )
       return employeeOptions;
+    if (name === "rewards" && tab.id === "decisions" && field.name === "proposal_id")
+      return lookup.rewardProposals
+        .filter((item) => item.status === "APPROVED")
+        .map((item) => ({
+          value: String(item.proposal_id ?? ""),
+          label: `${item.proposal_code ?? ""} ${item.employee_name ?? ""}`.trim(),
+        }));
     return field.options;
   };
   const pageTitle =
