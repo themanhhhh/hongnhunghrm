@@ -504,3 +504,84 @@ h1, h2, h3, h4, h5, h6 {
   }
 }
 
+/* Administrative decision print template */
+.decision-print-root {
+  display: none;
+}
+
+.decision-print-page {
+  box-sizing: border-box;
+  width: 210mm;
+  min-height: 297mm;
+  margin: 0 auto;
+  padding: 15mm;
+  background: #FFFFFF;
+  color: #111827;
+  font-family: "Times New Roman", Times, serif;
+  font-size: 13pt;
+  line-height: 1.45;
+}
+
+.decision-print-header {
+  display: grid;
+  grid-template-columns: 0.9fr 1.1fr;
+  gap: 12mm;
+  text-align: center;
+}
+
+.decision-print-header strong,
+.decision-print-national strong {
+  display: block;
+  font-size: 13pt;
+}
+
+.decision-print-rule {
+  width: 45mm;
+  margin: 2mm auto;
+  border-bottom: 1px solid #111827;
+}
+
+.decision-print-header > div:first-child { text-align: center; }
+.decision-print-national { text-align: center; }
+.decision-print-header div { font-size: 12pt; }
+.decision-print-heading { margin: 14mm 0 7mm; text-align: center; }
+.decision-print-heading h1 { margin: 0; font-size: 16pt; font-weight: 700; }
+.decision-print-heading h2 { margin: 3mm 0 0; font-size: 14pt; font-weight: 700; }
+.decision-print-authority { margin: 4mm 0; text-align: center; }
+.decision-print-center { margin-top: 7mm; }
+.decision-print-intro p,
+.decision-print-articles p { margin: 3mm 0; text-align: justify; }
+.decision-print-articles { margin-top: 4mm; }
+.decision-print-footer {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12mm;
+  margin-top: 16mm;
+}
+.decision-print-signature { text-align: center; }
+.decision-print-signature span { display: block; font-style: italic; }
+.decision-print-signature strong { display: block; margin-top: 25mm; }
+
+@media print {
+  @page { size: A4; margin: 0; }
+  body * { visibility: hidden !important; }
+  .decision-print-root,
+  .decision-print-root * { visibility: visible !important; }
+  .decision-print-root {
+    display: block !important;
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    background: #FFFFFF;
+  }
+  .decision-print-page { width: 210mm; min-height: 297mm; margin: 0 auto; }
+  * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+}
+
+@media screen and (max-width: 760px) {
+  .decision-print-page { width: 100%; min-height: auto; padding: 1.25rem; }
+  .decision-print-header { grid-template-columns: 1fr; gap: 1rem; }
+  .decision-print-national { margin-top: 0; }
+  .decision-print-footer { gap: 1rem; }
+}
+

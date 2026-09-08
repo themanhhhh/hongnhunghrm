@@ -215,10 +215,11 @@ export const RecruitmentModule = ({ activeSubTab }) => {
     });
 
     const [createQuotaData, setCreateQuotaData] = useState({
+        created_date: new Date().toISOString().split('T')[0],
         effective_date: new Date().toISOString().split('T')[0],
         quota_code: '',
         department_id: '',
-        creator_name: user?.full_name || 'HR Test 01',
+        creator_name: user?.fullName || user?.full_name || 'HR Test 01',
         target_headcount: 0,
         max_capacity: 10,
         budget: 100000000,
@@ -327,10 +328,11 @@ export const RecruitmentModule = ({ activeSubTab }) => {
                     effective_date: qData.effective_date ? new Date(qData.effective_date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]
                 });
                 setQuotaDetails(Array.isArray(qData.details) ? qData.details : []);
+                setBudgetDetails([]);
                 if (qData.budget_details) {
                     try {
                         const parsed = typeof qData.budget_details === 'string' ? JSON.parse(qData.budget_details) : qData.budget_details;
-                        if (Array.isArray(parsed) && parsed.length > 0) setBudgetDetails(parsed);
+                        if (Array.isArray(parsed)) setBudgetDetails(parsed);
                     } catch (e) { }
                 }
                 setIsEditingQuota(false);
@@ -344,6 +346,7 @@ export const RecruitmentModule = ({ activeSubTab }) => {
                         effective_date: fallback.effective_date ? new Date(fallback.effective_date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]
                     });
                     setQuotaDetails([]);
+                    setBudgetDetails([]);
                     setIsEditingQuota(false);
                 }
             }
@@ -383,10 +386,11 @@ export const RecruitmentModule = ({ activeSubTab }) => {
             const totalTarget = initialDetails.reduce((sum, d) => sum + d.target_headcount, 0);
 
             setCreateQuotaData({
+                created_date: today,
                 effective_date: today,
                 quota_code: code,
                 department_id: firstDept,
-                creator_name: user?.full_name || 'HR Test 01',
+                creator_name: user?.fullName || user?.full_name || 'HR Test 01',
                 target_headcount: totalTarget || 10,
                 max_capacity: (totalTarget || 10) + 5,
                 current_headcount: empCount,
@@ -595,6 +599,37 @@ export const RecruitmentModule = ({ activeSubTab }) => {
 
         const totalTarget = updated.reduce((sum, d) => sum + (Number(d.target_headcount) || 0), 0);
         setEditQuotaData(prev => ({ ...prev, target_headcount: totalTarget }));
+    };
+
+    const handleDepartmentChangeForEditQuota = (departmentId) => {
+        const currentCount = employees.filter(e => e.department_id === departmentId && (e.is_active === 1 || e.employment_status === 'WORKING')).length;
+        const departmentPositions = positions.filter(p => p.department_id === departmentId);
+        const details = departmentPositions.map(p => {
+            const positionCount = employees.filter(e => e.department_id === departmentId && e.position_id === p.position_id && (e.is_active === 1 || e.employment_status === 'WORKING')).length;
+            const target = Number(p.target_headcount) || 1;
+            return {
+                detail_id: `temp-${crypto.randomUUID()}`,
+                position_id: p.position_id,
+                position_code: p.position_code,
+                position_name: p.position_name,
+                target_headcount: target,
+                resignation_count: 0,
+                maternity_count: 0,
+                current_headcount: positionCount,
+                needed_headcount: Math.max(0, target - positionCount),
+                note: ''
+            };
+        });
+        const totalTarget = details.reduce((sum, d) => sum + d.target_headcount, 0);
+
+        setQuotaDetails(details);
+        setEditQuotaData(prev => ({
+            ...prev,
+            department_id: departmentId,
+            current_headcount: currentCount,
+            target_headcount: totalTarget,
+            max_capacity: Math.max(Number(prev.max_capacity) || 0, totalTarget)
+        }));
     };
 
     const handleSaveQuotaEdit = async () => {
@@ -1896,7 +1931,7 @@ export const RecruitmentModule = ({ activeSubTab }) => {
                                     <>
                                         <button
                                             className="btn btn-secondary"
-                                            onClick={() => { setIsEditingQuota(false); setEditQuotaData(selectedQuota); setQuotaFormErrors({}); }}
+                                             onClick={() => { setIsEditingQuota(false); setEditQuotaData({ ...selectedQuota, effective_date: formatDateForInput(selectedQuota.effective_date) }); setQuotaFormErrors({}); }}
                                             style={{ padding: '0.45rem 0.85rem', display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.85rem', fontWeight: 600 }}
                                         >
                                             <X size={15} />
@@ -1916,10 +1951,21 @@ export const RecruitmentModule = ({ activeSubTab }) => {
                         </div>
 
                         {/* General Information Header matching Image 2 */}
-                        <div className="card" style={{ padding: '1.25rem 1.5rem', backgroundColor: '#FFFFFF' }}>
+                            <div className="card" style={{ padding: '1.25rem 1.5rem', backgroundColor: '#FFFFFF' }}>
                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem' }}>
                                 <div className="form-group">
-                                    <label className="form-label" style={{ fontWeight: 700, fontSize: '0.8rem' }}>1. Ngày áp dụng (*)</label>
+                                    <label className="form-label" style={{ fontWeight: 700, fontSize: '0.8rem' }}>1. Ngày lập phiếu</label>
+                                    <input
+                                        type="date"
+                                        className="form-input"
+                                        value={formatDateForInput(selectedQuota.created_date)}
+                                        disabled
+                                        readOnly
+                                        style={{ backgroundColor: '#F1F5F9', color: '#475569', fontWeight: 600, cursor: 'not-allowed' }}
+                                    />
+                                </div>
+                                <div className="form-group">
+                                    <label className="form-label" style={{ fontWeight: 700, fontSize: '0.8rem' }}>2. Ngày áp dụng (*)</label>
                                     <input
                                         type="date"
                                         className="form-input"
@@ -1931,7 +1977,7 @@ export const RecruitmentModule = ({ activeSubTab }) => {
                                 </div>
 
                                 <div className="form-group">
-                                    <label className="form-label" style={{ fontWeight: 700, fontSize: '0.8rem' }}>2. Số phiếu (*)</label>
+                                    <label className="form-label" style={{ fontWeight: 700, fontSize: '0.8rem' }}>3. Số phiếu (*)</label>
                                     <input
                                         type="text"
                                         className="form-input"
@@ -1943,7 +1989,7 @@ export const RecruitmentModule = ({ activeSubTab }) => {
                                 </div>
 
                                 <div className="form-group">
-                                    <label className="form-label" style={{ fontWeight: 700, fontSize: '0.8rem' }}>3. Người lập (*)</label>
+                                    <label className="form-label" style={{ fontWeight: 700, fontSize: '0.8rem' }}>4. Người lập (*)</label>
                                     <input
                                         type="text"
                                         className="form-input"
@@ -1955,12 +2001,12 @@ export const RecruitmentModule = ({ activeSubTab }) => {
                                 </div>
 
                                 <div className="form-group">
-                                    <label className="form-label" style={{ fontWeight: 700, fontSize: '0.8rem' }}>4. Bộ phận (*)</label>
+                                    <label className="form-label" style={{ fontWeight: 700, fontSize: '0.8rem' }}>5. Bộ phận (*)</label>
                                     <select
                                         className="form-select"
                                         value={editQuotaData.department_id || ''}
                                         disabled={!isEditingQuota}
-                                        onChange={(e) => setEditQuotaData({ ...editQuotaData, department_id: e.target.value })}
+                                         onChange={(e) => handleDepartmentChangeForEditQuota(e.target.value)}
                                         style={{ backgroundColor: !isEditingQuota ? '#F8FAFC' : '#FFFFFF', color: '#0F172A', fontWeight: 600 }}
                                     >
                                         {departments.map(d => (
@@ -1970,7 +2016,7 @@ export const RecruitmentModule = ({ activeSubTab }) => {
                                 </div>
 
                                 <div className="form-group">
-                                    <label className="form-label" style={{ fontWeight: 700, fontSize: '0.8rem' }}>5. Tổng định biên</label>
+                                    <label className="form-label" style={{ fontWeight: 700, fontSize: '0.8rem' }}>6. Tổng định biên</label>
                                     <input
                                         type="number"
                                         className="form-input"
@@ -1982,7 +2028,7 @@ export const RecruitmentModule = ({ activeSubTab }) => {
                                 </div>
 
                                 <div className="form-group">
-                                    <label className="form-label" style={{ fontWeight: 700, fontSize: '0.8rem' }}>6. Sức chứa tối đa</label>
+                                    <label className="form-label" style={{ fontWeight: 700, fontSize: '0.8rem' }}>7. Sức chứa tối đa</label>
                                     <input
                                         type="number"
                                         className="form-input"
@@ -1994,7 +2040,7 @@ export const RecruitmentModule = ({ activeSubTab }) => {
                                 </div>
 
                                 <div className="form-group">
-                                    <label className="form-label" style={{ fontWeight: 700, fontSize: '0.8rem' }}>7. Số lượng hiện tại</label>
+                                    <label className="form-label" style={{ fontWeight: 700, fontSize: '0.8rem' }}>8. Số lượng hiện tại</label>
                                     <input
                                         type="number"
                                         className="form-input"
@@ -2006,7 +2052,7 @@ export const RecruitmentModule = ({ activeSubTab }) => {
                                 </div>
 
                                 <div className="form-group" style={{ gridColumn: 'span 2' }}>
-                                    <label className="form-label" style={{ fontWeight: 700, fontSize: '0.8rem' }}>7. Diễn giải</label>
+                                    <label className="form-label" style={{ fontWeight: 700, fontSize: '0.8rem' }}>9. Diễn giải</label>
                                     <input
                                         type="text"
                                         className="form-input"
@@ -2167,8 +2213,8 @@ export const RecruitmentModule = ({ activeSubTab }) => {
                                             <th style={{ width: '160px', whiteSpace: 'nowrap' }}>MÃ VỊ TRÍ</th>
                                             <th style={{ minWidth: '170px', whiteSpace: 'nowrap' }}>TÊN VỊ TRÍ</th>
                                             <th style={{ textAlign: 'center', width: '110px', whiteSpace: 'nowrap' }}>ĐỊNH BIÊN</th>
-                                            <th style={{ textAlign: 'center', width: '95px', whiteSpace: 'nowrap' }}>NGHỈ VIỆC</th>
-                                            <th style={{ textAlign: 'center', width: '95px', whiteSpace: 'nowrap' }}>THAI SẢN</th>
+                                            <th style={{ textAlign: 'center', width: '115px', whiteSpace: 'nowrap' }}>NGHỈ VIỆC DỰ KIẾN</th>
+                                            <th style={{ textAlign: 'center', width: '115px', whiteSpace: 'nowrap' }}>THAI SẢN DỰ KIẾN</th>
                                             <th style={{ textAlign: 'center', width: '95px', whiteSpace: 'nowrap' }}>HIỆN TẠI</th>
                                             <th style={{ textAlign: 'center', width: '95px', whiteSpace: 'nowrap' }}>CẦN TUYỂN</th>
                                             <th style={{ minWidth: '140px', whiteSpace: 'nowrap' }}>GHI CHÚ</th>
@@ -4525,6 +4571,17 @@ export const RecruitmentModule = ({ activeSubTab }) => {
 
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                             <div className="form-group">
+                                <label className="form-label" style={{ fontWeight: 700 }}>Ngày lập phiếu</label>
+                                <input
+                                    type="date"
+                                    className="form-input"
+                                    value={createQuotaData.created_date || ''}
+                                    disabled
+                                    readOnly
+                                    style={{ backgroundColor: '#F1F5F9', color: '#475569', fontWeight: 600, cursor: 'not-allowed' }}
+                                />
+                            </div>
+                            <div className="form-group">
                                 <label className="form-label" style={{ fontWeight: 700 }}>Ngày áp dụng (*)</label>
                                 <input
                                     type="date"
@@ -4606,8 +4663,8 @@ export const RecruitmentModule = ({ activeSubTab }) => {
                                         <th style={{ width: '160px', whiteSpace: 'nowrap' }}>MÃ VỊ TRÍ</th>
                                         <th style={{ minWidth: '170px', whiteSpace: 'nowrap' }}>TÊN VỊ TRÍ</th>
                                         <th style={{ textAlign: 'center', width: '100px', whiteSpace: 'nowrap' }}>ĐỊNH BIÊN</th>
-                                        <th style={{ textAlign: 'center', width: '95px', whiteSpace: 'nowrap' }}>NGHỈ VIỆC</th>
-                                        <th style={{ textAlign: 'center', width: '95px', whiteSpace: 'nowrap' }}>THAI SẢN</th>
+                                         <th style={{ textAlign: 'center', width: '115px', whiteSpace: 'nowrap' }}>NGHỈ VIỆC DỰ KIẾN</th>
+                                         <th style={{ textAlign: 'center', width: '115px', whiteSpace: 'nowrap' }}>THAI SẢN DỰ KIẾN</th>
                                         <th style={{ textAlign: 'center', width: '95px', whiteSpace: 'nowrap' }}>HIỆN TẠI</th>
                                         <th style={{ textAlign: 'center', width: '95px', whiteSpace: 'nowrap' }}>CẦN TUYỂN</th>
                                         <th style={{ minWidth: '140px', whiteSpace: 'nowrap' }}>GHI CHÚ</th>

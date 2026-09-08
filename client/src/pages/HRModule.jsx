@@ -33,8 +33,10 @@ import {
     Phone,
     Lock,
     ShieldCheck,
-    DollarSign
+    DollarSign,
+    Printer
 } from 'lucide-react';
+import DecisionPrintDocument from '../components/DecisionPrintDocument';
 
 export const HRModule = ({ activeSubTab }) => {
     const { user, hasPermission } = useAuth();
@@ -113,6 +115,7 @@ export const HRModule = ({ activeSubTab }) => {
     // Modals & Forms state
     const [modalType, setModalType] = useState(null);
     const [formData, setFormData] = useState({});
+    const [printDocument, setPrintDocument] = useState(null);
 
     // State for Contract Create/Edit
     const [contractFormData, setContractFormData] = useState({
@@ -254,6 +257,17 @@ export const HRModule = ({ activeSubTab }) => {
         fetchCommonData();
         fetchSubTabModuleData();
     }, [activeSubTab]);
+
+    useEffect(() => {
+        const clearPrintDocument = () => setPrintDocument(null);
+        window.addEventListener('afterprint', clearPrintDocument);
+        return () => window.removeEventListener('afterprint', clearPrintDocument);
+    }, []);
+
+    const handlePrintDocument = (document) => {
+        setPrintDocument(document);
+        window.setTimeout(() => window.print(), 100);
+    };
 
     const fetchCommonData = async () => {
         try {
@@ -1552,14 +1566,24 @@ export const HRModule = ({ activeSubTab }) => {
                                     {!isEditingEmp ? (
                                         <>
                                             {!selectedEmp.isNew && (
-                                                <button
-                                                    className="btn btn-danger"
-                                                    onClick={handleDeleteEmpClick}
-                                                    style={{ padding: '0.5rem 1.1rem', display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.85rem' }}
-                                                >
-                                                    <Trash2 size={16} />
-                                                    <span>Xóa hồ sơ</span>
-                                                </button>
+                                                <>
+                                                    <button
+                                                        className="btn btn-secondary"
+                                                        onClick={() => handlePrintDocument({ kind: 'employee', ...selectedEmp })}
+                                                        style={{ padding: '0.5rem 1.1rem', display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.85rem' }}
+                                                    >
+                                                        <Printer size={16} />
+                                                        <span>In hồ sơ</span>
+                                                    </button>
+                                                    <button
+                                                        className="btn btn-danger"
+                                                        onClick={handleDeleteEmpClick}
+                                                        style={{ padding: '0.5rem 1.1rem', display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.85rem' }}
+                                                    >
+                                                        <Trash2 size={16} />
+                                                        <span>Xóa hồ sơ</span>
+                                                    </button>
+                                                </>
                                             )}
                                             <button
                                                 className="btn btn-primary"
@@ -2402,6 +2426,15 @@ export const HRModule = ({ activeSubTab }) => {
                                     <button
                                         className="btn btn-secondary"
                                         style={{ padding: '0.25rem 0.55rem', fontSize: '0.75rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.3rem', whiteSpace: 'nowrap' }}
+                                        onClick={() => handlePrintDocument({ kind: 'contract', ...r })}
+                                        title="In hợp đồng lao động"
+                                    >
+                                        <Printer size={14} />
+                                        <span>In</span>
+                                    </button>
+                                    <button
+                                        className="btn btn-secondary"
+                                        style={{ padding: '0.25rem 0.55rem', fontSize: '0.75rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.3rem', whiteSpace: 'nowrap' }}
                                         onClick={() => handleOpenEditContractModal(r)}
                                     >
                                         <Edit3 size={14} />
@@ -2448,6 +2481,15 @@ export const HRModule = ({ activeSubTab }) => {
                                     <button
                                         className="btn btn-secondary"
                                         style={{ padding: '0.25rem 0.55rem', fontSize: '0.75rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.3rem', whiteSpace: 'nowrap' }}
+                                        onClick={() => handlePrintDocument({ kind: 'transfer-proposal', ...r })}
+                                        title="In tờ trình đề xuất"
+                                    >
+                                        <Printer size={14} />
+                                        <span>In</span>
+                                    </button>
+                                    <button
+                                        className="btn btn-secondary"
+                                        style={{ padding: '0.25rem 0.55rem', fontSize: '0.75rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.3rem', whiteSpace: 'nowrap' }}
                                         onClick={() => handleOpenEditTransferProposalModal(r)}
                                     >
                                         <Edit3 size={14} />
@@ -2480,6 +2522,10 @@ export const HRModule = ({ activeSubTab }) => {
                             employee_id: employees[0]?.employee_id || '',
                             target_department_id: departments[0]?.department_id || '',
                             target_position_id: positions[0]?.position_id || '',
+                            decision_type: 'Thuyên chuyển',
+                            decision_date: new Date().toISOString().split('T')[0],
+                            effective_date: new Date().toISOString().split('T')[0],
+                            reason: '',
                             signed_by: 'Bùi Xuân Thức - Tổng Giám Đốc'
                         });
                         setModalType('decision_transfer');
@@ -2496,19 +2542,63 @@ export const HRModule = ({ activeSubTab }) => {
                         {
                             header: 'Thao tác',
                             render: (r) => (
-                                <button
-                                    className="btn btn-secondary"
-                                    style={{ padding: '0.25rem 0.55rem', fontSize: '0.75rem', fontWeight: 600, color: '#EF4444', borderColor: '#FCA5A5', display: 'flex', alignItems: 'center', gap: '0.3rem', whiteSpace: 'nowrap' }}
-                                    onClick={() => handleDeleteTransferDecision(r.decision_id)}
-                                    title="Xóa quyết định"
-                                >
-                                    <Trash2 size={14} />
-                                    <span>Xóa</span>
-                                </button>
+                                <div style={{ display: 'flex', gap: '0.35rem', alignItems: 'center', whiteSpace: 'nowrap' }}>
+                                    <button
+                                        className="btn btn-secondary"
+                                        style={{ padding: '0.25rem 0.55rem', fontSize: '0.75rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.3rem', whiteSpace: 'nowrap' }}
+                                        onClick={() => handlePrintDocument({ kind: 'transfer', ...r })}
+                                        title="In quyết định"
+                                    >
+                                        <Printer size={14} />
+                                        <span>In quyết định</span>
+                                    </button>
+                                    <button
+                                        className="btn btn-secondary"
+                                        style={{ padding: '0.25rem 0.55rem', fontSize: '0.75rem', fontWeight: 600, color: '#EF4444', borderColor: '#FCA5A5', display: 'flex', alignItems: 'center', gap: '0.3rem', whiteSpace: 'nowrap' }}
+                                        onClick={() => handleDeleteTransferDecision(r.decision_id)}
+                                        title="Xóa quyết định"
+                                    >
+                                        <Trash2 size={14} />
+                                        <span>Xóa</span>
+                                    </button>
+                                </div>
                             )
                         }
                     ]}
                     data={transferDecisions}
+                />
+            )}
+
+            {/* 9. QUYẾT ĐỊNH NGHỈ VIỆC */}
+            {activeSubTab === 'Quyết định nghỉ việc' && (
+                <DataTable
+                    loading={loading}
+                    title="Danh sách Quyết định nghỉ việc"
+                    searchPlaceholder="Tìm số quyết định, tên nhân viên..."
+                    columns={[
+                        { header: 'Số Quyết định', accessor: 'decision_number', render: (r) => <b style={{ color: 'var(--bravo-teal-dark)', whiteSpace: 'nowrap' }}>{r.decision_number}</b> },
+                        { header: 'Nhân viên', accessor: 'employee_name', render: (r) => <span style={{ fontWeight: 700, whiteSpace: 'nowrap' }}>{r.employee_name} ({r.employee_code || '—'})</span> },
+                        { header: 'Bộ phận', accessor: 'department_name' },
+                        { header: 'Chức danh', accessor: 'position_name' },
+                        { header: 'Ngày nghỉ việc', render: (r) => <span style={{ whiteSpace: 'nowrap' }}>{r.official_resign_date ? new Date(r.official_resign_date).toLocaleDateString('vi-VN') : '—'}</span> },
+                        { header: 'Người ký', accessor: 'signed_by' },
+                        { header: 'Trạng thái', render: () => <span className="badge badge-green">Đã thi hành</span> },
+                        {
+                            header: 'Thao tác',
+                            render: (r) => (
+                                <button
+                                    className="btn btn-secondary"
+                                    style={{ padding: '0.25rem 0.55rem', fontSize: '0.75rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.3rem', whiteSpace: 'nowrap' }}
+                                    onClick={() => handlePrintDocument({ kind: 'resignation', ...r })}
+                                    title="In quyết định nghỉ việc"
+                                >
+                                    <Printer size={14} />
+                                    <span>In quyết định</span>
+                                </button>
+                            )
+                        }
+                    ]}
+                    data={resignationDecisions}
                 />
             )}
 
@@ -2568,6 +2658,17 @@ export const HRModule = ({ activeSubTab }) => {
                                             }}
                                         >
                                             Xem chi tiết
+                                        </button>
+                                    )}
+                                    {r.status === 'APPROVED' && (
+                                        <button
+                                            className="btn btn-secondary"
+                                            style={{ padding: '0.25rem 0.5rem', fontSize: '0.775rem', color: '#047857', borderColor: '#A7F3D0', display: 'flex', alignItems: 'center', gap: '0.3rem' }}
+                                            onClick={() => handlePrintDocument({ kind: 'leave', ...r })}
+                                            title="In quyết định phê duyệt nghỉ phép"
+                                        >
+                                            <Printer size={14} />
+                                            <span>In quyết định</span>
                                         </button>
                                     )}
                                     <button
@@ -3634,8 +3735,21 @@ export const HRModule = ({ activeSubTab }) => {
                 <form onSubmit={handleCreateTransferDecision}>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                         <div className="form-group">
+                            <label className="form-label">Loại quyết định (*)</label>
+                            <select
+                                className="form-select"
+                                value={formData.decision_type || 'Thuyên chuyển'}
+                                onChange={(e) => setFormData({ ...formData, decision_type: e.target.value })}
+                            >
+                                <option value="Thuyên chuyển">Thuyên chuyển - điều chỉnh vị trí làm việc</option>
+                                <option value="Bổ nhiệm">Bổ nhiệm - giao chức vụ và trách nhiệm cao hơn</option>
+                                <option value="Miễn nhiệm">Miễn nhiệm - thôi giữ chức vụ</option>
+                            </select>
+                        </div>
+
+                        <div className="form-group">
                             <label className="form-label">Chọn Nhân viên (*)</label>
-                            <select className="form-select" onChange={(e) => setFormData({ ...formData, employee_id: e.target.value })}>
+                            <select className="form-select" value={formData.employee_id || ''} onChange={(e) => setFormData({ ...formData, employee_id: e.target.value })}>
                                 {employees.map((e) => (
                                     <option key={e.employee_id} value={e.employee_id}>{e.employee_code} - {e.full_name}</option>
                                 ))}
@@ -3645,7 +3759,7 @@ export const HRModule = ({ activeSubTab }) => {
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                             <div className="form-group">
                                 <label className="form-label">Bộ phận chính thức mới (*)</label>
-                                <select className="form-select" onChange={(e) => setFormData({ ...formData, target_department_id: e.target.value })}>
+                                <select className="form-select" value={formData.target_department_id || ''} onChange={(e) => setFormData({ ...formData, target_department_id: e.target.value })}>
                                     {departments.map((d) => (
                                         <option key={d.department_id} value={d.department_id}>{d.department_name}</option>
                                     ))}
@@ -3654,7 +3768,7 @@ export const HRModule = ({ activeSubTab }) => {
 
                             <div className="form-group">
                                 <label className="form-label">Vị trí công việc mới (*)</label>
-                                <select className="form-select" onChange={(e) => setFormData({ ...formData, target_position_id: e.target.value })}>
+                                <select className="form-select" value={formData.target_position_id || ''} onChange={(e) => setFormData({ ...formData, target_position_id: e.target.value })}>
                                     {positions.map((p) => (
                                         <option key={p.position_id} value={p.position_id}>{p.position_name}</option>
                                     ))}
@@ -3662,9 +3776,25 @@ export const HRModule = ({ activeSubTab }) => {
                             </div>
                         </div>
 
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                            <div className="form-group">
+                                <label className="form-label">Ngày ban hành</label>
+                                <input type="date" className="form-input" value={formData.decision_date || ''} onChange={(e) => setFormData({ ...formData, decision_date: e.target.value })} />
+                            </div>
+                            <div className="form-group">
+                                <label className="form-label">Ngày hiệu lực</label>
+                                <input type="date" className="form-input" value={formData.effective_date || ''} onChange={(e) => setFormData({ ...formData, effective_date: e.target.value })} />
+                            </div>
+                        </div>
+
+                        <div className="form-group">
+                            <label className="form-label">Lý do / nội dung quyết định</label>
+                            <textarea className="form-textarea" rows={3} value={formData.reason || ''} onChange={(e) => setFormData({ ...formData, reason: e.target.value })} placeholder="Nêu lý do thuyên chuyển, bổ nhiệm hoặc miễn nhiệm..." />
+                        </div>
+
                         <div className="form-group">
                             <label className="form-label">Người ký ban hành</label>
-                            <input type="text" className="form-input" defaultValue="Bùi Xuân Thức - Tổng Giám Đốc" onChange={(e) => setFormData({ ...formData, signed_by: e.target.value })} />
+                            <input type="text" className="form-input" value={formData.signed_by || ''} onChange={(e) => setFormData({ ...formData, signed_by: e.target.value })} />
                         </div>
                     </div>
                 </form>
@@ -4319,6 +4449,8 @@ export const HRModule = ({ activeSubTab }) => {
                     </div>
                 )}
             </Modal>
+
+            <DecisionPrintDocument document={printDocument} />
         </div>
     );
 };

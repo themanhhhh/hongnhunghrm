@@ -153,6 +153,26 @@ const REPORT_GROUPS = [
     }
 ];
 
+const formatDateInput = (date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+};
+
+const getLastWeekFilters = () => {
+    const end = new Date();
+    const start = new Date(end);
+    start.setDate(start.getDate() - 6);
+    return {
+        startDate: formatDateInput(start),
+        endDate: formatDateInput(end),
+        department: 'ALL',
+        status: 'ALL',
+        period: '7 ngày gần nhất'
+    };
+};
+
 export const ReportsModule = ({ activeSubTab }) => {
     // State Management
     const [expandedGroups, setExpandedGroups] = useState({
@@ -167,13 +187,7 @@ export const ReportsModule = ({ activeSubTab }) => {
     const [loading, setLoading] = useState(false);
 
     // Filter criteria state
-    const [filterCriteria, setFilterCriteria] = useState({
-        startDate: '2026-01-01',
-        endDate: '2026-12-31',
-        department: 'ALL',
-        status: 'ALL',
-        period: 'Năm 2026'
-    });
+    const [filterCriteria, setFilterCriteria] = useState(getLastWeekFilters);
 
     const toggleGroup = (groupId) => {
         setExpandedGroups(prev => ({ ...prev, [groupId]: !prev[groupId] }));
@@ -182,12 +196,20 @@ export const ReportsModule = ({ activeSubTab }) => {
     // Single click: Select preview report
     const handleSelectReport = (report) => {
         setSelectedReport(report);
+        setFilterCriteria(getLastWeekFilters());
     };
 
     // Double click: Open Filter Criteria Modal
     const handleDoubleClickReport = (report) => {
         setSelectedReport(report);
+        setFilterCriteria(getLastWeekFilters());
         setShowFilterModal(true);
+    };
+
+    const handlePeriodChange = (period) => {
+        setFilterCriteria((current) => period === '7 ngày gần nhất'
+            ? { ...getLastWeekFilters(), department: current.department, status: current.status }
+            : { ...current, period });
     };
 
     // Run/Execute Report API Call
@@ -681,8 +703,9 @@ export const ReportsModule = ({ activeSubTab }) => {
                                 <select
                                     className="form-select"
                                     value={filterCriteria.period}
-                                    onChange={(e) => setFilterCriteria({ ...filterCriteria, period: e.target.value })}
+                                    onChange={(e) => handlePeriodChange(e.target.value)}
                                 >
+                                    <option value="7 ngày gần nhất">7 ngày gần nhất</option>
                                     <option value="Năm 2026">Cả năm 2026</option>
                                     <option value="Quý I/2026">Quý I / 2026</option>
                                     <option value="Quý II/2026">Quý II / 2026</option>

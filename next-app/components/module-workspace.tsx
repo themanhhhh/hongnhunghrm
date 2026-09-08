@@ -462,6 +462,56 @@ function displayCell(key: string, value: unknown) {
   return displayValue(value);
 }
 
+function parseDetailList(value: unknown): Array<Record<string, unknown>> {
+  if (Array.isArray(value)) {
+    return value.filter((item): item is Record<string, unknown> => Boolean(item && typeof item === "object"));
+  }
+  if (typeof value === "string") {
+    try {
+      return parseDetailList(JSON.parse(value));
+    } catch {
+      return [];
+    }
+  }
+  return [];
+}
+
+function quotaNumber(value: unknown) {
+  return Number(value ?? 0).toLocaleString("vi-VN");
+}
+
+function QuotaDetail({ row }: { row: Row }) {
+  const details = parseDetailList(row.details);
+  const budgetDetails = parseDetailList(row.budget_details);
+  const overview: Array<[string, unknown]> = [
+    ["Mã định biên", row.quota_id], ["Số phiếu", row.quota_code],
+    ["Ngày lập phiếu", row.created_date], ["Ngày áp dụng", row.effective_date],
+    ["Mã bộ phận", row.department_id], ["Bộ phận", row.department_name],
+    ["Người lập", row.creator_name], ["Tổng định biên", quotaNumber(row.target_headcount)],
+    ["Sức chứa tối đa", quotaNumber(row.max_capacity)], ["Số lượng hiện tại", quotaNumber(row.current_headcount)],
+    ["Cần tuyển", quotaNumber(row.needed_headcount)], ["Ngân sách tuyển dụng", `${quotaNumber(row.budget)} VNĐ`],
+    ["Trạng thái", displayValue(row.status)], ["Diễn giải", row.description],
+  ];
+  return (
+    <div className="space-y-5">
+      <section>
+        <h3 className="mb-3 font-display text-sm font-bold text-slate-900">1. Thông tin chung</h3>
+        <div className="grid gap-3 sm:grid-cols-2">
+          {overview.map(([label, value]) => <div key={label} className="rounded-xl border border-slate-100 bg-slate-50/70 p-3"><div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{label}</div><div className="mt-1 break-words text-sm text-slate-700">{label.includes("Ngày") ? displayCell("date", value) : value == null || value === "" ? "-" : String(value)}</div></div>)}
+        </div>
+      </section>
+      <section>
+        <h3 className="mb-3 font-display text-sm font-bold text-slate-900">2. Chi tiết vị trí định biên</h3>
+        <div className="overflow-x-auto rounded-xl border border-slate-100"><table className="w-full min-w-[980px] text-left text-xs"><thead className="bg-slate-50 text-[10px] uppercase tracking-wider text-slate-400"><tr>{["STT", "Mã vị trí", "Tên vị trí", "Định biên", "Nghỉ việc dự kiến", "Thai sản dự kiến", "Hiện tại", "Cần tuyển", "Ghi chú"].map((header) => <th key={header} className="px-3 py-3 font-bold">{header}</th>)}</tr></thead><tbody className="divide-y divide-slate-100">{details.length ? details.map((detail, index) => <tr key={`${String(detail.position_id ?? "position")}-${index}`}><td className="px-3 py-3 text-slate-400">{String(index + 1).padStart(2, "0")}</td><td className="px-3 py-3 font-mono font-bold text-teal-700">{displayValue(detail.position_code ?? detail.position_id)}</td><td className="px-3 py-3 font-semibold text-slate-700">{displayValue(detail.position_name)}</td><td className="px-3 py-3 text-center">{quotaNumber(detail.target_headcount)}</td><td className="px-3 py-3 text-center">{quotaNumber(detail.resignation_count)}</td><td className="px-3 py-3 text-center">{quotaNumber(detail.maternity_count)}</td><td className="px-3 py-3 text-center font-semibold text-emerald-700">{quotaNumber(detail.current_headcount)}</td><td className="px-3 py-3 text-center font-semibold text-blue-700">{quotaNumber(detail.needed_headcount)}</td><td className="px-3 py-3 text-slate-600">{displayValue(detail.note)}</td></tr>) : <tr><td colSpan={9} className="px-3 py-8 text-center text-slate-400">Chưa có chi tiết vị trí định biên.</td></tr>}</tbody></table></div>
+      </section>
+      <section>
+        <h3 className="mb-3 font-display text-sm font-bold text-slate-900">3. Ngân sách dự kiến</h3>
+        <div className="overflow-x-auto rounded-xl border border-slate-100"><table className="w-full min-w-[680px] text-left text-xs"><thead className="bg-slate-50 text-[10px] uppercase tracking-wider text-slate-400"><tr>{["STT", "Loại chi phí", "Nguồn tuyển dụng", "Chi phí dự kiến"].map((header) => <th key={header} className="px-3 py-3 font-bold">{header}</th>)}</tr></thead><tbody className="divide-y divide-slate-100">{budgetDetails.length ? budgetDetails.map((detail, index) => <tr key={`${String(detail.cost_type ?? "cost")}-${index}`}><td className="px-3 py-3 text-slate-400">{String(index + 1).padStart(2, "0")}</td><td className="px-3 py-3 font-semibold text-slate-700">{displayValue(detail.cost_type)}</td><td className="px-3 py-3 text-slate-600">{displayValue(detail.source)}</td><td className="px-3 py-3 text-right font-semibold text-emerald-700">{quotaNumber(detail.estimated_cost)} VNĐ</td></tr>) : <tr><td colSpan={4} className="px-3 py-8 text-center text-slate-400">Chưa có chi tiết ngân sách dự kiến.</td></tr>}</tbody><tfoot className="bg-slate-50 font-bold text-slate-700"><tr><td colSpan={3} className="px-3 py-3 text-right">Tổng ngân sách dự kiến</td><td className="px-3 py-3 text-right text-emerald-700">{quotaNumber(budgetDetails.reduce((sum, item) => sum + (Number(item.estimated_cost) || 0), 0))} VNĐ</td></tr></tfoot></table></div>
+      </section>
+    </div>
+  );
+}
+
 function formatDateValue(value: unknown) {
   if (!value) return "";
   const date =
@@ -500,6 +550,285 @@ function rowId(tab: WorkspaceTab, row: Row) {
 function defaultForm(tab: WorkspaceTab) {
   return Object.fromEntries(
     tab.fields.map((field) => [field.name, field.options?.[0]?.value ?? ""]),
+  );
+}
+
+type RequestLookups = {
+  departments: Row[];
+  positions: Row[];
+  employees: Row[];
+  quotas: Row[];
+};
+
+type CandidateLookups = RequestLookups & {
+  requests: Row[];
+  plans: Row[];
+  candidates: Row[];
+  screenings: Row[];
+  decisions: Row[];
+};
+
+type EvaluationLookups = CandidateLookups & {
+  schedules: Row[];
+  offers: Row[];
+};
+
+const screeningCriteriaTypes = [
+  "Năng lực chuyên môn",
+  "Kinh nghiệm",
+  "Ngoại ngữ",
+  "Thái độ / văn hóa",
+  "Khác",
+];
+
+function ScreeningForm({
+  values,
+  setValues,
+  lookups,
+}: {
+  values: Record<string, string>;
+  setValues: (updater: (current: Record<string, string>) => Record<string, string>) => void;
+  lookups: CandidateLookups;
+}) {
+  const [activeTab, setActiveTab] = useState<"candidate" | "criteria" | "assessment">("candidate");
+  const candidate = lookups.candidates.find((item) => String(item.candidate_id ?? "") === values.candidate_id);
+  const criteria = parseDetailList(values.criteria);
+  const set = (name: string, value: string) => setValues((current) => ({ ...current, [name]: value }));
+  const updateCriteria = (next: Array<Record<string, unknown>>) => set("criteria", JSON.stringify(next));
+  const updateCriterion = (index: number, name: string, value: unknown) => {
+    const next = [...criteria];
+    next[index] = { ...next[index], [name]: value };
+    updateCriteria(next);
+  };
+  const criterionRow = { criteria_type: screeningCriteriaTypes[0], required_from: "", candidate_value: "", candidate_description: "", is_passed: true, note: "" };
+
+  return (
+    <div className="space-y-5">
+      <div className="flex gap-1 overflow-x-auto border-b border-slate-200">
+        {[["candidate", "1. Thông tin ứng viên"], ["criteria", "2. Điều kiện sơ loại"], ["assessment", "3. Đánh giá sơ loại"]].map(([key, label]) => (
+          <button key={key} type="button" onClick={() => setActiveTab(key as typeof activeTab)} className={`whitespace-nowrap border-b-2 px-4 py-3 text-xs font-bold ${activeTab === key ? "border-teal-600 text-teal-700" : "border-transparent text-slate-400"}`}>
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {activeTab === "candidate" && (
+        <div className="space-y-4">
+          <div>
+            <label className="mb-1.5 block text-xs font-bold text-slate-600">Ứng viên *</label>
+            <select className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm" value={values.candidate_id ?? ""} required disabled={Boolean(values.candidate_id)} onChange={(event) => set("candidate_id", event.target.value)}>
+              <option value="">-- Chọn ứng viên --</option>
+              {lookups.candidates.map((item) => <option key={String(item.candidate_id)} value={String(item.candidate_id)}>{String(item.candidate_code ?? item.candidate_id)} - {String(item.full_name ?? "")}</option>)}
+            </select>
+            {values.candidate_id && <p className="mt-1 text-[11px] text-slate-400">Thông tin được lấy tự động từ hồ sơ ứng viên và không chỉnh sửa tại phiếu sơ loại.</p>}
+          </div>
+          <div className="grid gap-4 md:grid-cols-2">
+            {["candidate_code", "full_name", "phone", "email", "received_date", "culture_level", "education_level", "education_school", "apply_position_name", "department_name"].map((name) => {
+              const labels: Record<string, string> = { candidate_code: "Mã ứng viên", full_name: "Họ tên", phone: "Số điện thoại", email: "Email", received_date: "Ngày nhận hồ sơ", culture_level: "Trình độ văn hóa", education_level: "Trình độ chuyên môn", education_school: "Trường đào tạo", apply_position_name: "Vị trí ứng tuyển", department_name: "Bộ phận" };
+              return <div key={name}><label className="mb-1.5 block text-xs font-bold text-slate-600">{labels[name]}</label><Input value={String(candidate?.[name] ?? values[name] ?? "")} disabled className="h-10 bg-slate-100 text-slate-500" /></div>;
+            })}
+          </div>
+        </div>
+      )}
+
+      {activeTab === "criteria" && (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between"><div><h3 className="font-display text-sm font-bold text-slate-900">Điều kiện sơ loại</h3><p className="mt-1 text-xs text-slate-400">Khai báo từng tiêu chí và yêu cầu đạt của vị trí.</p></div><Button type="button" variant="secondary" size="sm" onClick={() => updateCriteria([...criteria, criterionRow])}><Plus size={14} /> Thêm dòng</Button></div>
+          <div className="overflow-x-auto rounded-xl border border-slate-100"><table className="w-full min-w-[980px] text-left text-xs"><thead className="bg-slate-50 text-[10px] uppercase tracking-wider text-slate-400"><tr><th className="px-3 py-3">Loại tiêu chí</th><th className="px-3 py-3">Điều kiện yêu cầu</th><th className="px-3 py-3">Giá trị ứng viên</th><th className="px-3 py-3">Mô tả đánh giá</th><th className="px-3 py-3">Đạt</th><th className="px-3 py-3">Ghi chú</th><th className="px-3 py-3">Xóa</th></tr></thead><tbody className="divide-y divide-slate-100">{criteria.map((item, index) => <tr key={index}><td className="px-3 py-2"><select className="h-9 rounded-lg border border-slate-200 px-2" value={String(item.criteria_type ?? screeningCriteriaTypes[0])} onChange={(event) => updateCriterion(index, "criteria_type", event.target.value)}>{screeningCriteriaTypes.map((type) => <option key={type}>{type}</option>)}</select></td><td className="px-3 py-2"><Input value={String(item.required_from ?? item.required_description ?? "")} onChange={(event) => updateCriterion(index, "required_from", event.target.value)} className="h-9" placeholder="Ví dụ: 2 năm" /></td><td className="px-3 py-2"><Input value={String(item.candidate_value ?? "")} onChange={(event) => updateCriterion(index, "candidate_value", event.target.value)} className="h-9" /></td><td className="px-3 py-2"><Input value={String(item.candidate_description ?? "")} onChange={(event) => updateCriterion(index, "candidate_description", event.target.value)} className="h-9" /></td><td className="px-3 py-2 text-center"><input type="checkbox" checked={Boolean(item.is_passed)} onChange={(event) => updateCriterion(index, "is_passed", event.target.checked)} className="size-4 accent-teal-600" aria-label={`Tiêu chí ${index + 1} đạt`} /></td><td className="px-3 py-2"><Input value={String(item.note ?? "")} onChange={(event) => updateCriterion(index, "note", event.target.value)} className="h-9" /></td><td className="px-3 py-2"><Button type="button" variant="ghost" size="sm" onClick={() => updateCriteria(criteria.filter((_, itemIndex) => itemIndex !== index))}><Trash2 size={15} /></Button></td></tr>)}</tbody></table></div>
+          {criteria.length === 0 && <p className="rounded-xl border border-dashed border-slate-200 p-6 text-center text-xs text-slate-400">Chưa có tiêu chí. Nhấn “Thêm dòng” để bắt đầu.</p>}
+        </div>
+      )}
+
+      {activeTab === "assessment" && <div className="grid gap-4 md:grid-cols-2"><WorkspaceInput field={{ name: "screening_date", label: "Ngày sơ loại", type: "date", required: true }} tabId="screenings" value={values.screening_date ?? ""} onChange={(value) => set("screening_date", value)} /><WorkspaceInput field={{ name: "level_score", label: "Mức độ phù hợp (0-10)", type: "number", required: true }} tabId="screenings" value={values.level_score ?? ""} onChange={(value) => set("level_score", value)} /><WorkspaceInput field={{ name: "screening_result", label: "Kết quả", type: "select", options: [{ value: "ĐẠT", label: "Đạt" }, { value: "KHÔNG ĐẠT", label: "Không đạt" }] }} tabId="screenings" value={values.screening_result ?? "ĐẠT"} onChange={(value) => set("screening_result", value)} /><div className="md:col-span-2"><WorkspaceInput field={{ name: "comment", label: "Nhận xét tổng hợp", type: "textarea" }} tabId="screenings" value={values.comment ?? ""} onChange={(value) => set("comment", value)} /></div></div>}
+    </div>
+  );
+}
+
+const candidateSources = ["TopCV", "LinkedIn", "Website công ty", "Giới thiệu nội bộ", "Khác"];
+
+function candidateDuplicate(values: Record<string, string>, candidates: Row[], editingId?: string) {
+  const fields = ["citizen_id", "phone", "email"];
+  return candidates.find((candidate) => String(candidate.candidate_id ?? "") !== String(editingId ?? "") && fields.some((field) => {
+    const value = String(values[field] ?? "").trim().toLowerCase();
+    return value !== "" && value === String(candidate[field] ?? "").trim().toLowerCase();
+  }));
+}
+
+function CandidateForm({
+  values,
+  setValues,
+  lookups,
+}: {
+  values: Record<string, string>;
+  setValues: (updater: (current: Record<string, string>) => Record<string, string>) => void;
+  lookups: CandidateLookups;
+}) {
+  const [activeTab, setActiveTab] = useState<"candidate" | "application" | "attachments">("candidate");
+  const requests = lookups.requests;
+  const selectedRequest = requests.find((item) => String(item.recruitment_request_id ?? "") === values.recruitment_request_id);
+  const positions = lookups.positions.filter((item) => !values.department_id || String(item.department_id ?? "") === values.department_id);
+  const selectedPosition = positions.find((item) => String(item.position_id ?? "") === values.position_id);
+  const attachments = parseDetailList(values.attachments_json);
+  const set = (name: string, value: string) => setValues((current) => ({ ...current, [name]: value }));
+  const setRequest = (requestId: string) => {
+    const request = requests.find((item) => String(item.recruitment_request_id ?? "") === requestId);
+    setValues((current) => ({
+      ...current,
+      recruitment_request_id: requestId,
+      position_id: String(request?.position_id ?? ""),
+      department_id: String(request?.department_id ?? ""),
+    }));
+  };
+  const updateAttachments = (next: Array<Record<string, unknown>>) => set("attachments_json", JSON.stringify(next));
+
+  return (
+    <div className="space-y-5">
+      <div className="flex gap-1 overflow-x-auto border-b border-slate-200">
+        {[['candidate', '1. Thông tin ứng viên'], ['application', '2. Thông tin ứng tuyển'], ['attachments', '3. Tài liệu đính kèm']].map(([key, label]) => (
+          <button key={key} type="button" onClick={() => setActiveTab(key as "candidate" | "application" | "attachments")} className={`whitespace-nowrap border-b-2 px-4 py-3 text-xs font-bold ${activeTab === key ? "border-teal-600 text-teal-700" : "border-transparent text-slate-400"}`}>{label}</button>
+        ))}
+      </div>
+
+      {activeTab === "candidate" && <div className="grid gap-4 md:grid-cols-2">
+        <WorkspaceInput field={{ name: "candidate_code", label: "Mã ứng viên" }} tabId="candidates" value={values.candidate_code ?? ""} onChange={(value) => set("candidate_code", value)} />
+        <WorkspaceInput field={{ name: "full_name", label: "Họ tên", required: true }} tabId="candidates" value={values.full_name ?? ""} onChange={(value) => set("full_name", value)} />
+        <WorkspaceInput field={{ name: "citizen_id", label: "Số CCCD" }} tabId="candidates" value={values.citizen_id ?? ""} onChange={(value) => set("citizen_id", value)} />
+        <WorkspaceInput field={{ name: "date_of_birth", label: "Ngày sinh", type: "date" }} tabId="candidates" value={values.date_of_birth ?? ""} onChange={(value) => set("date_of_birth", value)} />
+        <WorkspaceInput field={{ name: "gender", label: "Giới tính", type: "select", options: [{ value: "Nam", label: "Nam" }, { value: "Nữ", label: "Nữ" }] }} tabId="candidates" value={values.gender ?? "Nam"} onChange={(value) => set("gender", value)} />
+        <WorkspaceInput field={{ name: "phone", label: "Số điện thoại" }} tabId="candidates" value={values.phone ?? ""} onChange={(value) => set("phone", value)} />
+        <WorkspaceInput field={{ name: "email", label: "Email" }} tabId="candidates" value={values.email ?? ""} onChange={(value) => set("email", value)} />
+        <WorkspaceInput field={{ name: "address", label: "Địa chỉ", type: "textarea", span: 2 }} tabId="candidates" value={values.address ?? ""} onChange={(value) => set("address", value)} />
+        <WorkspaceInput field={{ name: "culture_level", label: "Trình độ văn hóa" }} tabId="candidates" value={values.culture_level ?? ""} onChange={(value) => set("culture_level", value)} />
+        <WorkspaceInput field={{ name: "education_level", label: "Trình độ đào tạo", type: "select", options: [{ value: "Cao đẳng", label: "Cao đẳng" }, { value: "Cử nhân", label: "Cử nhân" }, { value: "Thạc sĩ", label: "Thạc sĩ" }, { value: "Tiến sĩ", label: "Tiến sĩ" }] }} tabId="candidates" value={values.education_level ?? "Cử nhân"} onChange={(value) => set("education_level", value)} />
+        <WorkspaceInput field={{ name: "education_school", label: "Nơi đào tạo" }} tabId="candidates" value={values.education_school ?? ""} onChange={(value) => set("education_school", value)} />
+        <WorkspaceInput field={{ name: "major", label: "Ngành đào tạo" }} tabId="candidates" value={values.major ?? ""} onChange={(value) => set("major", value)} />
+        <WorkspaceInput field={{ name: "gpa", label: "Xếp loại / GPA", type: "number" }} tabId="candidates" value={values.gpa ?? ""} onChange={(value) => set("gpa", value)} />
+        <div><label className="mb-1.5 block text-xs font-bold text-slate-600">Người giới thiệu</label><select className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm" value={values.referrer_employee_id ?? ""} onChange={(event) => { const employee = lookups.employees.find((item) => String(item.employee_id ?? "") === event.target.value); setValues((current) => ({ ...current, referrer_employee_id: event.target.value, referrer: String(employee?.full_name ?? "") })); }}><option value="">-- Chọn hồ sơ nhân sự --</option>{lookups.employees.map((employee) => <option key={String(employee.employee_id)} value={String(employee.employee_id)}>{String(employee.employee_code ?? employee.employee_id)} - {String(employee.full_name ?? "")}</option>)}</select></div>
+        <div><label className="mb-1.5 block text-xs font-bold text-slate-600">Nguồn tuyển dụng</label><select className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm" value={values.source ?? "TopCV"} onChange={(event) => set("source", event.target.value)}>{candidateSources.map((source) => <option key={source}>{source}</option>)}</select></div>
+        <WorkspaceInput field={{ name: "experience", label: "Kinh nghiệm làm việc", type: "textarea", span: 2 }} tabId="candidates" value={values.experience ?? ""} onChange={(value) => set("experience", value)} />
+      </div>}
+
+      {activeTab === "application" && <div className="grid gap-4 md:grid-cols-2">
+         <WorkspaceInput field={{ name: "status", label: "Trạng thái ứng viên", type: "select", options: [{ value: "Đã tiếp nhận hồ sơ", label: "Đã tiếp nhận hồ sơ" }, { value: "Đã sơ loại, Đạt", label: "Đã sơ loại, Đạt" }, { value: "Đã sơ loại, Không đạt", label: "Đã sơ loại, Không đạt" }, { value: "S2: Phỏng vấn", label: "Phỏng vấn" }, { value: "S5: Trúng tuyển", label: "Trúng tuyển" }, { value: "S7: Loại", label: "Loại" }, { value: "HIRED", label: "Đã chuyển thành nhân viên" }] }} tabId="candidates" value={values.status ?? "Đã tiếp nhận hồ sơ"} onChange={(value) => set("status", value)} />
+        <WorkspaceInput field={{ name: "received_date", label: "Ngày nhận hồ sơ", type: "date", disabled: true }} tabId="candidates" value={values.received_date ?? ""} onChange={() => undefined} />
+        <div><label className="mb-1.5 block text-xs font-bold text-slate-600">Dựa trên yêu cầu</label><select className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm" value={values.recruitment_request_id ?? ""} required onChange={(event) => setRequest(event.target.value)}><option value="">-- Chọn yêu cầu tuyển dụng --</option>{requests.map((request) => <option key={String(request.recruitment_request_id)} value={String(request.recruitment_request_id)}>{String(request.request_code ?? request.recruitment_request_id)} - {String(request.position_name ?? "")}</option>)}</select></div>
+        <div><label className="mb-1.5 block text-xs font-bold text-slate-600">Vị trí ứng tuyển</label><Input value={String(selectedPosition?.position_name ?? selectedRequest?.position_name ?? "Tự động theo yêu cầu")} disabled className="h-10 bg-slate-100 text-slate-500" /></div>
+        <div><label className="mb-1.5 block text-xs font-bold text-slate-600">Bộ phận</label><Input value={String(selectedRequest?.department_name ?? lookups.departments.find((item) => String(item.department_id ?? "") === values.department_id)?.department_name ?? "Tự động theo vị trí")} disabled className="h-10 bg-slate-100 text-slate-500" /></div>
+        <div><label className="mb-1.5 block text-xs font-bold text-slate-600">Nguồn tuyển dụng</label><select className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm" value={values.source ?? "TopCV"} onChange={(event) => set("source", event.target.value)}>{candidateSources.map((source) => <option key={source}>{source}</option>)}</select></div>
+        <div className="md:col-span-2"><WorkspaceInput field={{ name: "note", label: "Ghi chú", type: "textarea" }} tabId="candidates" value={values.note ?? ""} onChange={(value) => set("note", value)} /></div>
+      </div>}
+
+      {activeTab === "attachments" && <div className="space-y-3"><div className="flex items-center justify-between"><h3 className="font-display text-sm font-bold text-slate-900">Tài liệu đính kèm</h3><Button type="button" variant="secondary" size="sm" onClick={() => updateAttachments([...attachments, { name: "", file: "", note: "" }])}><Plus size={14} /> Thêm tài liệu</Button></div><div className="overflow-x-auto rounded-xl border border-slate-100"><table className="w-full min-w-[700px] text-left text-xs"><thead className="bg-slate-50 text-[10px] uppercase tracking-wider text-slate-400"><tr><th className="px-3 py-3">Tên tài liệu</th><th className="px-3 py-3">File</th><th className="px-3 py-3">Ghi chú</th><th className="px-3 py-3">Xóa</th></tr></thead><tbody className="divide-y divide-slate-100">{attachments.map((attachment, index) => <tr key={index}><td className="px-3 py-2"><Input value={String(attachment.name ?? "")} onChange={(event) => { const next = [...attachments]; next[index] = { ...next[index], name: event.target.value }; updateAttachments(next); }} className="h-9" /></td><td className="px-3 py-2"><Input type="file" onChange={(event) => { const next = [...attachments]; next[index] = { ...next[index], file: event.target.files?.[0]?.name ?? "" }; updateAttachments(next); }} className="h-9 py-1.5 text-xs" /></td><td className="px-3 py-2"><Input value={String(attachment.note ?? "")} onChange={(event) => { const next = [...attachments]; next[index] = { ...next[index], note: event.target.value }; updateAttachments(next); }} className="h-9" /></td><td className="px-3 py-2"><Button type="button" variant="ghost" size="sm" onClick={() => updateAttachments(attachments.filter((_, itemIndex) => itemIndex !== index))}><Trash2 size={15} /></Button></td></tr>)}</tbody></table></div>{attachments.length === 0 && <p className="rounded-xl border border-dashed border-slate-200 p-6 text-center text-xs text-slate-400">Chưa có tài liệu đính kèm.</p>}</div>}
+    </div>
+  );
+}
+
+function quotaCheck(values: Record<string, string>, lookups: RequestLookups) {
+  const departmentId = values.department_id;
+  const positionId = values.position_id;
+  const quotas = lookups.quotas.filter((quota) => String(quota.department_id ?? "") === departmentId);
+  const quota = quotas.find((item) => String(item.quota_id ?? "") === values.quota_id) ?? quotas[0];
+  if (!quota || !positionId) return null;
+  const details = parseDetailList(quota.details);
+  const detail = details.find((item) => String(item.position_id ?? "") === positionId);
+  const current = Number(detail?.current_headcount ?? quota.current_headcount ?? 0);
+  const target = Number(detail?.target_headcount ?? quota.target_headcount ?? 0);
+  const movement = Number(detail?.resignation_count ?? 0) + Number(detail?.maternity_count ?? 0);
+  const quantity = Number(values.quantity) || 0;
+  return { current, target, movement, quantity, exceeds: current + quantity - movement > target };
+}
+
+function RecruitmentRequestForm({
+  values,
+  setValues,
+  lookups,
+}: {
+  values: Record<string, string>;
+  setValues: (updater: (current: Record<string, string>) => Record<string, string>) => void;
+  lookups: RequestLookups;
+}) {
+  const [activeTab, setActiveTab] = useState<"general" | "detail">("general");
+  const departments = lookups.departments;
+  const employees = lookups.employees;
+  const department = departments.find((item) => String(item.department_id ?? "") === values.department_id);
+  const positions = lookups.positions.filter((item) => String(item.department_id ?? "") === values.department_id);
+  const quotas = lookups.quotas.filter((item) => String(item.department_id ?? "") === values.department_id);
+  const selectedPosition = positions.find((item) => String(item.position_id ?? "") === values.position_id);
+  const check = quotaCheck(values, lookups);
+  const outside = values.is_outside_headcount === "1";
+  const set = (name: string, value: string) => setValues((current) => ({ ...current, [name]: value }));
+  const setRequester = (employeeId: string) => {
+    const employee = employees.find((item) => String(item.employee_id ?? "") === employeeId);
+    setValues((current) => ({
+      ...current,
+      requested_by: employeeId,
+      department_id: String(employee?.department_id ?? ""),
+      quota_id: "",
+      position_id: "",
+    }));
+  };
+  const setRequestType = (value: string) => setValues((current) => ({ ...current, is_outside_headcount: value, quota_id: value === "1" ? "" : current.quota_id }));
+
+  return (
+    <div className="space-y-5">
+      <div className="flex gap-1 overflow-x-auto border-b border-slate-200">
+        {[['general', '1. Thông tin chung'], ['detail', '2. Chi tiết vị trí định biên']].map(([key, label]) => (
+          <button key={key} type="button" onClick={() => setActiveTab(key as "general" | "detail")} className={`whitespace-nowrap border-b-2 px-4 py-3 text-xs font-bold ${activeTab === key ? "border-teal-600 text-teal-700" : "border-transparent text-slate-400"}`}>
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {activeTab === "general" ? (
+        <div className="grid gap-4 md:grid-cols-2">
+          <WorkspaceInput field={{ name: "created_date", label: "Ngày lập phiếu", type: "date", required: true }} tabId="requests" value={values.created_date ?? ""} onChange={(value) => set("created_date", value)} />
+          <WorkspaceInput field={{ name: "request_code", label: "Số phiếu", disabled: true }} tabId="requests" value={values.request_code ?? ""} onChange={() => undefined} />
+          <div>
+            <label className="mb-1.5 block text-xs font-bold text-slate-600">Loại yêu cầu *</label>
+            <select className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm" value={values.is_outside_headcount ?? "0"} onChange={(event) => setRequestType(event.target.value)}>
+              <option value="0">Trong định biên</option><option value="1">Ngoài định biên</option>
+            </select>
+          </div>
+          <div>
+            <label className="mb-1.5 block text-xs font-bold text-slate-600">Phiếu định biên {outside ? "(không áp dụng)" : "*"}</label>
+            <select className={`h-10 w-full rounded-xl border px-3 text-sm ${outside ? "cursor-not-allowed border-slate-200 bg-slate-100 text-slate-400" : "border-slate-200 bg-white"}`} value={values.quota_id ?? ""} disabled={outside} required={!outside} onChange={(event) => set("quota_id", event.target.value)}>
+              <option value="">-- Chọn phiếu định biên --</option>
+              {quotas.map((quota) => <option key={String(quota.quota_id)} value={String(quota.quota_id)}>{String(quota.quota_code ?? quota.quota_id)} - {String(quota.department_name ?? department?.department_name ?? "")}</option>)}
+            </select>
+            {outside && <p className="mt-1 text-[11px] text-slate-400">Phiếu ngoài định biên không được nhập phiếu định biên.</p>}
+          </div>
+          <div>
+            <label className="mb-1.5 block text-xs font-bold text-slate-600">Người lập *</label>
+            <select className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm" value={values.requested_by ?? ""} required onChange={(event) => setRequester(event.target.value)}>
+              <option value="">-- Chọn hồ sơ nhân sự --</option>
+              {employees.map((employee) => <option key={String(employee.employee_id)} value={String(employee.employee_id)}>{String(employee.employee_code ?? employee.employee_id)} - {String(employee.full_name ?? "")}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="mb-1.5 block text-xs font-bold text-slate-600">Bộ phận</label>
+            <Input value={department ? `${String(department.department_code ?? department.department_id)} - ${String(department.department_name ?? "")}` : "Tự động theo người lập"} disabled className="h-10 bg-slate-100 text-slate-500" />
+          </div>
+          <div className="md:col-span-2"><WorkspaceInput field={{ name: "reason", label: "Lý do", type: "textarea", required: true }} tabId="requests" value={values.reason ?? ""} onChange={(value) => set("reason", value)} /></div>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-2">
+            <div>
+              <label className="mb-1.5 block text-xs font-bold text-slate-600">Mã vị trí *</label>
+              <select className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm" value={values.position_id ?? ""} required onChange={(event) => set("position_id", event.target.value)}>
+                <option value="">-- Chọn vị trí thuộc bộ phận --</option>
+                {positions.map((position) => <option key={String(position.position_id)} value={String(position.position_id)}>{String(position.position_code ?? position.position_id)} - {String(position.position_name ?? "")}</option>)}
+              </select>
+            </div>
+            <div><label className="mb-1.5 block text-xs font-bold text-slate-600">Tên vị trí</label><Input value={String(selectedPosition?.position_name ?? "Tự động theo mã vị trí")} disabled className="h-10 bg-slate-100 text-slate-500" /></div>
+            <div><label className="mb-1.5 block text-xs font-bold text-slate-600">Số lượng cần tuyển *</label><Input type="number" min={1} value={values.quantity ?? ""} required onChange={(event) => set("quantity", event.target.value)} className="h-10" /></div>
+            <WorkspaceInput field={{ name: "expected_date", label: "Ngày cần người", type: "date", required: true }} tabId="requests" value={values.expected_date ?? ""} onChange={(value) => set("expected_date", value)} />
+            <div className="md:col-span-2"><WorkspaceInput field={{ name: "note", label: "Ghi chú", type: "textarea" }} tabId="requests" value={values.note ?? ""} onChange={(value) => set("note", value)} /></div>
+          </div>
+          {check && <div className={`rounded-xl border p-4 text-xs ${check.exceeds ? "border-amber-200 bg-amber-50 text-amber-800" : "border-emerald-200 bg-emerald-50 text-emerald-800"}`}><b>Kiểm tra định biên:</b> Hiện tại {check.current} + Cần tuyển {check.quantity} - Biến động {check.movement} = {check.current + check.quantity - check.movement}; Định biên {check.target}. {check.exceeds ? outside ? "Vượt định biên. Phiếu ngoài định biên vẫn được phép lưu sau khi xác nhận." : "Vượt định biên. Phiếu trong định biên không được phép lưu." : "Không vượt định biên."}</div>}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -943,8 +1272,12 @@ function OperationalWorkspace({
         employees,
         requests,
         plans,
-        candidates,
-        schedules,
+         candidates,
+         schedules,
+         offers,
+         quotas,
+        screenings,
+        decisions,
         contracts,
         contractProposals,
         leaveApplications,
@@ -959,7 +1292,11 @@ function OperationalWorkspace({
         api.list("/recruitment/requests", { resource }),
         api.list("/recruitment/plans", { resource }),
         api.list("/recruitment/candidates", { resource }),
-        api.list("/recruitment/interview-schedules", { resource }),
+         api.list("/recruitment/interview-schedules", { resource }),
+         api.list("/recruitment/offers", { resource }),
+         api.list("/hr/quotas", { resource }),
+        api.list("/recruitment/pre-screenings", { resource }),
+        api.list("/recruitment/decisions", { resource }),
         api.list("/hr/contracts", { resource }),
         api.list("/hr/contract-proposals", { resource }),
         api.list("/hr/leave-applications", { resource }),
@@ -975,7 +1312,11 @@ function OperationalWorkspace({
         requests,
         plans,
         candidates,
-        schedules,
+         schedules,
+         offers,
+         quotas,
+        screenings,
+        decisions,
         contracts,
         contractProposals,
         leaveApplications,
@@ -1178,9 +1519,10 @@ function OperationalWorkspace({
     session?.role !== "Nhân viên";
   const canCreate = Boolean(
     session &&
-    (workflowCreate || (canManage && canAccess(session, resource, "create"))) &&
+    (workflowCreate || (name === "recruitment" && tab.id === "requests" && ["Administrator", "HR Staff", "Trưởng Phòng"].includes(session.role)) || (canManage && canAccess(session, resource, "create"))) &&
     !tab.readOnly &&
-    !tab.convert,
+    !tab.convert &&
+    tab.id !== "screenings",
   );
   const canEdit = Boolean(
     session &&
@@ -1205,6 +1547,23 @@ function OperationalWorkspace({
   const openCreate = () => {
     setEditingRow(null);
     const values = defaultForm(tab);
+    if (tab.id === "requests") {
+      values.created_date = new Date().toISOString().slice(0, 10);
+      values.is_outside_headcount = "0";
+      values.quantity = "1";
+      if (session?.employeeId) {
+        const employee = lookupQuery.data?.employees.find((item) => String(item.employee_id ?? "") === session.employeeId);
+        values.requested_by = session.employeeId;
+        values.department_id = String(employee?.department_id ?? "");
+      }
+    }
+    if (tab.id === "candidates") {
+      values.candidate_code = `UV/${new Date().getFullYear()}/${String((rowsQuery.data?.length ?? 0) + 1).padStart(4, "0")}`;
+      values.received_date = new Date().toISOString().slice(0, 10);
+      values.status = "Đã tiếp nhận hồ sơ";
+      values.source = "TopCV";
+      values.attachments_json = "[]";
+    }
     if (name === "people" && tab.id === "leave" && session?.employeeId)
       values.employee_id = session.employeeId;
     setFormValues(values);
@@ -1213,7 +1572,7 @@ function OperationalWorkspace({
 
   const openEdit = async (row: Row) => {
     let editRow = row;
-    if (tab.id === "interview-evaluations") {
+    if (tab.id === "interview-evaluations" || tab.id === "screenings") {
       try {
         const detail = await api.list(
           `${tab.endpoint}/${rowId(tab, row)}`,
@@ -1226,7 +1585,7 @@ function OperationalWorkspace({
           "Không thể tải chi tiết",
           error instanceof Error
             ? error.message
-            : "Không thể tải chi tiết đánh giá phỏng vấn.",
+            : "Không thể tải chi tiết bản ghi.",
         );
         return;
       }
@@ -1240,6 +1599,27 @@ function OperationalWorkspace({
         ]),
       ),
     );
+    setShowForm(true);
+  };
+
+  const openScreeningForm = (candidate: Row) => {
+    const screeningTab = getWorkspaceTab(name, "screenings");
+    const position = lookupQuery.data?.positions.find((item) => String(item.position_id ?? "") === String(candidate.position_id ?? ""));
+    const values = Object.fromEntries(screeningTab.fields.map((field) => [field.name, field.options?.[0]?.value ?? ""]));
+    Object.assign(values, {
+      candidate_id: String(candidate.candidate_id ?? ""),
+      received_date: fieldValue({ name: "received_date", label: "", type: "date" }, candidate.received_date ?? candidate.created_date),
+      culture_level: String(candidate.culture_level ?? ""),
+      education_level: String(candidate.education_level ?? ""),
+      education_school: String(candidate.education_school ?? ""),
+      position_id: String(candidate.position_id ?? position?.position_id ?? ""),
+      department_id: String(candidate.department_id ?? position?.department_id ?? ""),
+      screening_date: new Date().toISOString().slice(0, 10),
+       criteria: JSON.stringify([{ criteria_type: "Năng lực chuyên môn", required_from: "", candidate_value: "", candidate_description: "", is_passed: true, note: "" }]),
+    });
+    setTabId("screenings");
+    setEditingRow(null);
+    setFormValues(values);
     setShowForm(true);
   };
 
@@ -1318,6 +1698,47 @@ function OperationalWorkspace({
     event.preventDefault();
     try {
       toPayload(tab, formValues);
+      const lookups = (lookupQuery.data ?? { departments: [], positions: [], employees: [], quotas: [], requests: [], plans: [], candidates: [], screenings: [], decisions: [] }) as RequestLookups & CandidateLookups;
+      if (tab.id === "requests") {
+        const missingRequestField = ["created_date", "requested_by", "department_id", "position_id", "quantity", "expected_date", "reason"].find((field) => !String(formValues[field] ?? "").trim());
+        if (missingRequestField || (formValues.is_outside_headcount !== "1" && !formValues.quota_id)) {
+          showPopup("error", "Thiếu thông tin bắt buộc", "Vui lòng nhập đầy đủ ngày lập, người lập, bộ phận, vị trí, số lượng, ngày cần người, lý do và phiếu định biên đối với yêu cầu trong định biên.");
+          return;
+        }
+        const check = quotaCheck(formValues, lookups);
+        if (formValues.is_outside_headcount !== "1" && !formValues.quota_id) {
+          showPopup("error", "Thiếu phiếu định biên", "Yêu cầu trong định biên bắt buộc phải chọn phiếu định biên.");
+          return;
+        }
+        if (check?.exceeds && formValues.is_outside_headcount !== "1") {
+          showPopup("error", "Vượt định biên", "Số lượng tuyển vượt định biên. Không thể lưu phiếu trong định biên.");
+          return;
+        }
+        if (check?.exceeds && formValues.is_outside_headcount === "1") {
+          const confirmed = await requestConfirmation(`Cảnh báo: nhu cầu tuyển vượt định biên (${check.current} + ${check.quantity} - ${check.movement} > ${check.target}). Phiếu ngoài định biên vẫn được phép lưu. Tiếp tục?`);
+          if (!confirmed) return;
+        }
+      }
+      if (tab.id === "candidates") {
+        const missingCandidateField = ["full_name", "phone", "email", "recruitment_request_id", "position_id", "department_id", "received_date"].find((field) => !String(formValues[field] ?? "").trim());
+        if (missingCandidateField) {
+          showPopup("error", "Thiếu thông tin bắt buộc", "Vui lòng nhập đủ thông tin ứng viên và thông tin ứng tuyển trước khi lưu.");
+          return;
+        }
+        const duplicate = candidateDuplicate(formValues, lookups.candidates, editingRow ? rowId(tab, editingRow) : undefined);
+        if (duplicate) {
+          showPopup("error", "Ứng viên bị trùng", `CCCD, số điện thoại hoặc email đã tồn tại ở hồ sơ ${String(duplicate.candidate_code ?? duplicate.full_name ?? "khác")}.`);
+          return;
+        }
+      }
+      if (tab.id === "screenings") {
+        const missingScreeningField = ["candidate_id", "screening_date", "level_score", "screening_result"].find((field) => !String(formValues[field] ?? "").trim());
+        const score = Number(formValues.level_score);
+        if (missingScreeningField || !Number.isFinite(score) || score < 0 || score > 10) {
+          showPopup("error", "Thiếu thông tin bắt buộc", "Vui lòng chọn ứng viên, nhập ngày sơ loại, mức độ phù hợp từ 0 đến 10 và kết quả.");
+          return;
+        }
+      }
       const actionLabel = editingRow ? "cập nhật" : "tạo mới";
       const confirmed = await requestConfirmation(
         `Bạn có chắc chắn muốn ${actionLabel} ${tab.label.toLowerCase()} với thông tin đã nhập không?`,
@@ -1783,9 +2204,23 @@ function OperationalWorkspace({
                               </Button>
                             </>
                           )}
-                          {tab.convert &&
+                          {tab.id === "candidates" &&
                             canManage &&
-                            canAccess(session, resource, "create") && (
+                            !(lookupQuery.data?.screenings ?? []).some((screening) => String(screening.candidate_id ?? "") === String(row.candidate_id ?? "")) && (
+                              <Button
+                                variant="soft"
+                                size="sm"
+                                onClick={() => openScreeningForm(row)}
+                                title="Mở phiếu sơ loại"
+                              >
+                                Sơ loại
+                              </Button>
+                            )}
+                          {(tab.convert || tab.id === "candidates") &&
+                            canManage &&
+                            canAccess(session, resource, "create") &&
+                            String(row.status) !== "HIRED" &&
+                            (lookupQuery.data?.decisions ?? []).some((decision) => String(decision.candidate_id ?? "") === String(row.candidate_id ?? "") && String(decision.result ?? "").trim().toUpperCase() === "ĐẠT") && (
                               <Button
                                 variant="soft"
                                 size="sm"
@@ -1889,6 +2324,25 @@ function OperationalWorkspace({
               onSubmit={handleSubmit}
               className="max-h-[calc(92vh-150px)] overflow-y-auto p-5"
             >
+              {tab.id === "requests" ? (
+                <RecruitmentRequestForm
+                  values={formValues}
+                  setValues={setFormValues}
+                  lookups={(lookupQuery.data ?? { departments: [], positions: [], employees: [], quotas: [] }) as RequestLookups}
+                />
+              ) : tab.id === "candidates" ? (
+                <CandidateForm
+                  values={formValues}
+                  setValues={setFormValues}
+                  lookups={(lookupQuery.data ?? { departments: [], positions: [], employees: [], quotas: [], requests: [], plans: [], candidates: [], screenings: [], decisions: [] }) as CandidateLookups}
+                />
+              ) : tab.id === "screenings" ? (
+                <ScreeningForm
+                  values={formValues}
+                  setValues={setFormValues}
+                  lookups={(lookupQuery.data ?? { departments: [], positions: [], employees: [], quotas: [], requests: [], plans: [], candidates: [], screenings: [], decisions: [] }) as CandidateLookups}
+                />
+              ) : (
               <div className="grid gap-4 md:grid-cols-2">
                 {tab.fields.map((field) => {
                   const options = fieldOptions(field);
@@ -1948,6 +2402,7 @@ function OperationalWorkspace({
                   );
                 })}
               </div>
+              )}
               <div className="mt-5 flex justify-end gap-2 border-t border-slate-100 pt-4">
                 <Button
                   type="button"
@@ -2008,27 +2463,31 @@ function OperationalWorkspace({
                   />
                 </div>
               )}
-              <div className="grid gap-3 sm:grid-cols-2">
-                {Object.entries(showDetail).map(([key, value]) => (
-                  <div
-                    key={key}
-                    className="rounded-xl border border-slate-100 bg-slate-50/70 p-3"
-                  >
-                    <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                      {detailLabel(tab, key)}
+              {tab.id === "quota" || tab.id === "quotas" ? (
+                <QuotaDetail row={showDetail} />
+              ) : (
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {Object.entries(showDetail).map(([key, value]) => (
+                    <div
+                      key={key}
+                      className="rounded-xl border border-slate-100 bg-slate-50/70 p-3"
+                    >
+                      <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                        {detailLabel(tab, key)}
+                      </div>
+                      <div className="mt-1 break-words text-sm text-slate-700">
+                        {typeof value === "object" ? (
+                          <pre className="whitespace-pre-wrap text-xs">
+                            {displayDetailValue(tab, key, value)}
+                          </pre>
+                        ) : (
+                          displayDetailValue(tab, key, value)
+                        )}
+                      </div>
                     </div>
-                    <div className="mt-1 break-words text-sm text-slate-700">
-                      {typeof value === "object" ? (
-                        <pre className="whitespace-pre-wrap text-xs">
-                          {displayDetailValue(tab, key, value)}
-                        </pre>
-                      ) : (
-                        displayDetailValue(tab, key, value)
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
           </Card>
         </div>

@@ -27,6 +27,7 @@ const idFields: Record<string, string> = {
   "/recruitment/interview-schedules": "schedule_id",
   "/recruitment/interview-evaluations": "interview_eval_id",
   "/recruitment/offers": "offer_id",
+  "/recruitment/decisions": "decision_id",
   "/reward-discipline/criteria": "criteria_id",
   "/reward-discipline/evaluations": "evaluation_id",
   "/reward-discipline/proposals": "proposal_id",
@@ -50,21 +51,47 @@ const initialStore: MockStore = {
     { employee_id: "emp-cloud-04", employee_code: "NV-2024-100", full_name: "Đặng Việt Dũng", department_id: "dept-cloud", department_name: "Phòng Cloud và Hạ tầng", position_id: "pos-cloud-emp", position_name: "Kỹ sư Cloud và Hạ tầng", level: "Nhân viên", join_date: "2024-06-10", employment_status: "WORKING", email: "dung.dv@example.test", phone: "0966554433" },
   ],
   "/hr/quotas": [
-    { quota_id: "quota-demo-01", quota_code: "DB/2026-001", department_id: "dept-cloud", department_name: "Phòng Cloud và Hạ tầng", target_headcount: 10, current_headcount: 7, needed_headcount: 3, max_capacity: 12, budget: 180000000, status: "Đang duyệt" },
+    {
+      quota_id: "quota-demo-01",
+      quota_code: "DB/2026-001",
+      created_date: "2026-08-01",
+      effective_date: "2026-08-05",
+      creator_id: "emp-hr-02",
+      creator_name: "Nguyễn Thùy Linh",
+      department_id: "dept-cloud",
+      department_code: "CLOUD",
+      department_name: "Phòng Cloud và Hạ tầng",
+      target_headcount: 10,
+      current_headcount: 7,
+      needed_headcount: 3,
+      max_capacity: 12,
+      budget: 180000000,
+      description: "Bổ sung nhân sự cho kế hoạch vận hành hạ tầng Cloud.",
+      details: [
+        { position_id: "pos-cloud-emp", position_code: "CLOUD_EMP", position_name: "Kỹ sư Cloud và Hạ tầng", target_headcount: 7, resignation_count: 0, maternity_count: 0, current_headcount: 5, needed_headcount: 2, note: "Bổ sung nhân sự trực vận hành." },
+        { position_id: "pos-cloud-lead", position_code: "CLOUD_LEAD", position_name: "Trưởng Nhóm Cloud và Hạ tầng", target_headcount: 2, resignation_count: 1, maternity_count: 0, current_headcount: 1, needed_headcount: 2, note: "Dự kiến thay thế nhân sự nghỉ việc." },
+        { position_id: "pos-cloud-mgr", position_code: "CLOUD_MGR", position_name: "Trưởng Phòng Cloud và Hạ tầng", target_headcount: 1, resignation_count: 0, maternity_count: 0, current_headcount: 1, needed_headcount: 0, note: "" },
+      ],
+      budget_details: [
+        { cost_type: "Chi phí đăng tin tuyển dụng", source: "TopCV", estimated_cost: 5000000 },
+        { cost_type: "Chi phí giới thiệu nhân sự nội bộ", source: "Bạn bè giới thiệu", estimated_cost: 3000000 },
+      ],
+      status: "Đang duyệt",
+    },
   ],
   "/recruitment/requests": [
-    { recruitment_request_id: "req-demo-01", request_code: "YCTD/2026-018", department_id: "dept-cloud", department_name: "Phòng Cloud và Hạ tầng", position_id: "pos-cloud-emp", position_name: "Kỹ sư Cloud và Hạ tầng", requested_by: "emp-cloud-01", quantity: 3, priority: "HIGH", status: "PENDING", reason: "Bổ sung nhân sự trực vận hành." },
-    { recruitment_request_id: "req-demo-02", request_code: "YCTD/2026-019", department_id: "dept-kd", department_name: "Phòng Kinh doanh", position_id: "pos-kd-emp", position_name: "Nhân viên Kinh doanh", requested_by: "emp-kd-01", quantity: 2, priority: "MEDIUM", status: "APPROVED", reason: "Mở rộng khách hàng doanh nghiệp." },
+    { recruitment_request_id: "req-demo-01", request_code: "YCTD/2026-018", created_date: "2026-09-01", department_id: "dept-cloud", department_name: "Phòng Cloud và Hạ tầng", position_id: "pos-cloud-emp", position_name: "Kỹ sư Cloud và Hạ tầng", requested_by: "emp-cloud-04", requested_by_name: "Đặng Việt Dũng", quota_id: "quota-demo-01", quantity: 2, expected_date: "2026-10-01", is_outside_headcount: 0, status: "PENDING", reason: "Bổ sung nhân sự trực vận hành.", note: "" },
+    { recruitment_request_id: "req-demo-02", request_code: "YCTD/2026-019", created_date: "2026-09-02", department_id: "dept-kd", department_name: "Phòng Kinh doanh", position_id: "pos-kd-emp", position_name: "Nhân viên Kinh doanh", requested_by: "emp-kd-01", requested_by_name: "Phạm Quốc Tuấn", quota_id: "", quantity: 2, expected_date: "2026-10-15", is_outside_headcount: 1, status: "APPROVED", reason: "Mở rộng khách hàng doanh nghiệp.", note: "" },
   ],
   "/recruitment/plans": [
     { recruitment_plan_id: "plan-demo-01", recruitment_request_id: "req-demo-01", request_code: "YCTD/2026-018", plan_name: "Kế hoạch tuyển Kỹ sư Cloud Quý IV", department_name: "Phòng Cloud và Hạ tầng", start_date: "2026-09-01", end_date: "2026-10-31", budget: 45000000, status: "IN_PROGRESS" },
   ],
   "/recruitment/candidates": [
-    { candidate_id: "cand-demo-01", candidate_code: "UV-2026-001", full_name: "Lê Bảo Trâm", apply_position_name: "Kỹ sư Cloud và Hạ tầng", position_id: "pos-cloud-emp", phone: "0909123456", email: "tram.lb@example.test", source: "LinkedIn", status: "S2: Phỏng vấn" },
-    { candidate_id: "cand-demo-02", candidate_code: "UV-2026-002", full_name: "Vũ Minh Khôi", apply_position_name: "Nhân viên Kinh doanh", position_id: "pos-kd-emp", phone: "0903812345", email: "khoi.vm@example.test", source: "Referral", status: "S5: Trúng tuyển" },
+    { candidate_id: "cand-demo-01", candidate_code: "UV-2026-001", full_name: "Lê Bảo Trâm", citizen_id: "079206001234", date_of_birth: "1998-04-12", gender: "Nữ", phone: "0909123456", email: "tram.lb@example.test", address: "Hà Nội", culture_level: "12/12", education_level: "Cử nhân", education_school: "Đại học Bách khoa", major: "Công nghệ thông tin", gpa: 8.2, experience: "3 năm vận hành Cloud", referrer: "Nguyễn Thùy Linh", referrer_employee_id: "emp-hr-02", source: "LinkedIn", created_date: "2026-08-28", received_date: "2026-08-28", recruitment_request_id: "req-demo-01", apply_position_name: "Kỹ sư Cloud và Hạ tầng", position_id: "pos-cloud-emp", department_id: "dept-cloud", department_name: "Phòng Cloud và Hạ tầng", attachments_json: [{ name: "CV_LeBaoTram.pdf", file: "CV_LeBaoTram.pdf", note: "CV bản tiếng Việt" }], status: "S2: Phỏng vấn" },
+    { candidate_id: "cand-demo-02", candidate_code: "UV-2026-002", full_name: "Vũ Minh Khôi", citizen_id: "001203009876", date_of_birth: "1996-11-03", gender: "Nam", phone: "0903812345", email: "khoi.vm@example.test", address: "Hồ Chí Minh", culture_level: "12/12", education_level: "Thạc sĩ", education_school: "Đại học Kinh tế", major: "Quản trị kinh doanh", gpa: 8.5, experience: "5 năm kinh doanh B2B", referrer: "Phạm Quốc Tuấn", referrer_employee_id: "emp-kd-01", source: "Giới thiệu nội bộ", created_date: "2026-08-25", received_date: "2026-08-25", recruitment_request_id: "req-demo-02", apply_position_name: "Nhân viên Kinh doanh", position_id: "pos-kd-emp", department_id: "dept-kd", department_name: "Phòng Kinh doanh", attachments_json: [], status: "S5: Trúng tuyển" },
   ],
   "/recruitment/pre-screenings": [
-    { pre_screening_id: "screen-demo-01", screening_code: "SL/2026-001", candidate_name: "Lê Bảo Trâm", position_name: "Kỹ sư Cloud và Hạ tầng", level_score: 8, screening_result: "ĐẠT", screening_date: "2026-09-02" },
+    { pre_screening_id: "screen-demo-01", candidate_id: "cand-demo-01", screening_code: "SL/2026-001", candidate_name: "Lê Bảo Trâm", position_name: "Kỹ sư Cloud và Hạ tầng", level_score: 8, screening_result: "ĐẠT", screening_date: "2026-09-02" },
   ],
   "/recruitment/interview-schedules": [
     { schedule_id: "schedule-demo-01", schedule_code: "PV/2026-012", round_type: "Vòng phỏng vấn", format_type: "Online", start_time: "2026-09-10T09:00", location: "Microsoft Teams", status: "Đã lên lịch" },
@@ -105,6 +132,9 @@ const initialStore: MockStore = {
         },
       ],
     },
+  ],
+  "/recruitment/decisions": [
+    { decision_id: "decision-demo-01", decision_number: "QDTD/2026-001", candidate_id: "cand-demo-02", candidate_name: "Vũ Minh Khôi", decision_date: "2026-09-05", result: "ĐẠT", status: "COMPLETED" },
   ],
   "/recruitment/offers": [
     { offer_id: "offer-demo-01", candidate_code: "UV-2026-002", candidate_name: "Vũ Minh Khôi", offer_date: "2026-09-03", expected_start_date: "2026-09-15", salary_offer: 18000000, offer_status: "Đã chấp nhận" },
@@ -163,7 +193,16 @@ function loadStore(): MockStore {
   if (typeof window === "undefined") return cloneInitialStore();
   try {
     const saved = window.localStorage.getItem(MOCK_STORE_KEY);
-    return saved ? JSON.parse(saved) as MockStore : cloneInitialStore();
+    if (!saved) return cloneInitialStore();
+    const store = JSON.parse(saved) as MockStore;
+    const quotaDefaults = initialStore["/hr/quotas"]?.[0] ?? {};
+    store["/hr/quotas"] = (store["/hr/quotas"] ?? []).map((quota) => ({
+      ...quotaDefaults,
+      ...quota,
+      details: quota.details ?? quotaDefaults.details,
+      budget_details: quota.budget_details ?? quotaDefaults.budget_details,
+    }));
+    return store;
   } catch {
     return cloneInitialStore();
   }
@@ -287,6 +326,9 @@ export async function mockApiRequest<T>(path: string, init: RequestInit = {}): P
     if (!candidate) return failure("Không tìm thấy thông tin ứng viên.") as T;
     if (!canConvertCandidate(candidate))
       return failure("Chỉ ứng viên đã trúng tuyển mới được chuyển thành nhân viên.") as T;
+    const decision = (store["/recruitment/decisions"] ?? []).find((row) => row.candidate_id === payload.candidate_id && String(row.result ?? "").trim().toUpperCase() === "ĐẠT" && row.status === "COMPLETED");
+    if (!decision)
+      return failure("Chỉ ứng viên có quyết định trúng tuyển kết quả Đạt mới được chuyển thành nhân viên.") as T;
 
     const now = new Date();
     const timestamp = now.getTime();
@@ -349,6 +391,33 @@ export async function mockApiRequest<T>(path: string, init: RequestInit = {}): P
       ) as T;
   }
 
+  if (route === "/recruitment/pre-screenings" && (method === "POST" || method === "PUT")) {
+    const candidate = store["/recruitment/candidates"].find((item) => String(item.candidate_id) === String(payload.candidate_id));
+    if (!candidate) return failure("Không tìm thấy thông tin ứng viên.") as T;
+    if (method === "POST" && rows.some((item) => String(item.candidate_id) === String(payload.candidate_id))) return failure("Ứng viên này đã có Phiếu Sơ loại.") as T;
+    const screening = method === "PUT" ? rows.find((item) => String(item[idField]) === id) : undefined;
+    const nextRow = {
+      ...(screening ?? {}),
+      ...payload,
+      [idField]: String(screening?.[idField] ?? payload[idField] ?? `mock-screening-${Date.now()}`),
+      screening_code: String(screening?.screening_code ?? `PSL/${new Date().getFullYear().toString().slice(-2)}-${String(rows.length + 1).padStart(3, "0")}`),
+      candidate_name: candidate.full_name,
+      candidate_code: candidate.candidate_code,
+      position_name: candidate.apply_position_name,
+      department_name: candidate.department_name,
+    };
+    if (method === "POST") rows.unshift(nextRow);
+    else {
+      const index = rows.findIndex((item) => String(item[idField]) === id);
+      if (index < 0) return failure("Không tìm thấy Phiếu Sơ loại.") as T;
+      rows[index] = nextRow;
+    }
+    candidate.status = String(payload.screening_result ?? "").trim().toUpperCase() === "ĐẠT" ? "Đã sơ loại, Đạt" : "Đã sơ loại, Không đạt";
+    store[route] = rows;
+    saveStore(store);
+    return envelope(nextRow) as T;
+  }
+
   if (method === "POST") {
     const newRow = { ...payload, [idField]: String(payload[idField] ?? `mock-${Date.now()}`) };
     rows.unshift(newRow);
@@ -362,6 +431,10 @@ export async function mockApiRequest<T>(path: string, init: RequestInit = {}): P
 
   if (method === "DELETE") {
     store[route] = rows.filter((item) => String(item[idField]) !== id);
+    if (route === "/recruitment/pre-screenings") {
+      const candidate = store["/recruitment/candidates"].find((item) => String(item.candidate_id) === String(row.candidate_id));
+      if (candidate && !store[route].some((item) => String(item.candidate_id) === String(row.candidate_id))) candidate.status = "Đã tiếp nhận hồ sơ";
+    }
     saveStore(store);
     return envelope(row) as T;
   }

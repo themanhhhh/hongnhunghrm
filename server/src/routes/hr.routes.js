@@ -1179,6 +1179,23 @@ const recordAuditLog = async (req, action, entity_type, entity_id, entity_name, 
 };
 
 // --- 7. ĐỊNH BIÊN NHÂN SỰ (DEPARTMENT HEADCOUNT QUOTAS) ---
+const getQuotaHeadcountByPosition = async (departmentId) => {
+    const rows = await query(
+        `SELECT position_id, COUNT(*) as cnt FROM Employee
+         WHERE department_id = ? AND is_active = 1 AND employment_status = 'WORKING'
+         GROUP BY position_id`,
+        [departmentId]
+    );
+    const byPosition = {};
+    let total = 0;
+    for (const row of rows) {
+        const count = Number(row.cnt) || 0;
+        if (row.position_id) byPosition[row.position_id] = count;
+        total += count;
+    }
+    return { byPosition, total };
+};
+
 router.get('/quotas', async (req, res) => {
     try {
         const quotas = await query(
@@ -1188,17 +1205,22 @@ router.get('/quotas', async (req, res) => {
        ORDER BY q.created_date DESC`
         );
 
-        const employees = await query(`SELECT department_id FROM Employee WHERE is_active = 1 AND employment_status = 'WORKING'`);
-        const countMap = {};
-        for (const emp of employees) {
-            if (emp.department_id) {
-                countMap[emp.department_id] = (countMap[emp.department_id] || 0) + 1;
-            }
-        }
-
-        const result = quotas.map(q => ({
-            ...q,
-            current_headcount: countMap[q.department_id] !== undefined ? countMap[q.department_id] : q.current_headcount
+        const result = await Promise.all(quotas.map(async q => {
+            const { byPosition, total } = await getQuotaHeadcountByPosition(q.department_id);
+            const storedDetails = await query(
+                `SELECT * FROM DepartmentQuotaDetail WHERE quota_id = ? ORDER BY position_code ASC`,
+                [q.quota_id]
+            );
+            const details = storedDetails.map(detail => {
+                const current = detail.position_id ? (byPosition[detail.position_id] || 0) : (detail.current_headcount || 0);
+                const needed = Math.max(0, (Number(detail.target_headcount) || 0) - current + (Number(detail.resignation_count) || 0) + (Number(detail.maternity_count) || 0));
+                return { ...detail, current_headcount: current, needed_headcount: needed };
+            });
+            return {
+                ...q,
+                current_headcount: total,
+                details
+            };
         }));
 
         res.json({ success: true, data: result });
@@ -1250,19 +1272,10 @@ router.get('/quotas/:id', async (req, res) => {
             [quota.quota_id]
         );
 
-        const empCounts = await query(
-            `SELECT position_id, COUNT(*) as cnt FROM Employee 
-       WHERE department_id = ? AND is_active = 1 AND employment_status = 'WORKING'
-       GROUP BY position_id`,
-            [quota.department_id]
-        );
-        const posCountMap = {};
-        for (const ec of empCounts) {
-            if (ec.position_id) posCountMap[ec.position_id] = ec.cnt;
-        }
+        const { byPosition: posCountMap, total: currentHeadcount } = await getQuotaHeadcountByPosition(quota.department_id);
 
         const updatedDetails = details.map(d => {
-            const curr = posCountMap[d.position_id] !== undefined ? posCountMap[d.position_id] : (d.current_headcount || 0);
+            const curr = d.position_id ? (posCountMap[d.position_id] || 0) : (d.current_headcount || 0);
             const target = Number(d.target_headcount) || 0;
             const resign = Number(d.resignation_count) || 0;
             const mat = Number(d.maternity_count) || 0;
@@ -1278,6 +1291,7 @@ router.get('/quotas/:id', async (req, res) => {
             success: true,
             data: {
                 ...quota,
+                current_headcount: currentHeadcount,
                 details: updatedDetails
             }
         });
@@ -1314,23 +1328,21 @@ router.post('/quotas', authorizeRole('Administrator', 'HR Staff'), async (req, r
         }
         const quota_code = `${prefix}${String(maxSeq + 1).padStart(4, '0')}`;
 
-        const currentEmpCount = await queryOne(
-            `SELECT COUNT(*) as count FROM Employee WHERE department_id = ? AND is_active = 1 AND employment_status = 'WORKING'`,
-            [department_id]
-        );
-        const current_headcount = currentEmpCount ? currentEmpCount.count : 0;
+        const { byPosition: posCountMap, total: current_headcount } = await getQuotaHeadcountByPosition(department_id);
 
         let computedTarget = Number(target_headcount) || 0;
         if (Array.isArray(details) && details.length > 0) {
             computedTarget = details.reduce((sum, d) => sum + (Number(d.target_headcount) || 0), 0);
         }
         const budgetDetailsJson = Array.isArray(budget_details) ? JSON.stringify(budget_details) : (budget_details || '[]');
+        const creatorId = req.user?.employeeId || null;
+        const creatorName = req.user?.fullName || creator_name || 'Hệ thống';
 
         await run(
-            `INSERT INTO DepartmentQuota (quota_id, created_date, last_modified_date, quota_code, effective_date, department_id, creator_name, target_headcount, max_capacity, current_headcount, budget, budget_details, description, status)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            `INSERT INTO DepartmentQuota (quota_id, created_date, last_modified_date, quota_code, effective_date, department_id, creator_id, creator_name, target_headcount, max_capacity, current_headcount, budget, budget_details, description, status)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
-                id, now, now, quota_code, effDate, department_id, creator_name || 'HR Test 01',
+                 id, now, now, quota_code, effDate, department_id, creatorId, creatorName,
                 computedTarget, Number(max_capacity) || computedTarget || 0,
                 current_headcount, Number(budget) || 0, budgetDetailsJson, description || '', status || 'Tạo phiếu'
             ]
@@ -1342,7 +1354,7 @@ router.post('/quotas', authorizeRole('Administrator', 'HR Staff'), async (req, r
                 const target = Number(d.target_headcount) || 0;
                 const resign = Number(d.resignation_count) || 0;
                 const mat = Number(d.maternity_count) || 0;
-                const curr = Number(d.current_headcount) || 0;
+                const curr = d.position_id ? (posCountMap[d.position_id] || 0) : (Number(d.current_headcount) || 0);
                 const needed = Math.max(0, target - curr + resign + mat);
 
                 await run(
@@ -1382,11 +1394,7 @@ router.put('/quotas/:id', authorizeRole('Administrator', 'HR Staff'), async (req
         const effDate = effective_date ? (typeof effective_date === 'number' ? effective_date : new Date(effective_date).getTime()) : existing.effective_date;
         const targetDeptId = department_id || existing.department_id;
 
-        const currentEmpCount = await queryOne(
-            `SELECT COUNT(*) as count FROM Employee WHERE department_id = ? AND is_active = 1 AND employment_status = 'WORKING'`,
-            [targetDeptId]
-        );
-        const current_headcount = currentEmpCount ? currentEmpCount.count : 0;
+        const { byPosition: posCountMap, total: current_headcount } = await getQuotaHeadcountByPosition(targetDeptId);
 
         let computedTarget = Number(target_headcount) || 0;
         if (Array.isArray(details) && details.length > 0) {
@@ -1415,7 +1423,7 @@ router.put('/quotas/:id', authorizeRole('Administrator', 'HR Staff'), async (req
                 const target = Number(d.target_headcount) || 0;
                 const resign = Number(d.resignation_count) || 0;
                 const mat = Number(d.maternity_count) || 0;
-                const curr = Number(d.current_headcount) || 0;
+                const curr = d.position_id ? (posCountMap[d.position_id] || 0) : (Number(d.current_headcount) || 0);
                 const needed = Math.max(0, target - curr + resign + mat);
 
                 await run(

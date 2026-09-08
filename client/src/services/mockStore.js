@@ -437,6 +437,129 @@ const cascadeDepartmentNameUpdate = (deptId, oldName, newName) => {
     setStorageItem('users', updatedUser);
 };
 
+const mockDate = (daysFromToday = 0) => {
+    const date = new Date();
+    date.setDate(date.getDate() + daysFromToday);
+    return `${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')}/${date.getFullYear()}`;
+};
+
+const mockBirthday = (age, daysFromToday = 0) => {
+    const date = new Date();
+    date.setDate(date.getDate() + daysFromToday);
+    date.setFullYear(date.getFullYear() - age);
+    return `${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')}/${date.getFullYear()}`;
+};
+
+const REPORT_MOCK_VALUES = {
+    rec_result: [
+        ['KHTD/2026-001', 'Tuyển kỹ sư Cloud Quý IV', 3, 45000000, 18, 6, 3, 2],
+        ['KHTD/2026-002', 'Mở rộng kinh doanh miền Bắc', 2, 30000000, 24, 8, 4, 3]
+    ],
+    rec_efficiency: [
+        ['LinkedIn', 4, 36, 18, 12, 4, 12000000, 3000000],
+        ['Giới thiệu nội bộ', 3, 21, 15, 9, 5, 2500000, 500000]
+    ],
+    rec_source_quality: [
+        ['Giới thiệu nội bộ', '86%', 8.6, '92%', 'Rất tốt'],
+        ['LinkedIn', '78%', 8.1, '85%', 'Tốt']
+    ],
+    rec_candidates_interview: [
+        ['UV-2026-001', 'Lê Bảo Trâm', 'Kỹ sư Cloud và Hạ tầng', 'Vòng chuyên môn', mockDate(-1), 'Hoàng Trọng Nghĩa', 'Đạt'],
+        ['UV-2026-002', 'Vũ Minh Khôi', 'Nhân viên Kinh doanh', 'Vòng 1', mockDate(-4), 'Phạm Quốc Tuấn', 'Chờ đánh giá']
+    ],
+    rec_candidates_offer: [
+        ['UV-2026-002', 'Vũ Minh Khôi', 'Nhân viên Kinh doanh', 'OFF/2026-002', 18000000, mockDate(7), 'Đã chấp nhận'],
+        ['UV-2026-001', 'Lê Bảo Trâm', 'Kỹ sư Cloud và Hạ tầng', 'OFF/2026-001', 22000000, mockDate(12), 'Chờ phản hồi']
+    ],
+    rec_candidates_hired: [
+        ['UV-2025-018', 'NV-2026-031', 'Nguyễn Minh Anh', 'Phòng Hành chính Nhân sự', 'Chuyên viên C&B', mockDate(-2), 'Trần Thị Thu Hà', 'Đang làm việc'],
+        ['UV-2026-002', 'NV-2026-032', 'Vũ Minh Khôi', 'Khối Kinh doanh ERP', 'Nhân viên Kinh doanh', mockDate(-5), 'Phạm Quốc Tuấn', 'Đã tiếp nhận']
+    ],
+    hr_turnover: [
+        ['01/2026', 68, 3, 1, 70, '1.43%'],
+        ['02/2026', 70, 2, 0, 72, '0.00%']
+    ],
+    hr_summary: [
+        ['PHR', 'Phòng Hành chính Nhân sự', 8, 3, 5, 7, 1],
+        ['PKD', 'Khối Kinh doanh ERP', 18, 11, 7, 15, 2],
+        ['CLOUD', 'Khối Kỹ thuật Phần mềm', 7, 6, 1, 6, 1]
+    ],
+    hr_contracts: [
+        ['NV-2024-005', 'Nguyễn Thùy Linh', 'Phòng Hành chính Nhân sự', 'Nhân viên Nhân sự', 'HDLD/2026/001', 'Xác định thời hạn 12 tháng', '15/01/2026', '15/01/2026', 'Đang hiệu lực'],
+        ['NV-2024-027', 'Phạm Quốc Tuấn', 'Khối Kinh doanh ERP', 'Trưởng phòng', 'HDLD/2025/014', 'Không xác định thời hạn', '01/04/2025', '01/04/2025', 'Đang hiệu lực']
+    ],
+    hr_seniority: [
+        ['NV-2024-005', 'Nguyễn Thùy Linh', 'Phòng Hành chính Nhân sự', 'Nhân viên Nhân sự', '15/03/2024', '2 năm 5 tháng', 'Từ 1 đến 3 năm'],
+        ['NV-2024-027', 'Phạm Quốc Tuấn', 'Khối Kinh doanh ERP', 'Trưởng phòng', '01/04/2023', '3 năm 4 tháng', 'Từ 3 đến 5 năm']
+    ],
+    hr_birthdays: [
+        ['NV-2024-005', 'Nguyễn Thùy Linh', 'Phòng Hành chính Nhân sự', 'Nhân viên Nhân sự', mockBirthday(30, -1), '0966123456', 'linh.nt@bravo.com.vn'],
+        ['NV-2024-100', 'Đặng Việt Dũng', 'Khối Kỹ thuật Phần mềm', 'Kỹ sư Cloud', mockBirthday(32, -4), '0966554433', 'dung.dv@bravo.com.vn']
+    ],
+    hr_contract_terminated: [
+        ['NV-2023-014', 'Lê Hoàng Nam', 'Khối Kinh doanh ERP', 'Chuyên viên kinh doanh', mockDate(-6), 'Thỏa thuận chấm dứt', 'Đã bàn giao'],
+        ['NV-2022-008', 'Phạm Thị Mai', 'Phòng Hành chính Nhân sự', 'Chuyên viên tuyển dụng', mockDate(-2), 'Hết hạn hợp đồng', 'Đang đối soát']
+    ],
+    hr_resigned: [
+        ['NV-2023-014', 'Lê Hoàng Nam', 'Khối Kinh doanh ERP', 'Chuyên viên kinh doanh', mockDate(-6), 'Thay đổi định hướng cá nhân', 'Đã hoàn tất'],
+        ['NV-2022-008', 'Phạm Thị Mai', 'Phòng Hành chính Nhân sự', 'Chuyên viên tuyển dụng', mockDate(-2), 'Lý do gia đình', 'Đã hoàn tất']
+    ],
+    hr_asof_date: [
+        ['Phòng Hành chính Nhân sự', 7, 1, 1, 8],
+        ['Khối Kinh doanh ERP', 16, 2, 2, 20],
+        ['Khối Kỹ thuật Phần mềm', 6, 1, 1, 10]
+    ],
+    eval_detail: [
+        [1, 'KPI', 'Hoàn thành chỉ tiêu công việc', 9, 9.5, '40%', 9.3, 'Vượt mục tiêu'],
+        [2, 'TEAMWORK', 'Phối hợp đội nhóm', 9, 9, '20%', 9, 'Đáp ứng tốt']
+    ],
+    eval_summary: [
+        ['NV-2024-005', 'Nguyễn Thùy Linh', 'Phòng Hành chính Nhân sự', 'Năm 2026', 9.1, 9.2, 'Loại A - Xuất sắc', 1],
+        ['NV-2024-027', 'Phạm Quốc Tuấn', 'Khối Kinh doanh ERP', 'Năm 2026', 8.7, 8.9, 'Loại A - Xuất sắc', 2]
+    ],
+    eval_ranking: [
+        ['A - Xuất sắc', 'Điểm từ 9.0 đến 10', 12, '24%', 5000000],
+        ['B - Tốt', 'Điểm từ 7.0 đến dưới 9.0', 31, '62%', 2500000],
+        ['C - Đạt', 'Điểm từ 5.0 đến dưới 7.0', 7, '14%', 0]
+    ],
+    eval_reward_discipline: [
+        ['QDKT/2026-001', 'Thưởng vượt chỉ tiêu', 'NV-2024-005', 'Nguyễn Thùy Linh', 'Phòng Hành chính Nhân sự', 'Khen thưởng', 5000000, mockDate(-3), 'Hoàn thành vượt chỉ tiêu tuyển dụng'],
+        ['QDKL/2026-001', 'Nhắc nhở quy trình', 'NV-2024-100', 'Đặng Việt Dũng', 'Khối Kỹ thuật Phần mềm', 'Kỷ luật', 0, mockDate(-1), 'Chậm cập nhật biên bản vận hành']
+    ]
+};
+
+const REPORTS_WITH_DEPARTMENT_FILTER = new Set([
+    'rec_candidates_hired',
+    'hr_summary',
+    'hr_contracts',
+    'hr_seniority',
+    'hr_birthdays',
+    'hr_contract_terminated',
+    'hr_resigned',
+    'hr_asof_date',
+    'eval_summary',
+    'eval_reward_discipline'
+]);
+
+const reportMockResponse = (body = {}) => {
+    const reportId = body.reportId || 'hr_summary';
+    const filters = body.filters || {};
+    const department = filters.department;
+    let rows = REPORT_MOCK_VALUES[reportId] || [];
+
+    if (department && department !== 'ALL' && REPORTS_WITH_DEPARTMENT_FILTER.has(reportId)) {
+        rows = rows.filter((row) => row.some((value) => String(value).toLowerCase().includes(String(department).toLowerCase())));
+    }
+
+    return {
+        success: true,
+        reportId,
+        filters,
+        data: rows.map((values) => Object.fromEntries(values.map((value, index) => [`column_${index}`, value]))),
+        summary: { total: rows.length, mock: true }
+    };
+};
+
 export const getMockResponse = (method, endpoint, body) => {
     console.warn(`[BRAVO HRM Unified Store] Action: ${method} ${endpoint}`);
 
@@ -949,17 +1072,7 @@ export const getMockResponse = (method, endpoint, body) => {
     }
 
     if (endpoint === '/reports/query' && method === 'POST') {
-        const reportId = body?.reportId || 'hr_summary';
-        return {
-            success: true,
-            reportId,
-            filters: body?.filters || {},
-            data: [
-                { id: 1, code: 'NV-2026-001', name: 'Nguyễn Văn Admin', dept: 'Khối Kỹ thuật', val1: '9.2', val2: '9.5', result: 'A+ (Xuất sắc)' },
-                { id: 2, code: 'NV-2026-002', name: 'Trần Thị Trưởng Phòng', dept: 'Phòng Nhân sự', val1: '9.0', val2: '9.2', result: 'A (Xuất sắc)' }
-            ],
-            summary: { total: 2, mock: true }
-        };
+        return reportMockResponse(body);
     }
 
     // Fallback for everything else

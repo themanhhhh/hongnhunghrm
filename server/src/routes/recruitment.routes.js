@@ -58,6 +58,38 @@ async function replaceCandidateAttachments(candidateId, rawAttachments, now) {
     }
 }
 
+async function validateRequestQuota({ department_id, position_id, quota_id, quantity, is_outside_headcount }) {
+    const position = await queryOne('SELECT position_id FROM Position WHERE position_id = ? AND department_id = ?', [position_id, department_id]);
+    if (!position) return 'Vị trí tuyển dụng không thuộc bộ phận đã chọn.';
+    if (Number(is_outside_headcount) === 1) return null;
+    if (!quota_id) return 'Yêu cầu trong định biên bắt buộc phải chọn phiếu định biên.';
+
+    const quota = await queryOne(
+        'SELECT quota_id, department_id, target_headcount FROM DepartmentQuota WHERE quota_id = ?',
+        [quota_id]
+    );
+    if (!quota) return 'Phiếu định biên không tồn tại.';
+    if (quota.department_id !== department_id) return 'Phiếu định biên không thuộc bộ phận đã chọn.';
+
+    const detail = await queryOne(
+        `SELECT target_headcount, resignation_count, maternity_count
+         FROM DepartmentQuotaDetail WHERE quota_id = ? AND position_id = ?`,
+        [quota_id, position_id]
+    );
+    const current = await queryOne(
+        `SELECT COUNT(*) as count FROM Employee
+         WHERE department_id = ? AND position_id = ? AND is_active = 1 AND employment_status = 'WORKING'`,
+        [department_id, position_id]
+    );
+    const target = Number(detail?.target_headcount ?? quota.target_headcount) || 0;
+    const movement = Number(detail?.resignation_count ?? 0) + Number(detail?.maternity_count ?? 0);
+    const currentCount = Number(current?.count) || 0;
+    if (currentCount + (Number(quantity) || 0) - movement > target) {
+        return 'Số lượng tuyển vượt định biên. Không thể lưu phiếu trong định biên.';
+    }
+    return null;
+}
+
 // --- 1. YÊU CẦU TUYỂN DỤNG ---
 router.get('/requests', async (req, res) => {
     let sql = `
@@ -92,6 +124,8 @@ router.post('/requests', authorizeRole('Administrator', 'HR Staff', 'Trưởng K
 
         const reqCreatedDate = created_date ? (typeof created_date === 'number' ? created_date : new Date(created_date).getTime()) : now;
         const expDate = expected_date ? (typeof expected_date === 'number' ? expected_date : new Date(expected_date).getTime()) : now + 30 * 86400000;
+        const quotaError = await validateRequestQuota({ department_id, position_id, quota_id, quantity, is_outside_headcount });
+        if (quotaError) return res.status(400).json({ success: false, message: quotaError });
 
         await run(
             `INSERT INTO RecruitmentRequest (recruitment_request_id, created_date, last_modified_date, request_code, department_id, position_id, quota_id, requested_by, quantity, reason, expected_date, priority, status, is_outside_headcount, note)
@@ -110,6 +144,8 @@ router.put('/requests/:id', authorizeRole('Administrator', 'HR Staff', 'Trưởn
         const { request_code, created_date, department_id, position_id, quota_id, requested_by, quantity, reason, expected_date, priority, is_outside_headcount, note, status } = req.body;
         const now = Date.now();
         const expDate = expected_date ? (typeof expected_date === 'number' ? expected_date : new Date(expected_date).getTime()) : now + 30 * 86400000;
+        const quotaError = await validateRequestQuota({ department_id, position_id, quota_id, quantity, is_outside_headcount });
+        if (quotaError) return res.status(400).json({ success: false, message: quotaError });
 
         let sql = `UPDATE RecruitmentRequest SET department_id = ?, position_id = ?, quota_id = ?, requested_by = ?, quantity = ?, reason = ?, expected_date = ?, priority = ?, is_outside_headcount = ?, note = ?, last_modified_date = ?`;
         let params = [department_id, position_id, quota_id || null, requested_by || null, Number(quantity) || 1, reason || '', expDate, priority || 'MEDIUM', Number(is_outside_headcount) || 0, note || '', now];
@@ -431,6 +467,15 @@ router.post('/pre-screenings', authorizeRole('Administrator', 'HR Staff'), async
             position_id, department_id, screening_date, level_score, screening_result, comment, criteria
         } = req.body;
 
+        const candidate = await queryOne(`SELECT candidate_id FROM Candidate WHERE candidate_id = ?`, [candidate_id]);
+        if (!candidate) {
+            return res.status(404).json({ success: false, message: 'Không tìm thấy ứng viên.' });
+        }
+        const existing = await queryOne(`SELECT pre_screening_id FROM PreScreening WHERE candidate_id = ?`, [candidate_id]);
+        if (existing) {
+            return res.status(400).json({ success: false, message: 'Ứng viên này đã có Phiếu Sơ loại.' });
+        }
+
         const now = Date.now();
         const id = crypto.randomUUID();
         const countRow = await queryOne(`SELECT COUNT(*) as count FROM PreScreening`);
@@ -463,6 +508,12 @@ router.post('/pre-screenings', authorizeRole('Administrator', 'HR Staff'), async
                 );
             }
         }
+
+        await run(`UPDATE Candidate SET status = ?, last_modified_date = ? WHERE candidate_id = ?`, [
+            String(screening_result || '').trim().toUpperCase() === 'ĐẠT' ? 'Đã sơ loại, Đạt' : 'Đã sơ loại, Không đạt',
+            now,
+            candidate_id,
+        ]);
 
         res.json({ success: true, message: 'Tạo Phiếu Sơ loại ứng viên thành công!' });
     } catch (error) {
@@ -507,6 +558,12 @@ router.put('/pre-screenings/:id', authorizeRole('Administrator', 'HR Staff'), as
             }
         }
 
+        await run(`UPDATE Candidate SET status = ?, last_modified_date = ? WHERE candidate_id = ?`, [
+            String(screening_result || '').trim().toUpperCase() === 'ĐẠT' ? 'Đã sơ loại, Đạt' : 'Đã sơ loại, Không đạt',
+            now,
+            candidate_id,
+        ]);
+
         res.json({ success: true, message: 'Cập nhật Phiếu Sơ loại ứng viên thành công!' });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
@@ -515,8 +572,12 @@ router.put('/pre-screenings/:id', authorizeRole('Administrator', 'HR Staff'), as
 
 router.delete('/pre-screenings/:id', authorizeRole('Administrator', 'HR Staff'), async (req, res) => {
     try {
+        const screening = await queryOne(`SELECT candidate_id FROM PreScreening WHERE pre_screening_id = ?`, [req.params.id]);
         await run(`DELETE FROM PreScreeningCriteria WHERE pre_screening_id = ?`, [req.params.id]);
         await run(`DELETE FROM PreScreening WHERE pre_screening_id = ?`, [req.params.id]);
+        if (screening?.candidate_id) {
+            await run(`UPDATE Candidate SET status = N'Đã tiếp nhận hồ sơ', last_modified_date = ? WHERE candidate_id = ? AND NOT EXISTS (SELECT 1 FROM PreScreening WHERE candidate_id = ?)`, [Date.now(), screening.candidate_id, screening.candidate_id]);
+        }
         res.json({ success: true, message: 'Đã xóa Phiếu Sơ loại thành công!' });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
@@ -1041,7 +1102,12 @@ router.post('/convert-to-employee', authorizeRole('Administrator', 'HR Staff'), 
         const { candidate_id } = req.body;
         const now = Date.now();
 
-        const candidate = await queryOne(`SELECT c.*, req.department_id, req.position_id FROM Candidate c JOIN RecruitmentPlan pl ON c.recruitment_plan_id = pl.recruitment_plan_id JOIN RecruitmentRequest req ON pl.recruitment_request_id = req.recruitment_request_id WHERE c.candidate_id = ?`, [candidate_id]);
+        const candidate = await queryOne(`SELECT c.*, COALESCE(req_plan.department_id, req_direct.department_id) AS department_id, COALESCE(req_plan.position_id, req_direct.position_id) AS position_id
+             FROM Candidate c
+             LEFT JOIN RecruitmentPlan pl ON c.recruitment_plan_id = pl.recruitment_plan_id
+             LEFT JOIN RecruitmentRequest req_plan ON pl.recruitment_request_id = req_plan.recruitment_request_id
+             LEFT JOIN RecruitmentRequest req_direct ON c.recruitment_request_id = req_direct.recruitment_request_id
+             WHERE c.candidate_id = ?`, [candidate_id]);
         if (!candidate) {
             return res.status(404).json({ success: false, message: 'Không tìm thấy thông tin ứng viên.' });
         }
