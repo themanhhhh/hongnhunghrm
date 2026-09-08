@@ -30,6 +30,7 @@ type ReportFilters = {
   startDate: string;
   endDate: string;
   department: string;
+  position: string;
   period: string;
 };
 
@@ -48,13 +49,15 @@ function lastWeekFilters(): ReportFilters {
     startDate: formatDateInput(start),
     endDate: formatDateInput(end),
     department: "ALL",
+    position: "ALL",
     period: "7 ngày gần nhất",
   };
 }
 
 const initialFilters: ReportFilters = {
-  ...lastWeekFilters(),
-  department: "ALL",
+    ...lastWeekFilters(),
+    department: "ALL",
+    position: "ALL",
 };
 
 const fallbackDepartments = [
@@ -66,7 +69,7 @@ const fallbackDepartments = [
 
 function filtersForPeriod(period: string, current: ReportFilters) {
   if (period === "7 ngày gần nhất")
-    return { ...lastWeekFilters(), department: current.department };
+    return { ...lastWeekFilters(), department: current.department, position: current.position };
   if (period === "Quý I/2026")
     return {
       ...current,
@@ -127,6 +130,7 @@ function ReportPaper({
 }) {
   const displayRows = preview ? Array.from({ length: 7 }, () => null) : rows;
   const department = filters.department === "ALL" ? "Toàn công ty" : filters.department;
+  const position = filters.position === "ALL" ? "Tất cả vị trí" : filters.position;
 
   return (
     <div className="legacy-a4-preview-paper">
@@ -156,6 +160,7 @@ function ReportPaper({
               <div>• Từ ngày: {filters.startDate}</div>
               <div>• Đến ngày: {filters.endDate}</div>
               <div>• Phòng ban: {department}</div>
+              <div>• Vị trí: {position}</div>
               <div>• Số bản ghi: {rows.length}</div>
             </>
           )}
@@ -216,6 +221,10 @@ export function ReportsWorkspace() {
     queryKey: ["report-departments"],
     queryFn: () => api.list("/reports/departments", { resource: "reports" }),
   });
+  const positionsQuery = useQuery({
+    queryKey: ["report-positions"],
+    queryFn: () => api.list("/reports/positions", { resource: "reports" }),
+  });
   const reportMutation = useMutation({
     mutationFn: () => api.queryReport(selectedReport.id, filters),
     onSuccess: () => setHasRun(true),
@@ -225,6 +234,10 @@ export function ReportsWorkspace() {
     departmentsQuery.data
       ?.map((item) => String(item.department_name ?? ""))
       .filter(Boolean) ?? fallbackDepartments;
+  const positions =
+    positionsQuery.data
+      ?.map((item) => String(item.position_name ?? ""))
+      .filter(Boolean) ?? [];
 
   const chooseReport = (report: ReportDefinition) => {
     setSelectedReport(report);
@@ -407,7 +420,7 @@ export function ReportsWorkspace() {
                 </Button>
               </div>
               {showFilters && (
-                <div className="mt-5 grid gap-3 border-t border-slate-100 pt-5 md:grid-cols-2 xl:grid-cols-4">
+                <div className="mt-5 grid gap-3 border-t border-slate-100 pt-5 md:grid-cols-2 xl:grid-cols-5">
                   <label className="text-xs font-bold text-slate-600">
                     Từ ngày
                     <Input
@@ -421,6 +434,26 @@ export function ReportsWorkspace() {
                         }))
                       }
                     />
+                  </label>
+                  <label className="text-xs font-bold text-slate-600">
+                    Vị trí
+                    <select
+                      className="mt-1.5 h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-normal outline-none focus:border-teal-500"
+                      value={filters.position}
+                      onChange={(event) =>
+                        setFilters((current) => ({
+                          ...current,
+                          position: event.target.value,
+                        }))
+                      }
+                    >
+                      <option value="ALL">Tất cả vị trí</option>
+                      {positions.map((position) => (
+                        <option key={position} value={position}>
+                          {position}
+                        </option>
+                      ))}
+                    </select>
                   </label>
                   <label className="text-xs font-bold text-slate-600">
                     Đến ngày
@@ -510,6 +543,7 @@ export function ReportsWorkspace() {
                 <div className="legacy-filter-banner">
                   <span>🗓 <b>Thời gian:</b> {filters.startDate} đến {filters.endDate}</span>
                   <span>🏢 <b>Phòng ban:</b> {filters.department === "ALL" ? "Toàn công ty" : filters.department}</span>
+                  <span>💼 <b>Vị trí:</b> {filters.position === "ALL" ? "Tất cả vị trí" : filters.position}</span>
                   <span>📊 <b>Số bản ghi:</b> {reportData?.data?.length ?? 0} kết quả</span>
                 </div>
                 <ReportPaper report={selectedReport} filters={filters} rows={reportData?.data ?? []} />

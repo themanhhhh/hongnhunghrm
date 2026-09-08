@@ -233,6 +233,29 @@ export function mockUploadEmployeeAvatar(employeeId: string, file: File) {
 function mockReportResult(reportId: string, filters: Record<string, string>) {
   const definition = reportDefinitions.find((item) => item.id === reportId);
   if (!definition) return { success: false, message: "Không tìm thấy mẫu báo cáo." };
+  if (reportId === "rec_result") {
+    const store = loadStore();
+    const start = filters.startDate ? new Date(filters.startDate).getTime() : 0;
+    const end = filters.endDate ? new Date(filters.endDate).getTime() + 86399999 : Number.POSITIVE_INFINITY;
+    const grouped = new Map<string, { department_name: string; position_name: string; required_quantity: number; hired_quantity: number }>();
+    store["/recruitment/requests"].filter((request) => {
+      const date = new Date(String(request.created_date ?? "")).getTime();
+      return (!Number.isNaN(date) && date >= start && date <= end) || request.created_date === undefined;
+    }).forEach((request) => {
+      const department = String(request.department_name ?? "");
+      const position = String(request.position_name ?? "");
+      if (filters.department && filters.department !== "ALL" && department !== filters.department) return;
+      if (filters.position && filters.position !== "ALL" && position !== filters.position) return;
+      const key = `${request.department_id ?? department}|${request.position_id ?? position}`;
+      const current = grouped.get(key) ?? { department_name: department, position_name: position, required_quantity: 0, hired_quantity: 0 };
+      current.required_quantity += Number(request.quantity ?? 0);
+      const hired = store["/recruitment/candidates"].filter((candidate) => String(candidate.recruitment_request_id) === String(request.recruitment_request_id) && (candidate.status === "HIRED" || store["/hr/employees"].some((employee) => String(employee.candidate_id) === String(candidate.candidate_id) && employee.employment_status === "WORKING"))).length;
+      current.hired_quantity += hired;
+      grouped.set(key, current);
+    });
+    const data = Array.from(grouped.values()).map((row) => ({ ...row, remaining_quantity: Math.max(0, row.required_quantity - row.hired_quantity) }));
+    return { success: true, reportId, filters, data, summary: { totalRequired: data.reduce((sum, row) => sum + row.required_quantity, 0), totalHired: data.reduce((sum, row) => sum + row.hired_quantity, 0), totalRemaining: data.reduce((sum, row) => sum + row.remaining_quantity, 0), total: data.length, mock: true } };
+  }
   const makeRow = (index: number) => Object.fromEntries(
     definition.columns.map((column) => {
       if (column.key.includes("date") || column.key.includes("_date") || column.key === "dob" || column.key === "join_date") return [column.key, filters.startDate || "2026-01-01"] as const;

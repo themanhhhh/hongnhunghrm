@@ -21,14 +21,20 @@ const parseReportDate = (value) => {
 
 const applyReportFilters = (rows, filters = {}) => {
     const department = String(filters.department || 'ALL');
+    const position = String(filters.position || 'ALL');
     const startDate = parseReportDate(filters.startDate);
     const endDate = parseReportDate(filters.endDate);
     const departmentKeys = ['department_name', 'dept_name', 'department', 'deptName'];
+    const positionKeys = ['position_name', 'position', 'apply_position'];
     const dateKeys = ['date', 'period_start', 'decision_date', 'effective_date', 'evaluation_date', 'interview_date', 'start_date', 'end_date', 'sign_date', 'join_date', 'onboard_date', 'resign_date', 'dob'];
     return rows.filter((row) => {
         if (department !== 'ALL') {
             const value = departmentKeys.map((key) => row[key]).find(Boolean);
-            if (value && String(value) !== department) return false;
+            if (!value || String(value) !== department) return false;
+        }
+        if (position !== 'ALL') {
+            const value = positionKeys.map((key) => row[key]).find(Boolean);
+            if (!value || String(value) !== position) return false;
         }
         const dateKey = dateKeys.find((key) => row[key] !== null && row[key] !== undefined && row[key] !== '');
         const dateValue = dateKey ? parseReportDate(row[dateKey]) : null;
@@ -111,6 +117,15 @@ router.get('/departments', async (req, res) => {
     try {
         const departments = await query(`SELECT department_id, department_code, department_name FROM Department WHERE status = 1 ORDER BY department_code, department_name`);
         res.json({ success: true, data: departments });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+router.get('/positions', async (req, res) => {
+    try {
+        const positions = await query(`SELECT position_id, position_code, position_name FROM Position WHERE status = 1 ORDER BY position_code, position_name`);
+        res.json({ success: true, data: positions });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }
@@ -557,23 +572,37 @@ router.post('/query', async (req, res) => {
         switch (reportId) {
             // 1. RECRUITMENT REPORTS
             case 'rec_result': // Báo cáo kết quả tuyển dụng
-                rows = await query(
-                    `SELECT rr.request_code as plan_code, pl.plan_name, rr.quantity as target_quantity, pl.budget,
-                  d.department_name as dept_name, pl.start_date as period_start, pl.end_date as period_end,
-                  COUNT(DISTINCT c.candidate_id) as applicant_count,
-                  COUNT(DISTINCT CASE WHEN i.result = 'PASSED' THEN c.candidate_id END) as passed_pv_count,
-                  COUNT(DISTINCT o.candidate_id) as offer_count,
-                  COUNT(DISTINCT CASE WHEN c.status = 'HIRED' THEN c.candidate_id END) as hired_count
-            FROM RecruitmentPlan pl
-            JOIN RecruitmentRequest rr ON pl.recruitment_request_id = rr.recruitment_request_id
-            LEFT JOIN Department d ON d.department_id = rr.department_id
-           LEFT JOIN Candidate c ON pl.recruitment_plan_id = c.recruitment_plan_id
-           LEFT JOIN Interview i ON i.candidate_id = c.candidate_id
-           LEFT JOIN Offer o ON o.candidate_id = c.candidate_id
-           WHERE pl.status IN ('IN_PROGRESS', 'COMPLETED', 'ACTIVE')
-            GROUP BY pl.recruitment_plan_id, rr.request_code, pl.plan_name, rr.quantity, pl.budget, d.department_name, pl.start_date, pl.end_date`
-                );
-                summary = { totalTarget: rows.reduce((sum, row) => sum + Number(row.target_quantity || 0), 0), totalApplicants: rows.reduce((sum, row) => sum + Number(row.applicant_count || 0), 0), totalHired: rows.reduce((sum, row) => sum + Number(row.hired_count || 0), 0) };
+                {
+                    const startDate = parseReportDate(filters.startDate) ?? 0;
+                    const endDate = (parseReportDate(filters.endDate) ?? Date.now()) + 86399999;
+                    rows = await query(
+                        `WITH RequestBase AS (
+                            SELECT rr.recruitment_request_id, rr.department_id, rr.position_id, rr.quantity, rr.created_date
+                            FROM RecruitmentRequest rr
+                            WHERE rr.created_date >= ? AND rr.created_date <= ?
+                        ), HiredByRequest AS (
+                            SELECT COALESCE(c.recruitment_request_id, pl.recruitment_request_id) as recruitment_request_id,
+                                   COUNT(DISTINCT c.candidate_id) as hired_quantity
+                            FROM Candidate c
+                            LEFT JOIN RecruitmentPlan pl ON pl.recruitment_plan_id = c.recruitment_plan_id
+                            JOIN Employee e ON e.candidate_id = c.candidate_id
+                            WHERE c.status = 'HIRED' AND e.is_active = 1 AND e.employment_status = 'WORKING'
+                            GROUP BY COALESCE(c.recruitment_request_id, pl.recruitment_request_id)
+                        )
+                        SELECT d.department_name, p.position_name,
+                               SUM(rb.quantity) as required_quantity,
+                               SUM(COALESCE(hr.hired_quantity, 0)) as hired_quantity,
+                               MIN(rb.created_date) as period_start
+                        FROM RequestBase rb
+                        LEFT JOIN Department d ON d.department_id = rb.department_id
+                        LEFT JOIN Position p ON p.position_id = rb.position_id
+                        LEFT JOIN HiredByRequest hr ON hr.recruitment_request_id = rb.recruitment_request_id
+                        GROUP BY rb.department_id, rb.position_id, d.department_name, p.position_name
+                        ORDER BY d.department_name, p.position_name`,
+                        [startDate, endDate]
+                    ).map((row) => ({ ...row, remaining_quantity: Math.max(0, Number(row.required_quantity || 0) - Number(row.hired_quantity || 0)) }));
+                    summary = { totalRequired: rows.reduce((sum, row) => sum + Number(row.required_quantity || 0), 0), totalHired: rows.reduce((sum, row) => sum + Number(row.hired_quantity || 0), 0), totalRemaining: rows.reduce((sum, row) => sum + Number(row.remaining_quantity || 0), 0) };
+                }
                 break;
 
             case 'rec_efficiency': // Hiệu quả tuyển dụng theo tin theo nguồn

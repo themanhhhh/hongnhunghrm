@@ -26,15 +26,12 @@ export const reportGroups: ReportGroup[] = [
     title: "Báo cáo tuyển dụng",
     reports: [
       report("rec_result", "Báo cáo kết quả tuyển dụng", [
-        { key: "plan_code", label: "Mã KHTD" },
-        { key: "plan_name", label: "Tên kế hoạch tuyển dụng" },
-        { key: "target_quantity", label: "Chỉ tiêu (Người)" },
-        { key: "budget", label: "Ngân sách (VNĐ)" },
-        { key: "applicant_count", label: "Tổng CV nhận" },
-        { key: "passed_pv_count", label: "Đạt phỏng vấn" },
-        { key: "offer_count", label: "Nhận Offer" },
-        { key: "hired_count", label: "Đã đi làm" },
-      ], ["Từ ngày: 01/01/2026", "Đến ngày: 31/12/2026", "Đợt tuyển dụng: Tất cả"]),
+        { key: "department_name", label: "Bộ phận" },
+        { key: "position_name", label: "Vị trí" },
+        { key: "required_quantity", label: "Số lượng cần tuyển" },
+        { key: "hired_quantity", label: "Số lượng đã tuyển" },
+        { key: "remaining_quantity", label: "Còn thiếu" },
+      ], ["Thời gian: Tùy chọn", "Bộ phận: Tất cả", "Vị trí: Tất cả"]),
       report("rec_efficiency", "Hiệu quả tuyển dụng theo tin theo nguồn", [
         { key: "source_name", label: "Nguồn tuyển dụng" },
         { key: "post_count", label: "Số tin đăng" },

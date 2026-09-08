@@ -512,6 +512,47 @@ function QuotaDetail({ row }: { row: Row }) {
   );
 }
 
+function DetailGrid({ items }: { items: Array<[string, unknown, string?]> }) {
+  return <div className="grid gap-3 sm:grid-cols-2">{items.map(([label, value, key]) => <div key={label} className="rounded-xl border border-slate-100 bg-slate-50/70 p-3"><div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{label}</div><div className="mt-1 break-words text-sm text-slate-700">{displayCell(key ?? "", value)}</div></div>)}</div>;
+}
+
+function DetailTable({ columns, rows, empty = "Chưa có chi tiết." }: { columns: Array<[string, string]>; rows: Array<Record<string, unknown>>; empty?: string }) {
+  return <div className="overflow-x-auto rounded-xl border border-slate-100"><table className="w-full min-w-[760px] text-left text-xs"><thead className="bg-slate-50 text-[10px] uppercase tracking-wider text-slate-400"><tr>{columns.map(([key, label]) => <th key={key} className="px-3 py-3 font-bold">{label}</th>)}</tr></thead><tbody className="divide-y divide-slate-100">{rows.length ? rows.map((row, index) => <tr key={String(row.id ?? row.detail_id ?? index)}>{columns.map(([key]) => <td key={key} className="px-3 py-3 align-top text-slate-700">{displayCell(key, row[key])}</td>)}</tr>) : <tr><td colSpan={columns.length} className="px-3 py-8 text-center text-slate-400">{empty}</td></tr>}</tbody></table></div>;
+}
+
+function DetailSection({ title, children }: { title: string; children: React.ReactNode }) {
+  return <section><h3 className="mb-3 font-display text-sm font-bold text-slate-900">{title}</h3>{children}</section>;
+}
+
+function StructuredDetail({ name, tab, row }: { name: WorkspaceName; tab: WorkspaceTab; row: Row }) {
+  if (name === "people" && tab.id === "contracts") {
+    return <div className="space-y-5"><DetailSection title="1. Thông tin HĐLĐ"><DetailGrid items={[["Số HĐ", row.contract_no], ["Ngày HĐ", row.contract_date, "date"], ["Ngày ký chính thức", row.sign_date, "date"], ["Nhân viên", row.employee_name], ["Vị trí nhân viên", row.employee_position ?? row.position_name], ["Loại HĐLĐ", row.contract_type], ["Từ ngày", row.start_date, "date"], ["Đến ngày", row.end_date, "date"], ["Trạng thái", row.status], ["Ghi chú", row.note]]} /></DetailSection><DetailSection title="2. Thông tin lương"><DetailGrid items={[["Lương cơ bản", row.base_salary], ["Lương đóng BHXH", row.social_insurance_salary], ["Mức lương hợp đồng", row.salary], ["Thang lương", row.salary_scale], ["Bậc lương", row.salary_grade], ["Có thử việc", Number(row.has_probation) ? "Có" : "Không"], ["Từ ngày thử việc", row.probation_from_date, "date"], ["Đến ngày thử việc", row.probation_to_date, "date"], ["Tỷ lệ lương thử việc", row.probation_salary_rate]]} /></DetailSection><DetailSection title="3. Phụ cấp"><DetailTable columns={[["allowance_type", "Loại phụ cấp"], ["amount", "Tiền hưởng"]]} rows={parseDetailList(row.allowance_details)} empty="Không có phụ cấp." /></DetailSection><DetailSection title="4. Phụ lục hợp đồng"><DetailTable columns={[["appendix_no", "Số phụ lục"], ["appendix_type", "Loại phụ lục"], ["effective_date", "Ngày hiệu lực"], ["description", "Nội dung"]]} rows={parseDetailList(row.appendices)} empty="Không có phụ lục hợp đồng." /></DetailSection></div>;
+  }
+  if (name === "people" && tab.id === "transfer-proposals") {
+    const details = parseDetailList(row.detail_items);
+    return <div className="space-y-5"><DetailSection title="1. Thông tin chung"><DetailGrid items={[["Số đề xuất", row.proposal_code], ["Ngày đề xuất", row.proposal_date, "date"], ["Ngày hiệu lực", row.effective_date ?? row.proposed_effective_date, "date"], ["Loại quyết định", row.decision_type], ["Người đề xuất", row.proposer_name], ["Vị trí người đề xuất", row.proposer_position], ["Bộ phận đề xuất", row.proposer_department], ["Trạng thái", row.status], ["Diễn giải", row.description], ["Ghi chú", row.note]]} /></DetailSection><DetailSection title="2. Chi tiết nhân sự"><DetailTable columns={[["employee_id", "Mã nhân viên"], ["employee_name", "Tên nhân viên"], ["current_position_name", "Vị trí hiện tại"], ["current_department_name", "Bộ phận hiện tại"], ["target_position_name", "Vị trí mới"], ["target_department_name", "Bộ phận mới"], ["note", "Ghi chú"]]} rows={details.map((detail) => ({ ...detail, employee_name: detail.employee_name ?? row.employee_name, current_position_name: detail.current_position_name ?? row.current_pos_name, current_department_name: detail.current_department_name ?? row.current_dept_name, target_position_name: detail.target_position_name ?? row.target_pos_name, target_department_name: detail.target_department_name ?? row.target_dept_name }))} /></DetailSection></div>;
+  }
+  if (name === "people" && tab.id === "transfer-decisions") {
+    const details = parseDetailList(row.detail_items);
+    return <div className="space-y-5"><DetailSection title="1. Thông tin chung"><DetailGrid items={[["Số quyết định", row.decision_number], ["Ngày", row.decision_date, "date"], ["Ngày hiệu lực", row.effective_date, "date"], ["Loại quyết định", row.decision_type], ["Người lập", row.creator_name], ["Vị trí", row.creator_position], ["Bộ phận", row.creator_department], ["Người ký", row.signed_by], ["Trạng thái", row.status], ["Diễn giải", row.description], ["Lý do", row.reason], ["Ghi chú", row.note]]} /></DetailSection><DetailSection title="2. Chi tiết nhân sự"><DetailTable columns={[["employee_id", "Mã nhân viên"], ["employee_name", "Tên nhân viên"], ["current_position_name", "Vị trí hiện tại"], ["current_department_name", "Bộ phận hiện tại"], ["target_position_name", "Vị trí mới"], ["target_department_name", "Bộ phận mới"], ["manager_name", "Quản lý trực tiếp mới"], ["note", "Ghi chú"]]} rows={details.length ? details.map((detail) => ({ ...detail, employee_name: detail.employee_name ?? row.employee_name, current_position_name: detail.current_position_name ?? row.current_pos_name, current_department_name: detail.current_department_name ?? row.current_dept_name, target_position_name: detail.target_position_name ?? row.target_pos_name, target_department_name: detail.target_department_name ?? row.target_dept_name, manager_name: detail.manager_name ?? row.manager_name })) : [{ employee_id: row.employee_id, employee_name: row.employee_name, current_position_name: row.current_pos_name, current_department_name: row.current_dept_name, target_position_name: row.target_pos_name, target_department_name: row.target_dept_name, manager_name: row.manager_name, note: row.note }]} /></DetailSection></div>;
+  }
+  if (name === "rewards" && tab.id === "evaluations") {
+    const details = parseDetailList(row.details);
+    return <div className="space-y-5"><DetailSection title="1. Thông tin chung"><DetailGrid items={[["Mã phiếu", row.evaluation_code], ["Ngày đánh giá", row.evaluation_date, "date"], ["Kỳ đánh giá", row.evaluation_quarter ? `Quý ${row.evaluation_quarter}` : "-"], ["Năm", row.year], ["Người đánh giá", row.evaluator_name], ["Nhân viên được đánh giá", row.employee_name], ["Vị trí", row.position_name], ["Bộ phận", row.department_name], ["Tổng điểm", row.total_score], ["Xếp loại", row.grade_result], ["Diễn giải", row.description]]} /></DetailSection><DetailSection title="2. Chi tiết tiêu chí"><DetailTable columns={[["criteria_code", "Mã tiêu chí"], ["criteria_name", "Tên tiêu chí"], ["score", "Quản lý đánh giá"], ["weight", "Trọng số"], ["note", "Ý kiến, đề xuất"]]} rows={details} /></DetailSection></div>;
+  }
+  if (name === "recruitment" && tab.id === "screenings") {
+    const details = parseDetailList(row.criteria);
+    return <div className="space-y-5"><DetailSection title="1. Thông tin ứng viên"><DetailGrid items={[["Mã phiếu", row.screening_code], ["Ứng viên", row.candidate_name], ["Mã ứng viên", row.candidate_code], ["Vị trí", row.position_name], ["Bộ phận", row.department_name], ["Ngày nhận hồ sơ", row.received_date, "date"], ["Trình độ văn hóa", row.culture_level], ["Trình độ chuyên môn", row.education_level], ["Trường đào tạo", row.education_school]]} /></DetailSection><DetailSection title="2. Điều kiện sơ loại"><DetailTable columns={[["criteria_type", "Loại tiêu chí"], ["required_from", "Điều kiện yêu cầu"], ["candidate_value", "Giá trị ứng viên"], ["candidate_description", "Mô tả đánh giá"], ["is_passed", "Đạt"], ["note", "Ghi chú"]]} rows={details} /></DetailSection><DetailSection title="3. Đánh giá sơ loại"><DetailGrid items={[["Ngày sơ loại", row.screening_date, "date"], ["Mức độ phù hợp", row.level_score], ["Kết quả", row.screening_result], ["Nhận xét", row.comment]]} /></DetailSection></div>;
+  }
+  if (name === "recruitment" && tab.id === "interview-evaluations") {
+    return <div className="space-y-5"><DetailSection title="1. Thông tin chung"><DetailGrid items={[["Số phiếu", row.eval_code], ["Ngày đánh giá", row.evaluation_date, "date"], ["Ứng viên", row.candidate_name], ["Lịch phỏng vấn", row.schedule_code], ["Người đánh giá", row.evaluator_name], ["Thời lượng", row.duration_minutes], ["Kết quả", row.overall_result], ["Nhận xét chung", row.overall_comment]]} /></DetailSection><DetailSection title="2. Kịch bản hỏi đáp"><DetailTable columns={[["question", "Câu hỏi"], ["expectation", "Kỳ vọng"], ["answer", "Câu trả lời"]]} rows={parseDetailList(row.script)} /></DetailSection><DetailSection title="3. Chi tiết đánh giá"><DetailTable columns={[["criteria_type", "Tiêu chí"], ["required_from", "Điều kiện đạt"], ["candidate_value", "Đánh giá ứng viên"], ["is_passed", "Đạt"], ["note", "Ghi chú"]]} rows={parseDetailList(row.criteria)} /></DetailSection><DetailSection title="4. Thông tin offer"><DetailGrid items={[["Ngày dự kiến đi làm", (row.offer as Row)?.expected_start_date, "date"], ["Lương thử việc", (row.offer as Row)?.probation_salary], ["Lương chính thức", (row.offer as Row)?.official_salary], ["Trạng thái", (row.offer as Row)?.offer_status], ["Ghi chú", (row.offer as Row)?.note]]} /></DetailSection></div>;
+  }
+  if (name === "recruitment" && tab.id === "decisions") {
+    return <div className="space-y-5"><DetailSection title="1. Quyết định tuyển dụng"><DetailGrid items={[["Số phiếu", row.decision_number], ["Ngày quyết định", row.decision_date, "date"], ["Ứng viên", row.candidate_name], ["Mã ứng viên", row.candidate_code], ["Phiếu đánh giá phỏng vấn", row.eval_code ?? row.interview_eval_id], ["Kết quả", row.result], ["Đánh giá chung", row.overall_comment], ["Lý do bị loại", row.rejection_reason], ["Trạng thái", row.status]]} /></DetailSection></div>;
+  }
+  return null;
+}
+
 function formatDateValue(value: unknown) {
   if (!value) return "";
   const date =
@@ -2069,7 +2110,6 @@ function OperationalWorkspace({
         "employees",
         "leave",
         "contract-proposals",
-        "contracts",
         "contract-extensions",
         "transfer-proposals",
         "transfer-decisions",
@@ -2111,6 +2151,14 @@ function OperationalWorkspace({
           { resource },
         );
         setShowDetail({ ...row, contract_pathway: pathway });
+        return;
+      }
+      if (tab.id === "contracts") {
+        const [contract, appendices] = await Promise.all([
+          api.list(`${tab.endpoint}/${rowId(tab, row)}`, { resource }),
+          api.list(`${tab.endpoint}/${rowId(tab, row)}/appendices`, { resource }),
+        ]);
+        if (contract[0]) setShowDetail({ ...contract[0], appendices });
         return;
       }
       const detail = await api.list(`${tab.endpoint}/${rowId(tab, row)}`, {
