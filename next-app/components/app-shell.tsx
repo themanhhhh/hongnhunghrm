@@ -47,10 +47,16 @@ const navItems: NavItem[] = [
     label: "Tuyển dụng",
     icon: BriefcaseBusiness,
     resource: "recruitment",
-    subItems: workspaceTabs.recruitment.map((item) => ({
-      id: item.id,
-      label: item.label,
-    })),
+    subItems: [
+      { id: "quota", label: "Định biên nhân sự" },
+      { id: "requests", label: "Yêu cầu tuyển dụng" },
+      { id: "candidates", label: "Hồ sơ uv" },
+      { id: "screenings", label: "Phiếu sơ loại" },
+      { id: "schedules", label: "Lập lịch" },
+      { id: "interview-evaluations", label: "Đánh giá phỏng vấn" },
+      { id: "offers", label: "Quyết định trúng tuyển" },
+      { id: "conversion", label: "Chức năng chuyển ứng viên thành nhân viên" },
+    ],
   },
   {
     href: "/people",

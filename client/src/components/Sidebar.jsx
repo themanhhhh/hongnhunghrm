@@ -50,17 +50,17 @@ export const Sidebar = ({ currentTab, setCurrentTab, activeSubTab, setActiveSubT
             items: [
                 {
                     id: 'RecruitmentModule',
-                    label: 'Quản lý tuyển dụng',
+                    label: 'Tuyển dụng',
                     icon: ClipboardList,
                     subItems: [
                         'Định biên nhân sự',
                         'Yêu cầu tuyển dụng',
-                        'Hồ sơ ứng viên',
-                        'Sơ loại',
-                        'Lịch Phỏng vấn',
+                        'Hồ sơ uv',
+                        'Phiếu sơ loại',
+                        'Lập lịch',
                         'Đánh giá phỏng vấn',
-                        'Offer',
-                        'Chuyển thành nhân viên'
+                        'Quyết định trúng tuyển',
+                        'Chức năng chuyển ứng viên thành nhân viên'
                     ]
                 },
                 {
