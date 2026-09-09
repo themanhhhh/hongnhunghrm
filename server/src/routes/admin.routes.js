@@ -390,9 +390,12 @@ router.get('/users', authorizeRole('Administrator'), async (req, res) => {
 
 router.post('/users', authorizeRole('Administrator'), async (req, res) => {
     try {
-        const { username, password, full_name, email, phone, role_id, department_id } = req.body;
-        if (!username || !full_name) {
+        const { username, password, full_name, email, phone, role_id, department_id, employee_id } = req.body;
+        if (!username?.trim() || !full_name?.trim()) {
             return res.status(400).json({ success: false, message: 'Vui lòng nhập tên đăng nhập và họ tên.' });
+        }
+        if (password && password.length < 6) {
+            return res.status(400).json({ success: false, message: 'Mật khẩu phải có ít nhất 6 ký tự.' });
         }
 
         const existing = await queryOne(`SELECT user_id FROM User WHERE username = ?`, [username]);
@@ -404,11 +407,15 @@ router.post('/users', authorizeRole('Administrator'), async (req, res) => {
         const id = crypto.randomUUID();
         const passwordHash = await bcrypt.hash(password || '123456', 10);
         const finalRole = role_id || 'role-hr';
+        const role = await queryOne(`SELECT role_id FROM Role WHERE role_id = ? AND status = 1`, [finalRole]);
+        if (!role) {
+            return res.status(400).json({ success: false, message: 'Vai trò tài khoản không hợp lệ.' });
+        }
 
         await run(
-            `INSERT INTO User (user_id, username, password_hash, full_name, email, phone, role_id, department_id, created_date, last_modified_date, status)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
-            [id, username, passwordHash, full_name, email || `${username}@bravo.com.vn`, phone || '', finalRole, department_id || null, now, now]
+            `INSERT INTO User (user_id, username, password_hash, full_name, email, phone, role_id, department_id, employee_id, created_date, last_modified_date, status)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
+            [id, username.trim(), passwordHash, full_name.trim(), email || `${username}@bravo.com.vn`, phone || '', finalRole, department_id || null, employee_id || null, now, now]
         );
 
         res.json({ success: true, message: 'Tạo tài khoản người dùng thành công!' });

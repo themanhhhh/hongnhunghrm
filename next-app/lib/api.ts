@@ -294,8 +294,8 @@ export const api = {
   },
   async admin() {
     const getList = async (path: string) => unwrap<Array<Record<string, unknown>>>(await this.request<ApiEnvelope<Array<Record<string, unknown>>>>(path, {}, { resource: "admin" })) ?? [];
-    const [users, departments, positions, contractTypes] = await Promise.all([getList("/admin/users"), getList("/admin/departments"), getList("/admin/positions"), getList("/admin/contract-types")]);
-    return { users: users.length ? users.length : 24, departments: departments.length ? departments.length : 14, positions: positions.length ? positions.length : 38, contractTypes: contractTypes.length ? contractTypes.length : 6 };
+    const [users, departments, positions, contractTypes, roles, employees] = await Promise.all([getList("/admin/users"), getList("/admin/departments"), getList("/admin/positions"), getList("/admin/contract-types"), getList("/admin/roles"), getList("/hr/employees")]);
+    return { users: users.length ? users.length : 24, departments: departments.length ? departments.length : 14, positions: positions.length ? positions.length : 38, contractTypes: contractTypes.length ? contractTypes.length : 6, userRows: users, departmentsList: departments, rolesList: roles, employeesList: employees };
   },
   async list(path: string, permission?: { resource: Resource; action?: Action }) {
     const response = await this.request<ApiEnvelope<unknown>>(path, {}, permission);

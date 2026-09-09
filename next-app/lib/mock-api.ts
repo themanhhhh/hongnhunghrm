@@ -7,6 +7,8 @@ type MockStore = Record<string, MockRow[]>;
 const MOCK_STORE_KEY = "bravo_next_mock_store";
 
 const idFields: Record<string, string> = {
+  "/admin/users": "user_id",
+  "/admin/roles": "role_id",
   "/admin/departments": "department_id",
   "/admin/positions": "position_id",
   "/admin/contract-types": "contract_type_id",
@@ -37,6 +39,20 @@ const idFields: Record<string, string> = {
 };
 
 const initialStore: MockStore = {
+  "/admin/roles": [
+    { role_id: "role-admin", role_name: "Administrator", description: "Quản trị toàn hệ thống" },
+    { role_id: "role-hr", role_name: "HR Staff", description: "Quản lý nghiệp vụ nhân sự" },
+    { role_id: "role-ceo", role_name: "Ban Giám Đốc", description: "Phê duyệt và xem báo cáo cấp cao" },
+    { role_id: "role-khoi", role_name: "Trưởng Khối", description: "Quản lý phạm vi khối" },
+    { role_id: "role-manager", role_name: "Trưởng Phòng", description: "Quản lý phạm vi phòng ban" },
+    { role_id: "role-employee", role_name: "Nhân viên", description: "Truy cập không gian cá nhân" },
+  ],
+  "/admin/users": [
+    { user_id: "usr-nhung", username: "admin", full_name: "Nguyễn Hồng Nhung", email: "hongnhung188888@gmail.com", phone: "0988666888", role_id: "role-admin", role_name: "Administrator", department_id: "", department_name: "Toàn hệ thống", status: 1, created_date: "2026-01-01" },
+    { user_id: "usr-ceo", username: "ceo", full_name: "Bùi Xuân Thức", email: "ceo@bravo.com.vn", phone: "0988111222", role_id: "role-ceo", role_name: "Ban Giám Đốc", department_id: "dept-bgd", department_name: "Ban Giám Đốc", status: 1, created_date: "2026-01-02" },
+    { user_id: "usr-mgr-kd", username: "mgr_kd", full_name: "Phạm Quốc Tuấn", email: "tuan.pq@bravo.com.vn", phone: "0977222333", role_id: "role-manager", role_name: "Trưởng Phòng", department_id: "dept-kd", department_name: "Phòng Kinh doanh", status: 1, created_date: "2026-01-03" },
+    { user_id: "usr-hr", username: "HANT", full_name: "Nguyễn Thùy Linh", email: "linh.nt@bravo.com.vn", phone: "0966123456", role_id: "role-hr", role_name: "HR Staff", department_id: "dept-hr", department_name: "Phòng Nhân sự", status: 1, created_date: "2026-01-04" },
+  ],
   "/admin/departments": [
     { department_id: "dept-hr", department_code: "PHR", department_name: "Phòng Nhân sự", parent_department_name: "-", manager_name: "Trần Thị Thu Hà", target_headcount: 8 },
     { department_id: "dept-kd", department_code: "PKD", department_name: "Phòng Kinh doanh", parent_department_name: "-", manager_name: "Phạm Quốc Tuấn", target_headcount: 20 },
@@ -279,7 +295,7 @@ function loadStore(): MockStore {
     const saved = window.localStorage.getItem(MOCK_STORE_KEY);
     if (!saved) return cloneInitialStore();
     const store = JSON.parse(saved) as MockStore;
-    for (const route of ["/hr/employees", "/hr/contracts", "/hr/work-history", "/recruitment/requests", "/recruitment/candidates", "/hr/leave-applications", "/hr/transfer-proposals", "/reward-discipline", "/reward-discipline/criteria", "/reward-discipline/evaluations", "/reward-discipline/proposals"]) {
+    for (const route of ["/admin/users", "/admin/roles", "/hr/employees", "/hr/contracts", "/hr/work-history", "/recruitment/requests", "/recruitment/candidates", "/hr/leave-applications", "/hr/transfer-proposals", "/reward-discipline", "/reward-discipline/criteria", "/reward-discipline/evaluations", "/reward-discipline/proposals"]) {
       const idField = idFields[route];
       const storedRows = store[route] ?? [];
       const seedIds = new Set((initialStore[route] ?? []).map((row) => String(row[idField] ?? "")));
@@ -548,6 +564,21 @@ export async function mockApiRequest<T>(path: string, init: RequestInit = {}, se
   }
 
   const payload = payloadFor(init);
+  if (route === "/admin/users" && method === "POST") {
+    const username = String(payload.username ?? "").trim();
+    const fullName = String(payload.full_name ?? "").trim();
+    const password = String(payload.password ?? "");
+    if (!username || !fullName) return failure("Vui lòng nhập tên đăng nhập và họ tên.") as T;
+    if (password.length < 6) return failure("Mật khẩu phải có ít nhất 6 ký tự.") as T;
+    if (rows.some((item) => String(item.username ?? "").toLowerCase() === username.toLowerCase())) return failure(`Tên đăng nhập '${username}' đã tồn tại trong hệ thống.`) as T;
+    const role = store["/admin/roles"].find((item) => String(item.role_id) === String(payload.role_id ?? "role-hr"));
+    const department = store["/admin/departments"].find((item) => String(item.department_id) === String(payload.department_id ?? ""));
+    const newUser = { ...payload, user_id: `mock-user-${Date.now()}`, username, full_name: fullName, role_id: role?.role_id ?? "role-hr", role_name: role?.role_name ?? "HR Staff", department_name: department?.department_name ?? "", status: 1, created_date: new Date().toISOString() };
+    rows.unshift(newUser);
+    store[route] = rows;
+    saveStore(store);
+    return envelope(newUser) as T;
+  }
   if (path === "/recruitment/convert-to-employee") {
     const candidate = store["/recruitment/candidates"].find((row) => row.candidate_id === payload.candidate_id);
     if (!candidate) return failure("Không tìm thấy thông tin ứng viên.") as T;
