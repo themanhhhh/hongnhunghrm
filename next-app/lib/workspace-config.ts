@@ -145,16 +145,6 @@ const peopleTabs: WorkspaceTab[] = [
     fields: [date("created_date", "Ngày lập phiếu"), date("effective_date", "Ngày áp dụng", true), text("department_id", "Mã bộ phận", undefined, true), text("creator_name", "Người lập", undefined, true), number("target_headcount", "Tổng định biên", true), number("max_capacity", "Sức chứa tối đa", true), number("current_headcount", "Số lượng hiện tại"), number("needed_headcount", "Cần tuyển"), number("budget", "Ngân sách"), select("status", "Trạng thái", [{ value: "Tạo phiếu", label: "Tạo phiếu" }, { value: "Đang duyệt", label: "Đang duyệt" }, { value: "Đã hoàn thiện", label: "Đã hoàn thiện" }, { value: "Từ chối", label: "Từ chối" }]), json("details", "Chi tiết theo vị trí (JSON)", '[{"position_id":"pos-...","position_code":"POS-...","position_name":"Vị trí công việc","target_headcount":1,"resignation_count":0,"maternity_count":0,"current_headcount":0,"needed_headcount":1,"note":""}]'), json("budget_details", "Phân rã ngân sách (JSON)", '[{"cost_type":"Đăng tin tuyển dụng","source":"TopCV","estimated_cost":5000000}]'), area("description", "Mô tả")],
   },
   {
-    id: "departments", label: "Danh mục bộ phận", endpoint: "/admin/departments", idField: "department_id",
-    columns: [{ key: "department_code", label: "Mã bộ phận" }, { key: "department_name", label: "Tên bộ phận" }, { key: "parent_department_name", label: "Bộ phận cha" }, { key: "manager_name", label: "Trưởng bộ phận" }, { key: "target_headcount", label: "Định biên" }],
-    fields: [text("department_code", "Mã bộ phận", undefined, true), text("department_name", "Tên bộ phận", undefined, true), text("parent_department_id", "Mã bộ phận cha"), text("manager_id", "Mã trưởng bộ phận"), number("target_headcount", "Định biên"), area("description", "Mô tả")],
-  },
-  {
-    id: "positions", label: "Danh mục vị trí công việc", endpoint: "/admin/positions", idField: "position_id",
-    columns: [{ key: "position_code", label: "Mã vị trí" }, { key: "position_name", label: "Tên vị trí" }, { key: "department_name", label: "Bộ phận" }, { key: "target_headcount", label: "Chỉ tiêu" }, { key: "description", label: "Mô tả" }],
-    fields: [text("position_code", "Mã vị trí", undefined, true), text("position_name", "Tên vị trí", undefined, true), text("department_id", "Mã bộ phận", undefined, true), number("target_headcount", "Chỉ tiêu nhân sự"), area("description", "Mô tả công việc")],
-  },
-  {
     id: "contract-proposals", label: "Đề xuất HĐLĐ", endpoint: "/hr/contract-proposals", idField: "proposal_id",
     columns: [{ key: "proposal_code", label: "Mã đề xuất" }, { key: "employee_name", label: "Nhân viên" }, { key: "contract_type", label: "Loại HĐLĐ" }, { key: "proposed_salary", label: "Lương đề xuất" }, { key: "status", label: "Trạng thái" }],
     fields: [text("employee_id", "Mã nhân viên", undefined, true), text("contract_type", "Loại hợp đồng", undefined, true), number("proposed_salary", "Lương đề xuất"), date("proposed_start_date", "Ngày hiệu lực"), area("reason", "Lý do")],

@@ -403,7 +403,7 @@ function DepartmentStructure({ data, config }: { data: DashboardData; config: Da
           icon={Building2}
           title="Chưa có dữ liệu đơn vị"
           description="Khai báo phòng ban và hồ sơ nhân sự để xem phân bổ tổ chức."
-          href="/people?tab=departments"
+          href="/admin?tab=departments"
           action="Mở danh mục"
         />
       ) : (

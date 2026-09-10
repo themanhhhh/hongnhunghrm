@@ -84,6 +84,11 @@ const navItems: NavItem[] = [
     label: "Quản trị hệ thống",
     icon: Settings2,
     resource: "admin",
+    subItems: [
+      { id: "users", label: "Tài khoản & Phân quyền" },
+      { id: "departments", label: "Danh mục Bộ phận" },
+      { id: "positions", label: "Danh mục Vị trí công việc" },
+    ],
   },
 ];
 
