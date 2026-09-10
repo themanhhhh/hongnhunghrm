@@ -1608,8 +1608,8 @@ function OperationalWorkspace({
       ? tabId
       : "contracts";
   const isContractWorkspace = name === "people" && contractSectionIds.includes(tabId ?? "");
-  const [contractSection, setContractSection] = useState(initialContractTab);
-  const tab = getWorkspaceTab(name, isContractWorkspace ? contractSection : tabId);
+  const contractSection = isContractWorkspace ? initialContractTab : tabId;
+  const tab = getWorkspaceTab(name, contractSection);
   const visibleTabs = employeePeople
     ? workspaceTabs[name].filter((item) =>
         ["employees", "leave"].includes(item.id),
@@ -1629,12 +1629,7 @@ function OperationalWorkspace({
   const [historyEmployeeId, setHistoryEmployeeId] = useState("");
   const queryClient = useQueryClient();
 
-  useEffect(() => {
-    if (isContractWorkspace) setContractSection(initialContractTab);
-  }, [initialContractTab, isContractWorkspace]);
-
   const selectContractSection = (nextTab: string) => {
-    setContractSection(nextTab);
     const params = new URLSearchParams(searchParams.toString());
     params.set("tab", "contracts");
     if (nextTab === "contracts") params.delete("contractTab");
