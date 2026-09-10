@@ -560,53 +560,7 @@ export function DashboardOverview() {
 
   return (
     <div className="space-y-6 lg:space-y-8">
-      <section className="relative overflow-hidden rounded-3xl bg-[#0c2429] px-6 py-7 text-white shadow-[0_18px_45px_rgba(12,36,41,0.18)] lg:px-8 lg:py-8">
-        <div className="absolute -right-20 -top-28 size-80 rounded-full border-[30px] border-teal-300/10" />
-        <div className="absolute bottom-0 right-28 size-32 rounded-t-full bg-teal-400/10" />
-        <div className="relative flex flex-col justify-between gap-6 xl:flex-row xl:items-end">
-          <div>
-            <div className="mb-3 flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.18em] text-teal-200">
-              <span className="size-1.5 rounded-full bg-teal-300" />{" "}
-              <span suppressHydrationWarning>{config.eyebrow} · {today}</span>
-            </div>
-            <h1
-              className="max-w-2xl font-display text-3xl font-bold tracking-tight lg:text-4xl"
-              suppressHydrationWarning
-            >
-              {config.title}
-            </h1>
-            <p className="mt-3 max-w-2xl text-sm leading-6 text-teal-100">
-              {welcome}, {session?.name?.split(/\s+/).at(-1) ?? "bạn"}. {config.description}
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={() => refetch()}
-              disabled={isFetching}
-              className={cn(
-                buttonVariants({ variant: "secondary" }),
-                "border-white/15 bg-white/10 text-white hover:border-teal-200 hover:bg-white/15 hover:text-white",
-              )}
-            >
-              <RefreshCw
-                size={16}
-                className={isFetching ? "animate-spin" : ""}
-              />
-              Làm mới
-            </button>
-            <Link
-              href={config.primaryAction.href}
-              className={cn(
-                buttonVariants({ size: "default" }),
-                "bg-teal-300 text-[#092027] hover:bg-teal-200",
-              )}
-            >
-              {config.primaryAction.label} <ArrowUpRight size={16} />
-            </Link>
-          </div>
-        </div>
-      </section>
+      
 
       {error && (
         <div className="flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs font-medium text-amber-800">

@@ -1447,9 +1447,7 @@ function LegacyReportsWorkspace() {
           <h1 className="font-display text-3xl font-bold tracking-tight text-slate-950">
             {data.title}
           </h1>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
-            {data.description}
-          </p>
+          
         </div>
         <Button variant="secondary" onClick={() => window.print()}>
           <Download size={16} /> In / lưu PDF
@@ -1457,16 +1455,6 @@ function LegacyReportsWorkspace() {
       </section>
       
       <Card>
-        <div className="flex gap-1 overflow-x-auto border-b border-slate-100 px-4 pt-3">
-          {data.tabs.map((item) => (
-            <button
-              key={item}
-              className="whitespace-nowrap rounded-t-lg border-b-2 border-teal-600 px-4 py-3 text-xs font-bold text-teal-700"
-            >
-              {item}
-            </button>
-          ))}
-        </div>
         <CardContent className="p-0">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 p-4">
             <div className="relative w-full max-w-sm">
@@ -2629,9 +2617,7 @@ function OperationalWorkspace({
           </h1>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button variant="secondary" onClick={() => window.print()}>
-            <Download size={16} /> In / xuất dữ liệu
-          </Button>
+          
           {canCreate && (
             <Button onClick={openCreate}>
               <Plus size={16} /> Tạo {tab.label.toLowerCase()}
@@ -2643,23 +2629,7 @@ function OperationalWorkspace({
       
 
       <Card>
-        <div className="flex gap-1 overflow-x-auto border-b border-slate-100 px-4 pt-3">
-          {visibleTabs.map((item) => (
-            <button
-              key={item.id}
-              onClick={() => {
-                setTabId(item.id);
-                setSearch("");
-                setPage(1);
-                setPopup(null);
-                setHistoryEmployeeId("");
-              }}
-              className={`whitespace-nowrap rounded-t-lg border-b-2 px-4 py-3 text-xs font-bold transition ${tab.id === item.id ? "border-teal-600 text-teal-700" : "border-transparent text-slate-400 hover:text-slate-700"}`}
-            >
-              {item.label}
-            </button>
-          ))}
-        </div>
+        
         <CardContent className="p-0">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 p-4">
             <div>

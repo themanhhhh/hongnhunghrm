@@ -317,10 +317,7 @@ export function ReportsWorkspace() {
           <h1 className="font-display text-3xl font-bold tracking-tight text-slate-950">
             Báo cáo & phân tích
           </h1>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
-            Chọn một trong 18 báo cáo để lọc, xem kết quả và xuất dữ liệu quản
-            trị.
-          </p>
+          
         </div>
         <div className="flex flex-wrap gap-2">
           <Button

@@ -139,10 +139,7 @@ export default function AdminPage() {
           <h1 className="font-display text-3xl font-bold tracking-tight text-slate-950">
             Quản trị hệ thống
           </h1>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
-            Kiểm soát danh mục dùng chung, tài khoản và cấu trúc tổ chức trong
-            một không gian quản trị rõ ràng.
-          </p>
+          
         </div>
         <Button onClick={() => { setShowAccountForm(true); setFormError(""); setSuccessMessage(""); }}>
           <Plus size={16} /> Tạo tài khoản
