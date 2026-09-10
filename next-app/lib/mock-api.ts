@@ -61,8 +61,11 @@ const initialStore: MockStore = {
   "/admin/positions": [
     { position_id: "pos-hr-emp", position_code: "PHR_EMP", position_name: "Nhân viên Nhân sự", department_id: "dept-hr", department_name: "Phòng Nhân sự", target_headcount: 5, description: "Tuyển dụng và C&B" },
     { position_id: "pos-hr-lead", position_code: "PHR_LEAD", position_name: "Trưởng phòng Nhân sự", department_id: "dept-hr", department_name: "Phòng Nhân sự", target_headcount: 1, description: "Quản lý công tác nhân sự" },
+    { position_id: "pos-hr-recruiter", position_code: "PHR_REC", position_name: "Chuyên viên Tuyển dụng", department_id: "dept-hr", department_name: "Phòng Nhân sự", target_headcount: 3, description: "Tổ chức và vận hành quy trình tuyển dụng" },
     { position_id: "pos-kd-emp", position_code: "PKD_EMP", position_name: "Nhân viên Kinh doanh", department_id: "dept-kd", department_name: "Phòng Kinh doanh", target_headcount: 17, description: "Tư vấn giải pháp ERP" },
     { position_id: "pos-cloud-emp", position_code: "CLOUD_EMP", position_name: "Kỹ sư Cloud và Hạ tầng", department_id: "dept-cloud", department_name: "Phòng Cloud và Hạ tầng", target_headcount: 7, description: "Vận hành hạ tầng" },
+    { position_id: "pos-cloud-lead", position_code: "CLOUD_LEAD", position_name: "Trưởng Nhóm Cloud và Hạ tầng", department_id: "dept-cloud", department_name: "Phòng Cloud và Hạ tầng", target_headcount: 2, description: "Điều phối nhóm vận hành Cloud" },
+    { position_id: "pos-cloud-mgr", position_code: "CLOUD_MGR", position_name: "Trưởng Phòng Cloud và Hạ tầng", department_id: "dept-cloud", department_name: "Phòng Cloud và Hạ tầng", target_headcount: 1, description: "Quản lý hoạt động hạ tầng" },
   ],
   "/admin/contract-types": [
     { contract_type_id: "contract-type-demo-01", contract_type_code: "HDXD-12T", contract_type_name: "HĐLĐ xác định thời hạn 12 tháng", duration_months: 12, has_probation: 0, probation_days: 0, status: 1 },
@@ -730,6 +733,8 @@ export async function mockApiRequest<T>(path: string, init: RequestInit = {}, se
     const result = String(payload.result ?? "").trim().toUpperCase();
     if (!candidate) return failure("Không tìm thấy thông tin ứng viên.") as T;
     if (!evaluation) return failure("Quyết định phải dựa trên Phiếu Đánh giá phỏng vấn của ứng viên.") as T;
+    if (!String(payload.decision_date ?? "").trim()) return failure("Phải nhập ngày quyết định.") as T;
+    if (!String(payload.overall_comment ?? "").trim()) return failure("Phải nhập đánh giá chung về ứng viên.") as T;
     const evaluationPassed = ["ĐẠT", "PASSED"].includes(String(evaluation.overall_result ?? "").trim().toUpperCase());
     if (evaluationPassed !== (result === "ĐẠT")) return failure("Kết quả quyết định phải khớp với Đánh giá chung của Phiếu Đánh giá phỏng vấn.") as T;
     if (result === "KHÔNG ĐẠT" && !String(payload.rejection_reason ?? "").trim()) return failure("Phải nhập lý do bị loại khi quyết định Không đạt.") as T;

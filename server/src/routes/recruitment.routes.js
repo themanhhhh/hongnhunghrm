@@ -1116,6 +1116,12 @@ router.post('/decisions', authorizeRole('Administrator', 'HR Staff'), async (req
         if (!['ĐẠT', 'KHÔNG ĐẠT'].includes(normalizedResult)) {
             return res.status(400).json({ success: false, message: 'Kết quả quyết định phải là Đạt hoặc Không đạt.' });
         }
+        if (!String(decision_date || '').trim()) {
+            return res.status(400).json({ success: false, message: 'Phải nhập ngày quyết định.' });
+        }
+        if (!String(overall_comment || '').trim()) {
+            return res.status(400).json({ success: false, message: 'Phải nhập đánh giá chung về ứng viên.' });
+        }
         if (normalizedResult === 'KHÔNG ĐẠT' && !String(rejection_reason || '').trim()) {
             return res.status(400).json({ success: false, message: 'Phải nhập lý do bị loại khi quyết định Không đạt.' });
         }
@@ -1149,7 +1155,10 @@ router.post('/decisions', authorizeRole('Administrator', 'HR Staff'), async (req
         const count = (await queryOne('SELECT COUNT(*) AS count FROM RecruitmentDecision'))?.count || 0;
         const defaultNumber = `QDTD/${String(new Date().getFullYear()).slice(-2)}-${String(Number(count) + 1).padStart(4, '0')}`;
         const finalNumber = String(decision_number || '').trim() || defaultNumber;
-        const decisionDate = decision_date ? new Date(decision_date).getTime() : now;
+        const decisionDate = new Date(decision_date).getTime();
+        if (Number.isNaN(decisionDate)) {
+            return res.status(400).json({ success: false, message: 'Ngày quyết định không hợp lệ.' });
+        }
 
         await run(
             `INSERT INTO RecruitmentDecision (
@@ -1159,7 +1168,7 @@ router.post('/decisions', authorizeRole('Administrator', 'HR Staff'), async (req
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'COMPLETED', ?)`,
             [
                 id, now, now, finalNumber, candidate_id, interview_eval_id || null,
-                Number.isNaN(decisionDate) ? now : decisionDate, normalizedResult,
+                 decisionDate, normalizedResult,
                 normalizedResult === 'KHÔNG ĐẠT' ? String(rejection_reason).trim() : null,
                 overall_comment || '', req.user.employeeId || null, req.user.fullName || '', attachment_url || null
             ]
