@@ -81,6 +81,13 @@ const editableTabs = new Set([
   "decisions",
 ]);
 const undeletableTabs = new Set(["work-history"]);
+const contractSectionIds = ["contracts", "contract-proposals", "expiring-contracts", "contract-extensions"];
+const contractSections = [
+  { id: "contracts", label: "Hợp đồng lao động" },
+  { id: "contract-proposals", label: "Đề xuất HĐLĐ" },
+  { id: "expiring-contracts", label: "HĐ sắp hết hạn" },
+  { id: "contract-extensions", label: "Gia hạn HĐLĐ" },
+];
 
 const workspaceTitles: Record<WorkspaceName, Record<string, string>> = {
   recruitment: {
@@ -1594,7 +1601,15 @@ function OperationalWorkspace({
     params.set("tab", nextTab);
     router.replace(`${pathname}?${params.toString()}`, { scroll: false });
   };
-  const tab = getWorkspaceTab(name, tabId);
+  const requestedContractTab = searchParams.get("contractTab");
+  const initialContractTab = contractSectionIds.includes(requestedContractTab ?? "")
+    ? requestedContractTab!
+    : contractSectionIds.includes(tabId ?? "")
+      ? tabId
+      : "contracts";
+  const isContractWorkspace = name === "people" && contractSectionIds.includes(tabId ?? "");
+  const [contractSection, setContractSection] = useState(initialContractTab);
+  const tab = getWorkspaceTab(name, isContractWorkspace ? contractSection : tabId);
   const visibleTabs = employeePeople
     ? workspaceTabs[name].filter((item) =>
         ["employees", "leave"].includes(item.id),
@@ -1613,6 +1628,22 @@ function OperationalWorkspace({
   const [dismissedQueryError, setDismissedQueryError] = useState<unknown>(null);
   const [historyEmployeeId, setHistoryEmployeeId] = useState("");
   const queryClient = useQueryClient();
+
+  useEffect(() => {
+    if (isContractWorkspace) setContractSection(initialContractTab);
+  }, [initialContractTab, isContractWorkspace]);
+
+  const selectContractSection = (nextTab: string) => {
+    setContractSection(nextTab);
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("tab", "contracts");
+    if (nextTab === "contracts") params.delete("contractTab");
+    else params.set("contractTab", nextTab);
+    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+    setSearch("");
+    setPage(1);
+    setShowForm(false);
+  };
 
   const showPopup = (variant: PopupVariant, title: string, message: string) =>
     setPopup({ variant, title, message });
@@ -2625,6 +2656,21 @@ function OperationalWorkspace({
           )}
         </div>
       </section>
+
+      {isContractWorkspace && (
+        <div className="flex flex-wrap gap-2 rounded-2xl border border-slate-100 bg-white p-2 shadow-sm">
+          {contractSections.map((section) => (
+            <button
+              key={section.id}
+              type="button"
+              onClick={() => selectContractSection(section.id)}
+              className={`rounded-xl px-4 py-2 text-xs font-bold transition ${tab.id === section.id ? "bg-teal-600 text-white shadow-sm" : "text-slate-500 hover:bg-slate-50 hover:text-slate-800"}`}
+            >
+              {section.label}
+            </button>
+          ))}
+        </div>
+      )}
 
       
 
