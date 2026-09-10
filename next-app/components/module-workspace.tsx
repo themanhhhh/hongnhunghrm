@@ -81,7 +81,12 @@ const editableTabs = new Set([
   "decisions",
 ]);
 const undeletableTabs = new Set(["work-history"]);
-const contractSectionIds = ["contracts", "contract-proposals", "expiring-contracts", "contract-extensions"];
+const contractSectionIds = [
+  "contracts",
+  "contract-proposals",
+  "expiring-contracts",
+  "contract-extensions",
+];
 const contractSections = [
   { id: "contracts", label: "Hợp đồng lao động" },
   { id: "contract-proposals", label: "Đề xuất HĐLĐ" },
@@ -112,7 +117,8 @@ const workspaceTitles: Record<WorkspaceName, Record<string, string>> = {
     "contract-extensions": "Quản lý gia hạn hợp đồng lao động",
     leave: "Quản lý đơn xin nghỉ phép",
     "transfer-proposals": "Quản lý đề xuất thuyên chuyển, bổ nhiệm",
-    "transfer-decisions": "Quản lý quyết định thuyên chuyển, bổ nhiệm, miễn nhiệm",
+    "transfer-decisions":
+      "Quản lý quyết định thuyên chuyển, bổ nhiệm, miễn nhiệm",
     "resignation-applications": "Quản lý đơn xin nghỉ việc",
     "resignation-decisions": "Quản lý quyết định nghỉ việc",
     "work-history": "Tra cứu quá trình công tác",
@@ -410,8 +416,7 @@ const detailTermLabels: Record<string, string> = {
 
 function detailLabel(tab: WorkspaceTab, key: string) {
   const configuredField = tab.fields.find((field) => field.name === key);
-  if (configuredField)
-    return configuredField.label.replace(/\s+\(JSON\)$/, "");
+  if (configuredField) return configuredField.label.replace(/\s+\(JSON\)$/, "");
   const configuredColumn = tab.columns.find((column) => column.key === key);
   if (configuredColumn) return configuredColumn.label;
   if (detailLabels[key]) return detailLabels[key];
@@ -424,7 +429,11 @@ function detailLabel(tab: WorkspaceTab, key: string) {
     .replace(/^./, (value) => value.toUpperCase());
 }
 
-function localizeDetailObject(value: unknown, tab: WorkspaceTab, key = ""): unknown {
+function localizeDetailObject(
+  value: unknown,
+  tab: WorkspaceTab,
+  key = "",
+): unknown {
   if (Array.isArray(value))
     return value.map((item) => localizeDetailObject(item, tab));
   if (
@@ -480,7 +489,9 @@ function displayCell(key: string, value: unknown) {
 
 function parseDetailList(value: unknown): Array<Record<string, unknown>> {
   if (Array.isArray(value)) {
-    return value.filter((item): item is Record<string, unknown> => Boolean(item && typeof item === "object"));
+    return value.filter((item): item is Record<string, unknown> =>
+      Boolean(item && typeof item === "object"),
+    );
   }
   if (typeof value === "string") {
     try {
@@ -500,92 +511,861 @@ function QuotaDetail({ row }: { row: Row }) {
   const details = parseDetailList(row.details);
   const budgetDetails = parseDetailList(row.budget_details);
   const overview: Array<[string, unknown]> = [
-    ["Mã định biên", row.quota_id], ["Số phiếu", row.quota_code],
-    ["Ngày lập phiếu", row.created_date], ["Ngày áp dụng", row.effective_date],
-    ["Mã bộ phận", row.department_id], ["Bộ phận", row.department_name],
-    ["Người lập", row.creator_name], ["Tổng định biên", quotaNumber(row.target_headcount)],
-    ["Sức chứa tối đa", quotaNumber(row.max_capacity)], ["Số lượng hiện tại", quotaNumber(row.current_headcount)],
-    ["Cần tuyển", quotaNumber(row.needed_headcount)], ["Ngân sách tuyển dụng", `${quotaNumber(row.budget)} VNĐ`],
-    ["Trạng thái", displayValue(row.status)], ["Diễn giải", row.description],
+    ["Mã định biên", row.quota_id],
+    ["Số phiếu", row.quota_code],
+    ["Ngày lập phiếu", row.created_date],
+    ["Ngày áp dụng", row.effective_date],
+    ["Mã bộ phận", row.department_id],
+    ["Bộ phận", row.department_name],
+    ["Người lập", row.creator_name],
+    ["Tổng định biên", quotaNumber(row.target_headcount)],
+    ["Sức chứa tối đa", quotaNumber(row.max_capacity)],
+    ["Số lượng hiện tại", quotaNumber(row.current_headcount)],
+    ["Cần tuyển", quotaNumber(row.needed_headcount)],
+    ["Ngân sách tuyển dụng", `${quotaNumber(row.budget)} VNĐ`],
+    ["Trạng thái", displayValue(row.status)],
+    ["Diễn giải", row.description],
   ];
   return (
     <div className="space-y-5">
       <section>
-        <h3 className="mb-3 font-display text-sm font-bold text-slate-900">1. Thông tin chung</h3>
+        <h3 className="mb-3 font-display text-sm font-bold text-slate-900">
+          1. Thông tin chung
+        </h3>
         <div className="grid gap-3 sm:grid-cols-2">
-          {overview.map(([label, value]) => <div key={label} className="rounded-xl border border-slate-100 bg-slate-50/70 p-3"><div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{label}</div><div className="mt-1 break-words text-sm text-slate-700">{label.includes("Ngày") ? displayCell("date", value) : value == null || value === "" ? "-" : String(value)}</div></div>)}
+          {overview.map(([label, value]) => (
+            <div
+              key={label}
+              className="rounded-xl border border-slate-100 bg-slate-50/70 p-3"
+            >
+              <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                {label}
+              </div>
+              <div className="mt-1 break-words text-sm text-slate-700">
+                {label.includes("Ngày")
+                  ? displayCell("date", value)
+                  : value == null || value === ""
+                    ? "-"
+                    : String(value)}
+              </div>
+            </div>
+          ))}
         </div>
       </section>
       <section>
-        <h3 className="mb-3 font-display text-sm font-bold text-slate-900">2. Chi tiết vị trí định biên</h3>
-        <div className="overflow-x-auto rounded-xl border border-slate-100"><table className="w-full min-w-[980px] text-left text-xs"><thead className="bg-slate-50 text-[10px] uppercase tracking-wider text-slate-400"><tr>{["STT", "Mã vị trí", "Tên vị trí", "Định biên", "Nghỉ việc dự kiến", "Thai sản dự kiến", "Hiện tại", "Cần tuyển", "Ghi chú"].map((header) => <th key={header} className="px-3 py-3 font-bold">{header}</th>)}</tr></thead><tbody className="divide-y divide-slate-100">{details.length ? details.map((detail, index) => <tr key={`${String(detail.position_id ?? "position")}-${index}`}><td className="px-3 py-3 text-slate-400">{String(index + 1).padStart(2, "0")}</td><td className="px-3 py-3 font-mono font-bold text-teal-700">{displayValue(detail.position_code ?? detail.position_id)}</td><td className="px-3 py-3 font-semibold text-slate-700">{displayValue(detail.position_name)}</td><td className="px-3 py-3 text-center">{quotaNumber(detail.target_headcount)}</td><td className="px-3 py-3 text-center">{quotaNumber(detail.resignation_count)}</td><td className="px-3 py-3 text-center">{quotaNumber(detail.maternity_count)}</td><td className="px-3 py-3 text-center font-semibold text-emerald-700">{quotaNumber(detail.current_headcount)}</td><td className="px-3 py-3 text-center font-semibold text-blue-700">{quotaNumber(detail.needed_headcount)}</td><td className="px-3 py-3 text-slate-600">{displayValue(detail.note)}</td></tr>) : <tr><td colSpan={9} className="px-3 py-8 text-center text-slate-400">Chưa có chi tiết vị trí định biên.</td></tr>}</tbody></table></div>
+        <h3 className="mb-3 font-display text-sm font-bold text-slate-900">
+          2. Chi tiết vị trí định biên
+        </h3>
+        <div className="overflow-x-auto rounded-xl border border-slate-100">
+          <table className="w-full min-w-[980px] text-left text-xs">
+            <thead className="bg-slate-50 text-[10px] uppercase tracking-wider text-slate-400">
+              <tr>
+                {[
+                  "STT",
+                  "Mã vị trí",
+                  "Tên vị trí",
+                  "Định biên",
+                  "Nghỉ việc dự kiến",
+                  "Thai sản dự kiến",
+                  "Hiện tại",
+                  "Cần tuyển",
+                  "Ghi chú",
+                ].map((header) => (
+                  <th key={header} className="px-3 py-3 font-bold">
+                    {header}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {details.length ? (
+                details.map((detail, index) => (
+                  <tr
+                    key={`${String(detail.position_id ?? "position")}-${index}`}
+                  >
+                    <td className="px-3 py-3 text-slate-400">
+                      {String(index + 1).padStart(2, "0")}
+                    </td>
+                    <td className="px-3 py-3 font-mono font-bold text-teal-700">
+                      {displayValue(detail.position_code ?? detail.position_id)}
+                    </td>
+                    <td className="px-3 py-3 font-semibold text-slate-700">
+                      {displayValue(detail.position_name)}
+                    </td>
+                    <td className="px-3 py-3 text-center">
+                      {quotaNumber(detail.target_headcount)}
+                    </td>
+                    <td className="px-3 py-3 text-center">
+                      {quotaNumber(detail.resignation_count)}
+                    </td>
+                    <td className="px-3 py-3 text-center">
+                      {quotaNumber(detail.maternity_count)}
+                    </td>
+                    <td className="px-3 py-3 text-center font-semibold text-emerald-700">
+                      {quotaNumber(detail.current_headcount)}
+                    </td>
+                    <td className="px-3 py-3 text-center font-semibold text-blue-700">
+                      {quotaNumber(detail.needed_headcount)}
+                    </td>
+                    <td className="px-3 py-3 text-slate-600">
+                      {displayValue(detail.note)}
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td
+                    colSpan={9}
+                    className="px-3 py-8 text-center text-slate-400"
+                  >
+                    Chưa có chi tiết vị trí định biên.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </section>
       <section>
-        <h3 className="mb-3 font-display text-sm font-bold text-slate-900">3. Ngân sách dự kiến</h3>
-        <div className="overflow-x-auto rounded-xl border border-slate-100"><table className="w-full min-w-[680px] text-left text-xs"><thead className="bg-slate-50 text-[10px] uppercase tracking-wider text-slate-400"><tr>{["STT", "Loại chi phí", "Nguồn tuyển dụng", "Chi phí dự kiến"].map((header) => <th key={header} className="px-3 py-3 font-bold">{header}</th>)}</tr></thead><tbody className="divide-y divide-slate-100">{budgetDetails.length ? budgetDetails.map((detail, index) => <tr key={`${String(detail.cost_type ?? "cost")}-${index}`}><td className="px-3 py-3 text-slate-400">{String(index + 1).padStart(2, "0")}</td><td className="px-3 py-3 font-semibold text-slate-700">{displayValue(detail.cost_type)}</td><td className="px-3 py-3 text-slate-600">{displayValue(detail.source)}</td><td className="px-3 py-3 text-right font-semibold text-emerald-700">{quotaNumber(detail.estimated_cost)} VNĐ</td></tr>) : <tr><td colSpan={4} className="px-3 py-8 text-center text-slate-400">Chưa có chi tiết ngân sách dự kiến.</td></tr>}</tbody><tfoot className="bg-slate-50 font-bold text-slate-700"><tr><td colSpan={3} className="px-3 py-3 text-right">Tổng ngân sách dự kiến</td><td className="px-3 py-3 text-right text-emerald-700">{quotaNumber(budgetDetails.reduce((sum, item) => sum + (Number(item.estimated_cost) || 0), 0))} VNĐ</td></tr></tfoot></table></div>
+        <h3 className="mb-3 font-display text-sm font-bold text-slate-900">
+          3. Ngân sách dự kiến
+        </h3>
+        <div className="overflow-x-auto rounded-xl border border-slate-100">
+          <table className="w-full min-w-[680px] text-left text-xs">
+            <thead className="bg-slate-50 text-[10px] uppercase tracking-wider text-slate-400">
+              <tr>
+                {[
+                  "STT",
+                  "Loại chi phí",
+                  "Nguồn tuyển dụng",
+                  "Chi phí dự kiến",
+                ].map((header) => (
+                  <th key={header} className="px-3 py-3 font-bold">
+                    {header}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {budgetDetails.length ? (
+                budgetDetails.map((detail, index) => (
+                  <tr key={`${String(detail.cost_type ?? "cost")}-${index}`}>
+                    <td className="px-3 py-3 text-slate-400">
+                      {String(index + 1).padStart(2, "0")}
+                    </td>
+                    <td className="px-3 py-3 font-semibold text-slate-700">
+                      {displayValue(detail.cost_type)}
+                    </td>
+                    <td className="px-3 py-3 text-slate-600">
+                      {displayValue(detail.source)}
+                    </td>
+                    <td className="px-3 py-3 text-right font-semibold text-emerald-700">
+                      {quotaNumber(detail.estimated_cost)} VNĐ
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td
+                    colSpan={4}
+                    className="px-3 py-8 text-center text-slate-400"
+                  >
+                    Chưa có chi tiết ngân sách dự kiến.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+            <tfoot className="bg-slate-50 font-bold text-slate-700">
+              <tr>
+                <td colSpan={3} className="px-3 py-3 text-right">
+                  Tổng ngân sách dự kiến
+                </td>
+                <td className="px-3 py-3 text-right text-emerald-700">
+                  {quotaNumber(
+                    budgetDetails.reduce(
+                      (sum, item) => sum + (Number(item.estimated_cost) || 0),
+                      0,
+                    ),
+                  )}{" "}
+                  VNĐ
+                </td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
       </section>
     </div>
   );
 }
 
 function DetailGrid({ items }: { items: Array<[string, unknown, string?]> }) {
-  return <div className="grid gap-3 sm:grid-cols-2">{items.map(([label, value, key]) => <div key={label} className="rounded-xl border border-slate-100 bg-slate-50/70 p-3"><div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{label}</div><div className="mt-1 break-words text-sm text-slate-700">{displayCell(key ?? "", value)}</div></div>)}</div>;
+  return (
+    <div className="grid gap-3 sm:grid-cols-2">
+      {items.map(([label, value, key]) => (
+        <div
+          key={label}
+          className="rounded-xl border border-slate-100 bg-slate-50/70 p-3"
+        >
+          <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+            {label}
+          </div>
+          <div className="mt-1 break-words text-sm text-slate-700">
+            {displayCell(key ?? "", value)}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
 }
 
-function DetailTable({ columns, rows, empty = "Chưa có chi tiết." }: { columns: Array<[string, string]>; rows: Array<Record<string, unknown>>; empty?: string }) {
-  return <div className="overflow-x-auto rounded-xl border border-slate-100"><table className="w-full min-w-[760px] text-left text-xs"><thead className="bg-slate-50 text-[10px] uppercase tracking-wider text-slate-400"><tr>{columns.map(([key, label]) => <th key={key} className="px-3 py-3 font-bold">{label}</th>)}</tr></thead><tbody className="divide-y divide-slate-100">{rows.length ? rows.map((row, index) => <tr key={String(row.id ?? row.detail_id ?? index)}>{columns.map(([key]) => <td key={key} className="px-3 py-3 align-top text-slate-700">{displayCell(key, row[key])}</td>)}</tr>) : <tr><td colSpan={columns.length} className="px-3 py-8 text-center text-slate-400">{empty}</td></tr>}</tbody></table></div>;
+function DetailTable({
+  columns,
+  rows,
+  empty = "Chưa có chi tiết.",
+}: {
+  columns: Array<[string, string]>;
+  rows: Array<Record<string, unknown>>;
+  empty?: string;
+}) {
+  return (
+    <div className="overflow-x-auto rounded-xl border border-slate-100">
+      <table className="w-full min-w-[760px] text-left text-xs">
+        <thead className="bg-slate-50 text-[10px] uppercase tracking-wider text-slate-400">
+          <tr>
+            {columns.map(([key, label]) => (
+              <th key={key} className="px-3 py-3 font-bold">
+                {label}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-slate-100">
+          {rows.length ? (
+            rows.map((row, index) => (
+              <tr key={String(row.id ?? row.detail_id ?? index)}>
+                {columns.map(([key]) => (
+                  <td key={key} className="px-3 py-3 align-top text-slate-700">
+                    {displayCell(key, row[key])}
+                  </td>
+                ))}
+              </tr>
+            ))
+          ) : (
+            <tr>
+              <td
+                colSpan={columns.length}
+                className="px-3 py-8 text-center text-slate-400"
+              >
+                {empty}
+              </td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+    </div>
+  );
 }
 
-function DetailSection({ title, children }: { title: string; children: React.ReactNode }) {
-  return <section><h3 className="mb-3 font-display text-sm font-bold text-slate-900">{title}</h3>{children}</section>;
+function DetailSection({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section>
+      <h3 className="mb-3 font-display text-sm font-bold text-slate-900">
+        {title}
+      </h3>
+      {children}
+    </section>
+  );
 }
 
 function EmployeeRelationsDetail({ row }: { row: Row }) {
   const contracts = parseDetailList(row.contracts);
   const workHistory = parseDetailList(row.workHistory ?? row.work_history);
   const rewards = parseDetailList(row.rewards);
-  const leaveBalances = parseDetailList(row.leaveBalances ?? row.leave_balances);
-  return <div className="space-y-5"><DetailSection title="1. Thông tin nhân sự"><DetailGrid items={[["Mã nhân viên", row.employee_code], ["Họ và tên", row.full_name], ["Phòng ban", row.department_name], ["Vị trí", row.position_name], ["Quản lý trực tiếp", row.manager_name], ["Ngày vào làm", row.join_date, "date"], ["Trạng thái", row.employment_status]]} /></DetailSection><DetailSection title="2. Danh sách hợp đồng"><div className="space-y-3">{contracts.length ? contracts.map((contract, index) => <div key={String(contract.contract_id ?? index)} className="rounded-xl border border-slate-100 bg-slate-50/50 p-3"><DetailGrid items={[["Mã hợp đồng", contract.contract_id], ["Số hợp đồng", contract.contract_no], ["Mã nhân viên", contract.employee_id], ["Nhân viên", contract.employee_name ?? row.full_name], ["Vị trí nhân viên", contract.employee_position], ["Mã người ký", contract.signer_id], ["Người ký", contract.signer_name], ["Chức vụ người ký", contract.signer_position], ["Loại hợp đồng", contract.contract_type], ["Ngày hợp đồng", contract.contract_date, "date"], ["Ngày ký", contract.sign_date, "date"], ["Ngày bắt đầu", contract.start_date, "date"], ["Ngày kết thúc", contract.end_date, "date"], ["Có thử việc", Number(contract.has_probation) ? "Có" : "Không"], ["Lương cơ sở", contract.base_salary, "money"], ["Lương đóng BHXH", contract.social_insurance_salary, "money"], ["Mức lương", contract.salary, "money"], ["Thang lương", contract.salary_scale], ["Bậc lương", contract.salary_grade], ["Trạng thái", contract.status], ["Ghi chú", contract.note]]} /><DetailTable columns={[["allowance_type", "Loại phụ cấp"], ["amount", "Số tiền"]]} rows={parseDetailList(contract.allowance_details)} empty="Không có phụ cấp." /></div>) : <div className="rounded-xl border border-dashed border-slate-200 p-6 text-center text-xs text-slate-400">Nhân sự chưa có hợp đồng lao động.</div>}</div></DetailSection><DetailSection title="3. Quá trình công tác"><DetailTable columns={[["work_history_id", "Mã quá trình công tác"], ["employee_id", "Mã nhân viên"], ["employee_name", "Nhân viên"], ["department_name", "Bộ phận"], ["position_name", "Vị trí"], ["decision_type", "Loại quyết định"], ["effective_date", "Ngày hiệu lực"], ["reason", "Lý do"], ["note", "Ghi chú"]]} rows={workHistory} empty="Chưa có quá trình công tác." /></DetailSection><DetailSection title="4. Khen thưởng / Kỷ luật"><DetailTable columns={[["reward_discipline_id", "Mã khen thưởng / kỷ luật"], ["decision_no", "Số quyết định"], ["decision_type", "Loại quyết định"], ["employee_id", "Mã nhân viên"], ["employee_name", "Nhân viên"], ["decision_date", "Ngày ban hành"], ["effective_date", "Ngày hiệu lực"], ["decision_by", "Người ký"], ["amount", "Số tiền"], ["reason", "Lý do"], ["content", "Nội dung"]]} rows={rewards} empty="Chưa có dữ liệu khen thưởng hoặc kỷ luật." /></DetailSection><DetailSection title="5. Số dư ngày phép"><DetailTable columns={[["leave_balance_id", "Mã số dư phép"], ["leave_year", "Năm phép"], ["entitled_days", "Ngày phép được hưởng"], ["carried_forward_days", "Ngày phép chuyển kỳ"], ["used_days_before", "Đã dùng trước đó"], ["used_days", "Đã sử dụng"], ["remaining_days_before", "Còn lại trước đó"], ["remaining_days_after", "Còn lại sau đó"], ["remaining_days", "Ngày phép còn lại"]]} rows={leaveBalances} empty="Chưa có dữ liệu phép năm." /></DetailSection></div>;
+  const leaveBalances = parseDetailList(
+    row.leaveBalances ?? row.leave_balances,
+  );
+  return (
+    <div className="space-y-5">
+      <DetailSection title="1. Thông tin nhân sự">
+        <DetailGrid
+          items={[
+            ["Mã nhân viên", row.employee_code],
+            ["Họ và tên", row.full_name],
+            ["Phòng ban", row.department_name],
+            ["Vị trí", row.position_name],
+            ["Quản lý trực tiếp", row.manager_name],
+            ["Ngày vào làm", row.join_date, "date"],
+            ["Trạng thái", row.employment_status],
+          ]}
+        />
+      </DetailSection>
+      <DetailSection title="2. Danh sách hợp đồng">
+        <div className="space-y-3">
+          {contracts.length ? (
+            contracts.map((contract, index) => (
+              <div
+                key={String(contract.contract_id ?? index)}
+                className="rounded-xl border border-slate-100 bg-slate-50/50 p-3"
+              >
+                <DetailGrid
+                  items={[
+                    ["Mã hợp đồng", contract.contract_id],
+                    ["Số hợp đồng", contract.contract_no],
+                    ["Mã nhân viên", contract.employee_id],
+                    ["Nhân viên", contract.employee_name ?? row.full_name],
+                    ["Vị trí nhân viên", contract.employee_position],
+                    ["Mã người ký", contract.signer_id],
+                    ["Người ký", contract.signer_name],
+                    ["Chức vụ người ký", contract.signer_position],
+                    ["Loại hợp đồng", contract.contract_type],
+                    ["Ngày hợp đồng", contract.contract_date, "date"],
+                    ["Ngày ký", contract.sign_date, "date"],
+                    ["Ngày bắt đầu", contract.start_date, "date"],
+                    ["Ngày kết thúc", contract.end_date, "date"],
+                    [
+                      "Có thử việc",
+                      Number(contract.has_probation) ? "Có" : "Không",
+                    ],
+                    ["Lương cơ sở", contract.base_salary, "money"],
+                    [
+                      "Lương đóng BHXH",
+                      contract.social_insurance_salary,
+                      "money",
+                    ],
+                    ["Mức lương", contract.salary, "money"],
+                    ["Thang lương", contract.salary_scale],
+                    ["Bậc lương", contract.salary_grade],
+                    ["Trạng thái", contract.status],
+                    ["Ghi chú", contract.note],
+                  ]}
+                />
+                <DetailTable
+                  columns={[
+                    ["allowance_type", "Loại phụ cấp"],
+                    ["amount", "Số tiền"],
+                  ]}
+                  rows={parseDetailList(contract.allowance_details)}
+                  empty="Không có phụ cấp."
+                />
+              </div>
+            ))
+          ) : (
+            <div className="rounded-xl border border-dashed border-slate-200 p-6 text-center text-xs text-slate-400">
+              Nhân sự chưa có hợp đồng lao động.
+            </div>
+          )}
+        </div>
+      </DetailSection>
+      <DetailSection title="3. Quá trình công tác">
+        <DetailTable
+          columns={[
+            ["work_history_id", "Mã quá trình công tác"],
+            ["employee_id", "Mã nhân viên"],
+            ["employee_name", "Nhân viên"],
+            ["department_name", "Bộ phận"],
+            ["position_name", "Vị trí"],
+            ["decision_type", "Loại quyết định"],
+            ["effective_date", "Ngày hiệu lực"],
+            ["reason", "Lý do"],
+            ["note", "Ghi chú"],
+          ]}
+          rows={workHistory}
+          empty="Chưa có quá trình công tác."
+        />
+      </DetailSection>
+      <DetailSection title="4. Khen thưởng / Kỷ luật">
+        <DetailTable
+          columns={[
+            ["reward_discipline_id", "Mã khen thưởng / kỷ luật"],
+            ["decision_no", "Số quyết định"],
+            ["decision_type", "Loại quyết định"],
+            ["employee_id", "Mã nhân viên"],
+            ["employee_name", "Nhân viên"],
+            ["decision_date", "Ngày ban hành"],
+            ["effective_date", "Ngày hiệu lực"],
+            ["decision_by", "Người ký"],
+            ["amount", "Số tiền"],
+            ["reason", "Lý do"],
+            ["content", "Nội dung"],
+          ]}
+          rows={rewards}
+          empty="Chưa có dữ liệu khen thưởng hoặc kỷ luật."
+        />
+      </DetailSection>
+      <DetailSection title="5. Số dư ngày phép">
+        <DetailTable
+          columns={[
+            ["leave_balance_id", "Mã số dư phép"],
+            ["leave_year", "Năm phép"],
+            ["entitled_days", "Ngày phép được hưởng"],
+            ["carried_forward_days", "Ngày phép chuyển kỳ"],
+            ["used_days_before", "Đã dùng trước đó"],
+            ["used_days", "Đã sử dụng"],
+            ["remaining_days_before", "Còn lại trước đó"],
+            ["remaining_days_after", "Còn lại sau đó"],
+            ["remaining_days", "Ngày phép còn lại"],
+          ]}
+          rows={leaveBalances}
+          empty="Chưa có dữ liệu phép năm."
+        />
+      </DetailSection>
+    </div>
+  );
 }
 
-function StructuredDetail({ name, tab, row }: { name: WorkspaceName; tab: WorkspaceTab; row: Row }) {
+function StructuredDetail({
+  name,
+  tab,
+  row,
+}: {
+  name: WorkspaceName;
+  tab: WorkspaceTab;
+  row: Row;
+}) {
   if (name === "people" && tab.id === "employees") {
     return <EmployeeRelationsDetail row={row} />;
   }
   if (name === "people" && tab.id === "contracts") {
-    return <div className="space-y-5"><DetailSection title="1. Thông tin HĐLĐ"><DetailGrid items={[["Số HĐ", row.contract_no], ["Ngày HĐ", row.contract_date, "date"], ["Ngày ký chính thức", row.sign_date, "date"], ["Nhân viên", row.employee_name], ["Vị trí nhân viên", row.employee_position ?? row.position_name], ["Loại HĐLĐ", row.contract_type], ["Từ ngày", row.start_date, "date"], ["Đến ngày", row.end_date, "date"], ["Trạng thái", row.status], ["Ghi chú", row.note]]} /></DetailSection><DetailSection title="2. Thông tin lương"><DetailGrid items={[["Lương cơ bản", row.base_salary], ["Lương đóng BHXH", row.social_insurance_salary], ["Mức lương hợp đồng", row.salary], ["Thang lương", row.salary_scale], ["Bậc lương", row.salary_grade], ["Có thử việc", Number(row.has_probation) ? "Có" : "Không"], ["Từ ngày thử việc", row.probation_from_date, "date"], ["Đến ngày thử việc", row.probation_to_date, "date"], ["Tỷ lệ lương thử việc", row.probation_salary_rate]]} /></DetailSection><DetailSection title="3. Phụ cấp"><DetailTable columns={[["allowance_type", "Loại phụ cấp"], ["amount", "Tiền hưởng"]]} rows={parseDetailList(row.allowance_details)} empty="Không có phụ cấp." /></DetailSection><DetailSection title="4. Phụ lục hợp đồng"><DetailTable columns={[["appendix_no", "Số phụ lục"], ["appendix_type", "Loại phụ lục"], ["effective_date", "Ngày hiệu lực"], ["description", "Nội dung"]]} rows={parseDetailList(row.appendices)} empty="Không có phụ lục hợp đồng." /></DetailSection></div>;
+    return (
+      <div className="space-y-5">
+        <DetailSection title="1. Thông tin HĐLĐ">
+          <DetailGrid
+            items={[
+              ["Số HĐ", row.contract_no],
+              ["Ngày HĐ", row.contract_date, "date"],
+              ["Ngày ký chính thức", row.sign_date, "date"],
+              ["Nhân viên", row.employee_name],
+              ["Vị trí nhân viên", row.employee_position ?? row.position_name],
+              ["Loại HĐLĐ", row.contract_type],
+              ["Từ ngày", row.start_date, "date"],
+              ["Đến ngày", row.end_date, "date"],
+              ["Trạng thái", row.status],
+              ["Ghi chú", row.note],
+            ]}
+          />
+        </DetailSection>
+        <DetailSection title="2. Thông tin lương">
+          <DetailGrid
+            items={[
+              ["Lương cơ bản", row.base_salary],
+              ["Lương đóng BHXH", row.social_insurance_salary],
+              ["Mức lương hợp đồng", row.salary],
+              ["Thang lương", row.salary_scale],
+              ["Bậc lương", row.salary_grade],
+              ["Có thử việc", Number(row.has_probation) ? "Có" : "Không"],
+              ["Từ ngày thử việc", row.probation_from_date, "date"],
+              ["Đến ngày thử việc", row.probation_to_date, "date"],
+              ["Tỷ lệ lương thử việc", row.probation_salary_rate],
+            ]}
+          />
+        </DetailSection>
+        <DetailSection title="3. Phụ cấp">
+          <DetailTable
+            columns={[
+              ["allowance_type", "Loại phụ cấp"],
+              ["amount", "Tiền hưởng"],
+            ]}
+            rows={parseDetailList(row.allowance_details)}
+            empty="Không có phụ cấp."
+          />
+        </DetailSection>
+        <DetailSection title="4. Phụ lục hợp đồng">
+          <DetailTable
+            columns={[
+              ["appendix_no", "Số phụ lục"],
+              ["appendix_type", "Loại phụ lục"],
+              ["effective_date", "Ngày hiệu lực"],
+              ["description", "Nội dung"],
+            ]}
+            rows={parseDetailList(row.appendices)}
+            empty="Không có phụ lục hợp đồng."
+          />
+        </DetailSection>
+      </div>
+    );
   }
   if (name === "people" && tab.id === "transfer-proposals") {
     const details = parseDetailList(row.detail_items);
-    return <div className="space-y-5"><DetailSection title="1. Thông tin chung"><DetailGrid items={[["Số đề xuất", row.proposal_code], ["Ngày đề xuất", row.proposal_date, "date"], ["Ngày hiệu lực", row.effective_date ?? row.proposed_effective_date, "date"], ["Loại quyết định", row.decision_type], ["Người đề xuất", row.proposer_name], ["Vị trí người đề xuất", row.proposer_position], ["Bộ phận đề xuất", row.proposer_department], ["Trạng thái", row.status], ["Diễn giải", row.description], ["Ghi chú", row.note]]} /></DetailSection><DetailSection title="2. Chi tiết nhân sự"><DetailTable columns={[["employee_id", "Mã nhân viên"], ["employee_name", "Tên nhân viên"], ["current_position_name", "Vị trí hiện tại"], ["current_department_name", "Bộ phận hiện tại"], ["target_position_name", "Vị trí mới"], ["target_department_name", "Bộ phận mới"], ["note", "Ghi chú"]]} rows={details.map((detail) => ({ ...detail, employee_name: detail.employee_name ?? row.employee_name, current_position_name: detail.current_position_name ?? row.current_pos_name, current_department_name: detail.current_department_name ?? row.current_dept_name, target_position_name: detail.target_position_name ?? row.target_pos_name, target_department_name: detail.target_department_name ?? row.target_dept_name }))} /></DetailSection></div>;
+    return (
+      <div className="space-y-5">
+        <DetailSection title="1. Thông tin chung">
+          <DetailGrid
+            items={[
+              ["Số đề xuất", row.proposal_code],
+              ["Ngày đề xuất", row.proposal_date, "date"],
+              [
+                "Ngày hiệu lực",
+                row.effective_date ?? row.proposed_effective_date,
+                "date",
+              ],
+              ["Loại quyết định", row.decision_type],
+              ["Người đề xuất", row.proposer_name],
+              ["Vị trí người đề xuất", row.proposer_position],
+              ["Bộ phận đề xuất", row.proposer_department],
+              ["Trạng thái", row.status],
+              ["Diễn giải", row.description],
+              ["Ghi chú", row.note],
+            ]}
+          />
+        </DetailSection>
+        <DetailSection title="2. Chi tiết nhân sự">
+          <DetailTable
+            columns={[
+              ["employee_id", "Mã nhân viên"],
+              ["employee_name", "Tên nhân viên"],
+              ["current_position_name", "Vị trí hiện tại"],
+              ["current_department_name", "Bộ phận hiện tại"],
+              ["target_position_name", "Vị trí mới"],
+              ["target_department_name", "Bộ phận mới"],
+              ["note", "Ghi chú"],
+            ]}
+            rows={details.map((detail) => ({
+              ...detail,
+              employee_name: detail.employee_name ?? row.employee_name,
+              current_position_name:
+                detail.current_position_name ?? row.current_pos_name,
+              current_department_name:
+                detail.current_department_name ?? row.current_dept_name,
+              target_position_name:
+                detail.target_position_name ?? row.target_pos_name,
+              target_department_name:
+                detail.target_department_name ?? row.target_dept_name,
+            }))}
+          />
+        </DetailSection>
+      </div>
+    );
   }
   if (name === "people" && tab.id === "transfer-decisions") {
     const details = parseDetailList(row.detail_items);
-    return <div className="space-y-5"><DetailSection title="1. Thông tin chung"><DetailGrid items={[["Số quyết định", row.decision_number], ["Ngày", row.decision_date, "date"], ["Ngày hiệu lực", row.effective_date, "date"], ["Loại quyết định", row.decision_type], ["Người lập", row.creator_name], ["Vị trí", row.creator_position], ["Bộ phận", row.creator_department], ["Người ký", row.signed_by], ["Trạng thái", row.status], ["Diễn giải", row.description], ["Lý do", row.reason], ["Ghi chú", row.note]]} /></DetailSection><DetailSection title="2. Chi tiết nhân sự"><DetailTable columns={[["employee_id", "Mã nhân viên"], ["employee_name", "Tên nhân viên"], ["current_position_name", "Vị trí hiện tại"], ["current_department_name", "Bộ phận hiện tại"], ["target_position_name", "Vị trí mới"], ["target_department_name", "Bộ phận mới"], ["manager_name", "Quản lý trực tiếp mới"], ["note", "Ghi chú"]]} rows={details.length ? details.map((detail) => ({ ...detail, employee_name: detail.employee_name ?? row.employee_name, current_position_name: detail.current_position_name ?? row.current_pos_name, current_department_name: detail.current_department_name ?? row.current_dept_name, target_position_name: detail.target_position_name ?? row.target_pos_name, target_department_name: detail.target_department_name ?? row.target_dept_name, manager_name: detail.manager_name ?? row.manager_name })) : [{ employee_id: row.employee_id, employee_name: row.employee_name, current_position_name: row.current_pos_name, current_department_name: row.current_dept_name, target_position_name: row.target_pos_name, target_department_name: row.target_dept_name, manager_name: row.manager_name, note: row.note }]} /></DetailSection></div>;
+    return (
+      <div className="space-y-5">
+        <DetailSection title="1. Thông tin chung">
+          <DetailGrid
+            items={[
+              ["Số quyết định", row.decision_number],
+              ["Ngày", row.decision_date, "date"],
+              ["Ngày hiệu lực", row.effective_date, "date"],
+              ["Loại quyết định", row.decision_type],
+              ["Người lập", row.creator_name],
+              ["Vị trí", row.creator_position],
+              ["Bộ phận", row.creator_department],
+              ["Người ký", row.signed_by],
+              ["Trạng thái", row.status],
+              ["Diễn giải", row.description],
+              ["Lý do", row.reason],
+              ["Ghi chú", row.note],
+            ]}
+          />
+        </DetailSection>
+        <DetailSection title="2. Chi tiết nhân sự">
+          <DetailTable
+            columns={[
+              ["employee_id", "Mã nhân viên"],
+              ["employee_name", "Tên nhân viên"],
+              ["current_position_name", "Vị trí hiện tại"],
+              ["current_department_name", "Bộ phận hiện tại"],
+              ["target_position_name", "Vị trí mới"],
+              ["target_department_name", "Bộ phận mới"],
+              ["manager_name", "Quản lý trực tiếp mới"],
+              ["note", "Ghi chú"],
+            ]}
+            rows={
+              details.length
+                ? details.map((detail) => ({
+                    ...detail,
+                    employee_name: detail.employee_name ?? row.employee_name,
+                    current_position_name:
+                      detail.current_position_name ?? row.current_pos_name,
+                    current_department_name:
+                      detail.current_department_name ?? row.current_dept_name,
+                    target_position_name:
+                      detail.target_position_name ?? row.target_pos_name,
+                    target_department_name:
+                      detail.target_department_name ?? row.target_dept_name,
+                    manager_name: detail.manager_name ?? row.manager_name,
+                  }))
+                : [
+                    {
+                      employee_id: row.employee_id,
+                      employee_name: row.employee_name,
+                      current_position_name: row.current_pos_name,
+                      current_department_name: row.current_dept_name,
+                      target_position_name: row.target_pos_name,
+                      target_department_name: row.target_dept_name,
+                      manager_name: row.manager_name,
+                      note: row.note,
+                    },
+                  ]
+            }
+          />
+        </DetailSection>
+      </div>
+    );
   }
   if (name === "rewards" && tab.id === "evaluations") {
     const details = parseDetailList(row.details);
-    return <div className="space-y-5"><DetailSection title="1. Thông tin chung"><DetailGrid items={[["Mã phiếu", row.evaluation_code], ["Ngày đánh giá", row.evaluation_date, "date"], ["Kỳ đánh giá", row.evaluation_quarter ? `Quý ${row.evaluation_quarter}` : "-"], ["Năm", row.year], ["Người đánh giá", row.evaluator_name], ["Nhân viên được đánh giá", row.employee_name], ["Vị trí", row.position_name], ["Bộ phận", row.department_name], ["Tổng điểm", row.total_score], ["Xếp loại", row.grade_result], ["Trạng thái", row.status], ["Diễn giải", row.description], ["Nhận xét quản lý", row.manager_comment], ["Đề xuất", row.recommendation]]} /></DetailSection><DetailSection title="2. Chi tiết tiêu chí"><DetailTable columns={[["criteria_code", "Mã tiêu chí"], ["criteria_name", "Tên tiêu chí"], ["score", "Quản lý đánh giá"], ["weight", "Trọng số"], ["note", "Ý kiến, đề xuất"]]} rows={details} /></DetailSection></div>;
+    return (
+      <div className="space-y-5">
+        <DetailSection title="1. Thông tin chung">
+          <DetailGrid
+            items={[
+              ["Mã phiếu", row.evaluation_code],
+              ["Ngày đánh giá", row.evaluation_date, "date"],
+              [
+                "Kỳ đánh giá",
+                row.evaluation_quarter ? `Quý ${row.evaluation_quarter}` : "-",
+              ],
+              ["Năm", row.year],
+              ["Người đánh giá", row.evaluator_name],
+              ["Nhân viên được đánh giá", row.employee_name],
+              ["Vị trí", row.position_name],
+              ["Bộ phận", row.department_name],
+              ["Tổng điểm", row.total_score],
+              ["Xếp loại", row.grade_result],
+              ["Trạng thái", row.status],
+              ["Diễn giải", row.description],
+              ["Nhận xét quản lý", row.manager_comment],
+              ["Đề xuất", row.recommendation],
+            ]}
+          />
+        </DetailSection>
+        <DetailSection title="2. Chi tiết tiêu chí">
+          <DetailTable
+            columns={[
+              ["criteria_code", "Mã tiêu chí"],
+              ["criteria_name", "Tên tiêu chí"],
+              ["score", "Quản lý đánh giá"],
+              ["weight", "Trọng số"],
+              ["note", "Ý kiến, đề xuất"],
+            ]}
+            rows={details}
+          />
+        </DetailSection>
+      </div>
+    );
   }
   if (name === "rewards" && tab.id === "criteria") {
     const scales = parseDetailList(row.scales);
-    return <div className="space-y-5"><DetailSection title="1. Thông tin tiêu chí"><DetailGrid items={[["Mã tiêu chí", row.criteria_code], ["Tên tiêu chí", row.criteria_name], ["Trọng số", row.weight], ["Mô tả", row.description], ["Trạng thái", row.status]]} /></DetailSection><DetailSection title="2. Thang điểm chi tiết"><DetailTable columns={[["grade_name", "Xếp loại"], ["min_score", "Điểm từ"], ["max_score", "Điểm đến"], ["description", "Mô tả"]]} rows={scales} empty="Chưa có thang điểm chi tiết." /></DetailSection></div>;
+    return (
+      <div className="space-y-5">
+        <DetailSection title="1. Thông tin tiêu chí">
+          <DetailGrid
+            items={[
+              ["Mã tiêu chí", row.criteria_code],
+              ["Tên tiêu chí", row.criteria_name],
+              ["Trọng số", row.weight],
+              ["Mô tả", row.description],
+              ["Trạng thái", row.status],
+            ]}
+          />
+        </DetailSection>
+        <DetailSection title="2. Thang điểm chi tiết">
+          <DetailTable
+            columns={[
+              ["grade_name", "Xếp loại"],
+              ["min_score", "Điểm từ"],
+              ["max_score", "Điểm đến"],
+              ["description", "Mô tả"],
+            ]}
+            rows={scales}
+            empty="Chưa có thang điểm chi tiết."
+          />
+        </DetailSection>
+      </div>
+    );
   }
   if (name === "rewards" && tab.id === "proposals") {
-    return <div className="space-y-5"><DetailSection title="1. Thông tin đề xuất"><DetailGrid items={[["Mã đề xuất", row.proposal_code], ["Loại", row.record_type], ["Nhân viên", row.employee_name], ["Mã nhân viên", row.employee_code], ["Ngày đề xuất", row.proposal_date, "date"], ["Người đề xuất", row.proposed_by], ["Số tiền", row.proposed_amount], ["Trạng thái", row.status]]} /></DetailSection><DetailSection title="2. Nội dung"><DetailGrid items={[["Lý do", row.reason], ["Nội dung đề xuất", row.content], ["Tệp đính kèm", row.attachment_url]]} /></DetailSection></div>;
+    return (
+      <div className="space-y-5">
+        <DetailSection title="1. Thông tin đề xuất">
+          <DetailGrid
+            items={[
+              ["Mã đề xuất", row.proposal_code],
+              ["Loại", row.record_type],
+              ["Nhân viên", row.employee_name],
+              ["Mã nhân viên", row.employee_code],
+              ["Ngày đề xuất", row.proposal_date, "date"],
+              ["Người đề xuất", row.proposed_by],
+              ["Số tiền", row.proposed_amount],
+              ["Trạng thái", row.status],
+            ]}
+          />
+        </DetailSection>
+        <DetailSection title="2. Nội dung">
+          <DetailGrid
+            items={[
+              ["Lý do", row.reason],
+              ["Nội dung đề xuất", row.content],
+              ["Tệp đính kèm", row.attachment_url],
+            ]}
+          />
+        </DetailSection>
+      </div>
+    );
   }
   if (name === "rewards" && tab.id === "decisions") {
-    return <div className="space-y-5"><DetailSection title="1. Thông tin quyết định"><DetailGrid items={[["Số quyết định", row.decision_no], ["Loại quyết định", row.decision_type], ["Nhân viên", row.employee_name], ["Mã nhân viên", row.employee_code], ["Đề xuất liên kết", row.proposal_id], ["Ngày ban hành", row.decision_date, "date"], ["Ngày hiệu lực", row.effective_date, "date"], ["Số tiền", row.amount], ["Người ký", row.decision_by], ["Trạng thái", row.status]]} /></DetailSection><DetailSection title="2. Nội dung"><DetailGrid items={[["Lý do", row.reason], ["Nội dung quyết định", row.content], ["Tệp đính kèm", row.attachment_url]]} /></DetailSection></div>;
+    return (
+      <div className="space-y-5">
+        <DetailSection title="1. Thông tin quyết định">
+          <DetailGrid
+            items={[
+              ["Số quyết định", row.decision_no],
+              ["Loại quyết định", row.decision_type],
+              ["Nhân viên", row.employee_name],
+              ["Mã nhân viên", row.employee_code],
+              ["Đề xuất liên kết", row.proposal_id],
+              ["Ngày ban hành", row.decision_date, "date"],
+              ["Ngày hiệu lực", row.effective_date, "date"],
+              ["Số tiền", row.amount],
+              ["Người ký", row.decision_by],
+              ["Trạng thái", row.status],
+            ]}
+          />
+        </DetailSection>
+        <DetailSection title="2. Nội dung">
+          <DetailGrid
+            items={[
+              ["Lý do", row.reason],
+              ["Nội dung quyết định", row.content],
+              ["Tệp đính kèm", row.attachment_url],
+            ]}
+          />
+        </DetailSection>
+      </div>
+    );
   }
   if (name === "recruitment" && tab.id === "screenings") {
     const details = parseDetailList(row.criteria);
-    return <div className="space-y-5"><DetailSection title="1. Thông tin ứng viên"><DetailGrid items={[["Mã phiếu", row.screening_code], ["Ứng viên", row.candidate_name], ["Mã ứng viên", row.candidate_code], ["Vị trí", row.position_name], ["Bộ phận", row.department_name], ["Ngày nhận hồ sơ", row.received_date, "date"], ["Trình độ văn hóa", row.culture_level], ["Trình độ chuyên môn", row.education_level], ["Trường đào tạo", row.education_school]]} /></DetailSection><DetailSection title="2. Điều kiện sơ loại"><DetailTable columns={[["criteria_type", "Loại tiêu chí"], ["required_from", "Điều kiện yêu cầu"], ["candidate_value", "Giá trị ứng viên"], ["candidate_description", "Mô tả đánh giá"], ["is_passed", "Đạt"], ["note", "Ghi chú"]]} rows={details} /></DetailSection><DetailSection title="3. Đánh giá sơ loại"><DetailGrid items={[["Ngày sơ loại", row.screening_date, "date"], ["Mức độ phù hợp", row.level_score], ["Kết quả", row.screening_result], ["Nhận xét", row.comment]]} /></DetailSection></div>;
+    return (
+      <div className="space-y-5">
+        <DetailSection title="1. Thông tin ứng viên">
+          <DetailGrid
+            items={[
+              ["Mã phiếu", row.screening_code],
+              ["Ứng viên", row.candidate_name],
+              ["Mã ứng viên", row.candidate_code],
+              ["Vị trí", row.position_name],
+              ["Bộ phận", row.department_name],
+              ["Ngày nhận hồ sơ", row.received_date, "date"],
+              ["Trình độ văn hóa", row.culture_level],
+              ["Trình độ chuyên môn", row.education_level],
+              ["Trường đào tạo", row.education_school],
+            ]}
+          />
+        </DetailSection>
+        <DetailSection title="2. Điều kiện sơ loại">
+          <DetailTable
+            columns={[
+              ["criteria_type", "Loại tiêu chí"],
+              ["required_from", "Điều kiện yêu cầu"],
+              ["candidate_value", "Giá trị ứng viên"],
+              ["candidate_description", "Mô tả đánh giá"],
+              ["is_passed", "Đạt"],
+              ["note", "Ghi chú"],
+            ]}
+            rows={details}
+          />
+        </DetailSection>
+        <DetailSection title="3. Đánh giá sơ loại">
+          <DetailGrid
+            items={[
+              ["Ngày sơ loại", row.screening_date, "date"],
+              ["Mức độ phù hợp", row.level_score],
+              ["Kết quả", row.screening_result],
+              ["Nhận xét", row.comment],
+            ]}
+          />
+        </DetailSection>
+      </div>
+    );
   }
   if (name === "recruitment" && tab.id === "interview-evaluations") {
-    return <div className="space-y-5"><DetailSection title="1. Thông tin chung"><DetailGrid items={[["Số phiếu", row.eval_code], ["Ngày đánh giá", row.evaluation_date, "date"], ["Ứng viên", row.candidate_name], ["Lịch phỏng vấn", row.schedule_code], ["Người đánh giá", row.evaluator_name], ["Thời lượng", row.duration_minutes], ["Kết quả", row.overall_result], ["Nhận xét chung", row.overall_comment]]} /></DetailSection><DetailSection title="2. Kịch bản hỏi đáp"><DetailTable columns={[["question", "Câu hỏi"], ["expectation", "Kỳ vọng"], ["answer", "Câu trả lời"]]} rows={parseDetailList(row.script)} /></DetailSection><DetailSection title="3. Chi tiết đánh giá"><DetailTable columns={[["criteria_type", "Tiêu chí"], ["required_from", "Điều kiện đạt"], ["candidate_value", "Đánh giá ứng viên"], ["is_passed", "Đạt"], ["note", "Ghi chú"]]} rows={parseDetailList(row.criteria)} /></DetailSection><DetailSection title="4. Thông tin offer"><DetailGrid items={[["Ngày dự kiến đi làm", (row.offer as Row)?.expected_start_date, "date"], ["Lương thử việc", (row.offer as Row)?.probation_salary], ["Lương chính thức", (row.offer as Row)?.official_salary], ["Trạng thái", (row.offer as Row)?.offer_status], ["Ghi chú", (row.offer as Row)?.note]]} /></DetailSection></div>;
+    return (
+      <div className="space-y-5">
+        <DetailSection title="1. Thông tin chung">
+          <DetailGrid
+            items={[
+              ["Số phiếu", row.eval_code],
+              ["Ngày đánh giá", row.evaluation_date, "date"],
+              ["Ứng viên", row.candidate_name],
+              ["Lịch phỏng vấn", row.schedule_code],
+              ["Người đánh giá", row.evaluator_name],
+              ["Thời lượng", row.duration_minutes],
+              ["Kết quả", row.overall_result],
+              ["Nhận xét chung", row.overall_comment],
+            ]}
+          />
+        </DetailSection>
+        <DetailSection title="2. Kịch bản hỏi đáp">
+          <DetailTable
+            columns={[
+              ["question", "Câu hỏi"],
+              ["expectation", "Kỳ vọng"],
+              ["answer", "Câu trả lời"],
+            ]}
+            rows={parseDetailList(row.script)}
+          />
+        </DetailSection>
+        <DetailSection title="3. Chi tiết đánh giá">
+          <DetailTable
+            columns={[
+              ["criteria_type", "Tiêu chí"],
+              ["required_from", "Điều kiện đạt"],
+              ["candidate_value", "Đánh giá ứng viên"],
+              ["is_passed", "Đạt"],
+              ["note", "Ghi chú"],
+            ]}
+            rows={parseDetailList(row.criteria)}
+          />
+        </DetailSection>
+        <DetailSection title="4. Thông tin offer">
+          <DetailGrid
+            items={[
+              [
+                "Ngày dự kiến đi làm",
+                (row.offer as Row)?.expected_start_date,
+                "date",
+              ],
+              ["Lương thử việc", (row.offer as Row)?.probation_salary],
+              ["Lương chính thức", (row.offer as Row)?.official_salary],
+              ["Trạng thái", (row.offer as Row)?.offer_status],
+              ["Ghi chú", (row.offer as Row)?.note],
+            ]}
+          />
+        </DetailSection>
+      </div>
+    );
   }
   if (name === "recruitment" && tab.id === "decisions") {
-    return <div className="space-y-5"><DetailSection title="1. Quyết định tuyển dụng"><DetailGrid items={[["Số phiếu", row.decision_number], ["Ngày quyết định", row.decision_date, "date"], ["Ứng viên", row.candidate_name], ["Mã ứng viên", row.candidate_code], ["Phiếu đánh giá phỏng vấn", row.eval_code ?? row.interview_eval_id], ["Kết quả", row.result], ["Đánh giá chung", row.overall_comment], ["Lý do bị loại", row.rejection_reason], ["Trạng thái", row.status]]} /></DetailSection></div>;
+    return (
+      <div className="space-y-5">
+        <DetailSection title="1. Quyết định tuyển dụng">
+          <DetailGrid
+            items={[
+              ["Số phiếu", row.decision_number],
+              ["Ngày quyết định", row.decision_date, "date"],
+              ["Ứng viên", row.candidate_name],
+              ["Mã ứng viên", row.candidate_code],
+              [
+                "Phiếu đánh giá phỏng vấn",
+                row.eval_code ?? row.interview_eval_id,
+              ],
+              ["Kết quả", row.result],
+              ["Đánh giá chung", row.overall_comment],
+              ["Lý do bị loại", row.rejection_reason],
+              ["Trạng thái", row.status],
+            ]}
+          />
+        </DetailSection>
+      </div>
+    );
   }
   return null;
 }
@@ -691,26 +1471,50 @@ function ScreeningForm({
   lookups,
 }: {
   values: Record<string, string>;
-  setValues: (updater: (current: Record<string, string>) => Record<string, string>) => void;
+  setValues: (
+    updater: (current: Record<string, string>) => Record<string, string>,
+  ) => void;
   lookups: CandidateLookups;
 }) {
-  const [activeTab, setActiveTab] = useState<"candidate" | "criteria" | "assessment">("candidate");
-  const candidate = lookups.candidates.find((item) => String(item.candidate_id ?? "") === values.candidate_id);
+  const [activeTab, setActiveTab] = useState<
+    "candidate" | "criteria" | "assessment"
+  >("candidate");
+  const candidate = lookups.candidates.find(
+    (item) => String(item.candidate_id ?? "") === values.candidate_id,
+  );
   const criteria = parseDetailList(values.criteria);
-  const set = (name: string, value: string) => setValues((current) => ({ ...current, [name]: value }));
-  const updateCriteria = (next: Array<Record<string, unknown>>) => set("criteria", JSON.stringify(next));
+  const set = (name: string, value: string) =>
+    setValues((current) => ({ ...current, [name]: value }));
+  const updateCriteria = (next: Array<Record<string, unknown>>) =>
+    set("criteria", JSON.stringify(next));
   const updateCriterion = (index: number, name: string, value: unknown) => {
     const next = [...criteria];
     next[index] = { ...next[index], [name]: value };
     updateCriteria(next);
   };
-  const criterionRow = { criteria_type: screeningCriteriaTypes[0], required_from: "", candidate_value: "", candidate_description: "", is_passed: true, note: "" };
+  const criterionRow = {
+    criteria_type: screeningCriteriaTypes[0],
+    required_from: "",
+    candidate_value: "",
+    candidate_description: "",
+    is_passed: true,
+    note: "",
+  };
 
   return (
     <div className="space-y-5">
       <div className="flex gap-1 overflow-x-auto border-b border-slate-200">
-        {[["candidate", "1. Thông tin ứng viên"], ["criteria", "2. Điều kiện sơ loại"], ["assessment", "3. Đánh giá sơ loại"]].map(([key, label]) => (
-          <button key={key} type="button" onClick={() => setActiveTab(key as typeof activeTab)} className={`whitespace-nowrap border-b-2 px-4 py-3 text-xs font-bold ${activeTab === key ? "border-teal-600 text-teal-700" : "border-transparent text-slate-400"}`}>
+        {[
+          ["candidate", "1. Thông tin ứng viên"],
+          ["criteria", "2. Điều kiện sơ loại"],
+          ["assessment", "3. Đánh giá sơ loại"],
+        ].map(([key, label]) => (
+          <button
+            key={key}
+            type="button"
+            onClick={() => setActiveTab(key as typeof activeTab)}
+            className={`whitespace-nowrap border-b-2 px-4 py-3 text-xs font-bold ${activeTab === key ? "border-teal-600 text-teal-700" : "border-transparent text-slate-400"}`}
+          >
             {label}
           </button>
         ))}
@@ -719,17 +1523,71 @@ function ScreeningForm({
       {activeTab === "candidate" && (
         <div className="space-y-4">
           <div>
-            <label className="mb-1.5 block text-xs font-bold text-slate-600">Ứng viên *</label>
-            <select className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm" value={values.candidate_id ?? ""} required disabled={Boolean(values.candidate_id)} onChange={(event) => set("candidate_id", event.target.value)}>
+            <label className="mb-1.5 block text-xs font-bold text-slate-600">
+              Ứng viên *
+            </label>
+            <select
+              className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm"
+              value={values.candidate_id ?? ""}
+              required
+              disabled={Boolean(values.candidate_id)}
+              onChange={(event) => set("candidate_id", event.target.value)}
+            >
               <option value="">-- Chọn ứng viên --</option>
-              {lookups.candidates.map((item) => <option key={String(item.candidate_id)} value={String(item.candidate_id)}>{String(item.candidate_code ?? item.candidate_id)} - {String(item.full_name ?? "")}</option>)}
+              {lookups.candidates.map((item) => (
+                <option
+                  key={String(item.candidate_id)}
+                  value={String(item.candidate_id)}
+                >
+                  {String(item.candidate_code ?? item.candidate_id)} -{" "}
+                  {String(item.full_name ?? "")}
+                </option>
+              ))}
             </select>
-            {values.candidate_id && <p className="mt-1 text-[11px] text-slate-400">Thông tin được lấy tự động từ hồ sơ ứng viên và không chỉnh sửa tại phiếu sơ loại.</p>}
+            {values.candidate_id && (
+              <p className="mt-1 text-[11px] text-slate-400">
+                Thông tin được lấy tự động từ hồ sơ ứng viên và không chỉnh sửa
+                tại phiếu sơ loại.
+              </p>
+            )}
           </div>
           <div className="grid gap-4 md:grid-cols-2">
-            {["candidate_code", "full_name", "phone", "email", "received_date", "culture_level", "education_level", "education_school", "apply_position_name", "department_name"].map((name) => {
-              const labels: Record<string, string> = { candidate_code: "Mã ứng viên", full_name: "Họ tên", phone: "Số điện thoại", email: "Email", received_date: "Ngày nhận hồ sơ", culture_level: "Trình độ văn hóa", education_level: "Trình độ chuyên môn", education_school: "Trường đào tạo", apply_position_name: "Vị trí ứng tuyển", department_name: "Bộ phận" };
-              return <div key={name}><label className="mb-1.5 block text-xs font-bold text-slate-600">{labels[name]}</label><Input value={String(candidate?.[name] ?? values[name] ?? "")} disabled className="h-10 bg-slate-100 text-slate-500" /></div>;
+            {[
+              "candidate_code",
+              "full_name",
+              "phone",
+              "email",
+              "received_date",
+              "culture_level",
+              "education_level",
+              "education_school",
+              "apply_position_name",
+              "department_name",
+            ].map((name) => {
+              const labels: Record<string, string> = {
+                candidate_code: "Mã ứng viên",
+                full_name: "Họ tên",
+                phone: "Số điện thoại",
+                email: "Email",
+                received_date: "Ngày nhận hồ sơ",
+                culture_level: "Trình độ văn hóa",
+                education_level: "Trình độ chuyên môn",
+                education_school: "Trường đào tạo",
+                apply_position_name: "Vị trí ứng tuyển",
+                department_name: "Bộ phận",
+              };
+              return (
+                <div key={name}>
+                  <label className="mb-1.5 block text-xs font-bold text-slate-600">
+                    {labels[name]}
+                  </label>
+                  <Input
+                    value={String(candidate?.[name] ?? values[name] ?? "")}
+                    disabled
+                    className="h-10 bg-slate-100 text-slate-500"
+                  />
+                </div>
+              );
             })}
           </div>
         </div>
@@ -737,18 +1595,218 @@ function ScreeningForm({
 
       {activeTab === "criteria" && (
         <div className="space-y-3">
-          <div className="flex items-center justify-between"><div><h3 className="font-display text-sm font-bold text-slate-900">Điều kiện sơ loại</h3><p className="mt-1 text-xs text-slate-400">Khai báo từng tiêu chí và yêu cầu đạt của vị trí.</p></div><Button type="button" variant="secondary" size="sm" onClick={() => updateCriteria([...criteria, criterionRow])}><Plus size={14} /> Thêm dòng</Button></div>
-          <div className="overflow-x-auto rounded-xl border border-slate-100"><table className="w-full min-w-[980px] text-left text-xs"><thead className="bg-slate-50 text-[10px] uppercase tracking-wider text-slate-400"><tr><th className="px-3 py-3">Loại tiêu chí</th><th className="px-3 py-3">Điều kiện yêu cầu</th><th className="px-3 py-3">Giá trị ứng viên</th><th className="px-3 py-3">Mô tả đánh giá</th><th className="px-3 py-3">Đạt</th><th className="px-3 py-3">Ghi chú</th><th className="px-3 py-3">Xóa</th></tr></thead><tbody className="divide-y divide-slate-100">{criteria.map((item, index) => <tr key={index}><td className="px-3 py-2"><select className="h-9 rounded-lg border border-slate-200 px-2" value={String(item.criteria_type ?? screeningCriteriaTypes[0])} onChange={(event) => updateCriterion(index, "criteria_type", event.target.value)}>{screeningCriteriaTypes.map((type) => <option key={type}>{type}</option>)}</select></td><td className="px-3 py-2"><Input value={String(item.required_from ?? item.required_description ?? "")} onChange={(event) => updateCriterion(index, "required_from", event.target.value)} className="h-9" placeholder="Ví dụ: 2 năm" /></td><td className="px-3 py-2"><Input value={String(item.candidate_value ?? "")} onChange={(event) => updateCriterion(index, "candidate_value", event.target.value)} className="h-9" /></td><td className="px-3 py-2"><Input value={String(item.candidate_description ?? "")} onChange={(event) => updateCriterion(index, "candidate_description", event.target.value)} className="h-9" /></td><td className="px-3 py-2 text-center"><input type="checkbox" checked={Boolean(item.is_passed)} onChange={(event) => updateCriterion(index, "is_passed", event.target.checked)} className="size-4 accent-teal-600" aria-label={`Tiêu chí ${index + 1} đạt`} /></td><td className="px-3 py-2"><Input value={String(item.note ?? "")} onChange={(event) => updateCriterion(index, "note", event.target.value)} className="h-9" /></td><td className="px-3 py-2"><Button type="button" variant="ghost" size="sm" onClick={() => updateCriteria(criteria.filter((_, itemIndex) => itemIndex !== index))}><Trash2 size={15} /></Button></td></tr>)}</tbody></table></div>
-          {criteria.length === 0 && <p className="rounded-xl border border-dashed border-slate-200 p-6 text-center text-xs text-slate-400">Chưa có tiêu chí. Nhấn “Thêm dòng” để bắt đầu.</p>}
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="font-display text-sm font-bold text-slate-900">
+                Điều kiện sơ loại
+              </h3>
+              <p className="mt-1 text-xs text-slate-400">
+                Khai báo từng tiêu chí và yêu cầu đạt của vị trí.
+              </p>
+            </div>
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={() => updateCriteria([...criteria, criterionRow])}
+            >
+              <Plus size={14} /> Thêm dòng
+            </Button>
+          </div>
+          <div className="overflow-x-auto rounded-xl border border-slate-100">
+            <table className="w-full min-w-[980px] text-left text-xs">
+              <thead className="bg-slate-50 text-[10px] uppercase tracking-wider text-slate-400">
+                <tr>
+                  <th className="px-3 py-3">Loại tiêu chí</th>
+                  <th className="px-3 py-3">Điều kiện yêu cầu</th>
+                  <th className="px-3 py-3">Giá trị ứng viên</th>
+                  <th className="px-3 py-3">Mô tả đánh giá</th>
+                  <th className="px-3 py-3">Đạt</th>
+                  <th className="px-3 py-3">Ghi chú</th>
+                  <th className="px-3 py-3">Xóa</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {criteria.map((item, index) => (
+                  <tr key={index}>
+                    <td className="px-3 py-2">
+                      <select
+                        className="h-9 rounded-lg border border-slate-200 px-2"
+                        value={String(
+                          item.criteria_type ?? screeningCriteriaTypes[0],
+                        )}
+                        onChange={(event) =>
+                          updateCriterion(
+                            index,
+                            "criteria_type",
+                            event.target.value,
+                          )
+                        }
+                      >
+                        {screeningCriteriaTypes.map((type) => (
+                          <option key={type}>{type}</option>
+                        ))}
+                      </select>
+                    </td>
+                    <td className="px-3 py-2">
+                      <Input
+                        value={String(
+                          item.required_from ?? item.required_description ?? "",
+                        )}
+                        onChange={(event) =>
+                          updateCriterion(
+                            index,
+                            "required_from",
+                            event.target.value,
+                          )
+                        }
+                        className="h-9"
+                        placeholder="Ví dụ: 2 năm"
+                      />
+                    </td>
+                    <td className="px-3 py-2">
+                      <Input
+                        value={String(item.candidate_value ?? "")}
+                        onChange={(event) =>
+                          updateCriterion(
+                            index,
+                            "candidate_value",
+                            event.target.value,
+                          )
+                        }
+                        className="h-9"
+                      />
+                    </td>
+                    <td className="px-3 py-2">
+                      <Input
+                        value={String(item.candidate_description ?? "")}
+                        onChange={(event) =>
+                          updateCriterion(
+                            index,
+                            "candidate_description",
+                            event.target.value,
+                          )
+                        }
+                        className="h-9"
+                      />
+                    </td>
+                    <td className="px-3 py-2 text-center">
+                      <input
+                        type="checkbox"
+                        checked={Boolean(item.is_passed)}
+                        onChange={(event) =>
+                          updateCriterion(
+                            index,
+                            "is_passed",
+                            event.target.checked,
+                          )
+                        }
+                        className="size-4 accent-teal-600"
+                        aria-label={`Tiêu chí ${index + 1} đạt`}
+                      />
+                    </td>
+                    <td className="px-3 py-2">
+                      <Input
+                        value={String(item.note ?? "")}
+                        onChange={(event) =>
+                          updateCriterion(index, "note", event.target.value)
+                        }
+                        className="h-9"
+                      />
+                    </td>
+                    <td className="px-3 py-2">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() =>
+                          updateCriteria(
+                            criteria.filter(
+                              (_, itemIndex) => itemIndex !== index,
+                            ),
+                          )
+                        }
+                      >
+                        <Trash2 size={15} />
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {criteria.length === 0 && (
+            <p className="rounded-xl border border-dashed border-slate-200 p-6 text-center text-xs text-slate-400">
+              Chưa có tiêu chí. Nhấn “Thêm dòng” để bắt đầu.
+            </p>
+          )}
         </div>
       )}
 
-      {activeTab === "assessment" && <div className="grid gap-4 md:grid-cols-2"><WorkspaceInput field={{ name: "screening_date", label: "Ngày sơ loại", type: "date", required: true }} tabId="screenings" value={values.screening_date ?? ""} onChange={(value) => set("screening_date", value)} /><WorkspaceInput field={{ name: "level_score", label: "Mức độ phù hợp (0-10)", type: "number", required: true }} tabId="screenings" value={values.level_score ?? ""} onChange={(value) => set("level_score", value)} /><WorkspaceInput field={{ name: "screening_result", label: "Kết quả", type: "select", options: [{ value: "ĐẠT", label: "Đạt" }, { value: "KHÔNG ĐẠT", label: "Không đạt" }] }} tabId="screenings" value={values.screening_result ?? "ĐẠT"} onChange={(value) => set("screening_result", value)} /><div className="md:col-span-2"><WorkspaceInput field={{ name: "comment", label: "Nhận xét tổng hợp", type: "textarea" }} tabId="screenings" value={values.comment ?? ""} onChange={(value) => set("comment", value)} /></div></div>}
+      {activeTab === "assessment" && (
+        <div className="grid gap-4 md:grid-cols-2">
+          <WorkspaceInput
+            field={{
+              name: "screening_date",
+              label: "Ngày sơ loại",
+              type: "date",
+              required: true,
+            }}
+            tabId="screenings"
+            value={values.screening_date ?? ""}
+            onChange={(value) => set("screening_date", value)}
+          />
+          <WorkspaceInput
+            field={{
+              name: "level_score",
+              label: "Mức độ phù hợp (0-10)",
+              type: "number",
+              required: true,
+            }}
+            tabId="screenings"
+            value={values.level_score ?? ""}
+            onChange={(value) => set("level_score", value)}
+          />
+          <WorkspaceInput
+            field={{
+              name: "screening_result",
+              label: "Kết quả",
+              type: "select",
+              options: [
+                { value: "ĐẠT", label: "Đạt" },
+                { value: "KHÔNG ĐẠT", label: "Không đạt" },
+              ],
+            }}
+            tabId="screenings"
+            value={values.screening_result ?? "ĐẠT"}
+            onChange={(value) => set("screening_result", value)}
+          />
+          <div className="md:col-span-2">
+            <WorkspaceInput
+              field={{
+                name: "comment",
+                label: "Nhận xét tổng hợp",
+                type: "textarea",
+              }}
+              tabId="screenings"
+              value={values.comment ?? ""}
+              onChange={(value) => set("comment", value)}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
-const appendixTypes = ["Gia hạn HĐLĐ", "Điều chỉnh lương", "Điều chỉnh chức danh/vị trí", "Điều chỉnh phụ cấp", "Điều chỉnh thời gian làm việc", "Điều chỉnh địa điểm làm việc"];
+const appendixTypes = [
+  "Gia hạn HĐLĐ",
+  "Điều chỉnh lương",
+  "Điều chỉnh chức danh/vị trí",
+  "Điều chỉnh phụ cấp",
+  "Điều chỉnh thời gian làm việc",
+  "Điều chỉnh địa điểm làm việc",
+];
 
 function ContractForm({
   values,
@@ -756,32 +1814,507 @@ function ContractForm({
   lookups,
 }: {
   values: Record<string, string>;
-  setValues: (updater: (current: Record<string, string>) => Record<string, string>) => void;
+  setValues: (
+    updater: (current: Record<string, string>) => Record<string, string>,
+  ) => void;
   lookups: ContractLookups;
 }) {
-  const [activeTab, setActiveTab] = useState<"general" | "salary" | "allowances" | "appendices">("general");
+  const [activeTab, setActiveTab] = useState<
+    "general" | "salary" | "allowances" | "appendices"
+  >("general");
   const allowances = parseDetailList(values.allowance_details);
   const appendices = parseDetailList(values.appendices);
-  const employee = lookups.employees.find((item) => String(item.employee_id ?? "") === values.employee_id);
-  const signer = lookups.employees.find((item) => String(item.employee_id ?? "") === values.signer_id);
-  const selectedType = lookups.contractTypes.find((item) => String(item.contract_type_code ?? item.contract_type_name ?? "") === values.contract_type);
-  const positions = lookups.positions.filter((item) => !employee?.department_id || String(item.department_id ?? "") === String(employee.department_id));
-  const set = (name: string, value: string) => setValues((current) => ({ ...current, [name]: value }));
-  const updateList = (name: string, next: Array<Record<string, unknown>>) => set(name, JSON.stringify(next));
-  const updateRow = (name: string, rows: Array<Record<string, unknown>>, index: number, key: string, value: unknown) => { const next = [...rows]; next[index] = { ...next[index], [key]: value }; updateList(name, next); };
-  const selectSigner = (employeeId: string) => { const selected = lookups.employees.find((item) => String(item.employee_id ?? "") === employeeId); setValues((current) => ({ ...current, signer_id: employeeId, signer_name: String(selected?.full_name ?? ""), signer_position: String(selected?.position_name ?? "") })); };
-  const selectEmployee = (employeeId: string) => { const selected = lookups.employees.find((item) => String(item.employee_id ?? "") === employeeId); setValues((current) => ({ ...current, employee_id: employeeId, employee_position: String(selected?.position_name ?? "") })); };
-  const selectType = (typeCode: string) => { const type = lookups.contractTypes.find((item) => String(item.contract_type_code ?? item.contract_type_name ?? "") === typeCode); setValues((current) => ({ ...current, contract_type: typeCode, has_probation: Number(type?.has_probation) === 1 ? "1" : current.has_probation ?? "0" })); };
-  const field = (name: string, label: string, type: WorkspaceField["type"] = "text", required = false, disabled = false) => <WorkspaceInput field={{ name, label, type, required, disabled }} tabId="contracts" value={values[name] ?? ""} onChange={(value) => set(name, value)} />;
+  const employee = lookups.employees.find(
+    (item) => String(item.employee_id ?? "") === values.employee_id,
+  );
+  const signer = lookups.employees.find(
+    (item) => String(item.employee_id ?? "") === values.signer_id,
+  );
+  const selectedType = lookups.contractTypes.find(
+    (item) =>
+      String(item.contract_type_code ?? item.contract_type_name ?? "") ===
+      values.contract_type,
+  );
+  const positions = lookups.positions.filter(
+    (item) =>
+      !employee?.department_id ||
+      String(item.department_id ?? "") === String(employee.department_id),
+  );
+  const set = (name: string, value: string) =>
+    setValues((current) => ({ ...current, [name]: value }));
+  const updateList = (name: string, next: Array<Record<string, unknown>>) =>
+    set(name, JSON.stringify(next));
+  const updateRow = (
+    name: string,
+    rows: Array<Record<string, unknown>>,
+    index: number,
+    key: string,
+    value: unknown,
+  ) => {
+    const next = [...rows];
+    next[index] = { ...next[index], [key]: value };
+    updateList(name, next);
+  };
+  const selectSigner = (employeeId: string) => {
+    const selected = lookups.employees.find(
+      (item) => String(item.employee_id ?? "") === employeeId,
+    );
+    setValues((current) => ({
+      ...current,
+      signer_id: employeeId,
+      signer_name: String(selected?.full_name ?? ""),
+      signer_position: String(selected?.position_name ?? ""),
+    }));
+  };
+  const selectEmployee = (employeeId: string) => {
+    const selected = lookups.employees.find(
+      (item) => String(item.employee_id ?? "") === employeeId,
+    );
+    setValues((current) => ({
+      ...current,
+      employee_id: employeeId,
+      employee_position: String(selected?.position_name ?? ""),
+    }));
+  };
+  const selectType = (typeCode: string) => {
+    const type = lookups.contractTypes.find(
+      (item) =>
+        String(item.contract_type_code ?? item.contract_type_name ?? "") ===
+        typeCode,
+    );
+    setValues((current) => ({
+      ...current,
+      contract_type: typeCode,
+      has_probation:
+        Number(type?.has_probation) === 1
+          ? "1"
+          : (current.has_probation ?? "0"),
+    }));
+  };
+  const field = (
+    name: string,
+    label: string,
+    type: WorkspaceField["type"] = "text",
+    required = false,
+    disabled = false,
+  ) => (
+    <WorkspaceInput
+      field={{ name, label, type, required, disabled }}
+      tabId="contracts"
+      value={values[name] ?? ""}
+      onChange={(value) => set(name, value)}
+    />
+  );
   const hasProbation = values.has_probation === "1";
 
-  return <div className="space-y-5">
-    <div className="flex gap-1 overflow-x-auto border-b border-slate-200">{[["general", "1. Thông tin HĐLĐ"], ["salary", "2. Thông tin lương"], ["allowances", "3. Phụ cấp"], ["appendices", "4. Phụ lục hợp đồng"]].map(([key, label]) => <button key={key} type="button" onClick={() => setActiveTab(key as typeof activeTab)} className={`whitespace-nowrap border-b-2 px-4 py-3 text-xs font-bold ${activeTab === key ? "border-teal-600 text-teal-700" : "border-transparent text-slate-400"}`}>{label}</button>)}</div>
-    {activeTab === "general" && <div className="grid gap-4 md:grid-cols-2">{field("contract_date", "Ngày HĐ", "date", true)}{field("contract_no", "Số HĐ")}{<div><label className="mb-1.5 block text-xs font-bold text-slate-600">Đại diện ký *</label><select className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm" value={values.signer_id ?? ""} required onChange={(event) => selectSigner(event.target.value)}><option value="">-- Chọn người ký --</option>{lookups.employees.map((item) => <option key={String(item.employee_id)} value={String(item.employee_id)}>{String(item.employee_code ?? item.employee_id)} - {String(item.full_name ?? "")}</option>)}</select></div>}{field("signer_position", "Vị trí người ký", "text", false, true)}{<div><label className="mb-1.5 block text-xs font-bold text-slate-600">Nhân viên *</label><select className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm" value={values.employee_id ?? ""} required onChange={(event) => selectEmployee(event.target.value)}><option value="">-- Chọn nhân viên --</option>{lookups.employees.map((item) => <option key={String(item.employee_id)} value={String(item.employee_id)}>{String(item.employee_code ?? item.employee_id)} - {String(item.full_name ?? "")}</option>)}</select></div>}{field("employee_position", "Vị trí nhân viên", "text", false, true)}{<div><label className="mb-1.5 block text-xs font-bold text-slate-600">Loại HĐLĐ *</label><select className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm" value={values.contract_type ?? ""} required onChange={(event) => selectType(event.target.value)}><option value="">-- Chọn loại HĐLĐ --</option>{lookups.contractTypes.map((item) => <option key={String(item.contract_type_id)} value={String(item.contract_type_code ?? item.contract_type_name)}>{String(item.contract_type_code ?? "")} - {String(item.contract_type_name ?? "")}</option>)}</select></div>}{<div><label className="mb-1.5 block text-xs font-bold text-slate-600">Thời hạn HĐ</label><Input value={selectedType ? `${String(selectedType.duration_months ?? 0)} tháng` : "Theo loại HĐLĐ"} disabled className="h-10 bg-slate-100 text-slate-500" /></div>}{field("start_date", "Từ ngày", "date", true)}{field("end_date", "Đến ngày", "date")}{<div className="flex items-center gap-3 rounded-xl border border-slate-100 p-3"><input id="has-probation" type="checkbox" checked={hasProbation} onChange={(event) => set("has_probation", event.target.checked ? "1" : "0")} className="size-4 accent-teal-600" /><label htmlFor="has-probation" className="text-sm font-semibold text-slate-700">Có thử việc</label></div>}{hasProbation && <>{field("probation_from_date", "Thử việc từ ngày", "date", true)}{field("probation_to_date", "Thử việc đến ngày", "date", true)}{field("probation_salary_rate", "Tỷ lệ lương thử việc (%)", "number", true)}</>}{field("job_description", "Mô tả công việc", "textarea")}</div>}
-    {activeTab === "salary" && <div className="grid gap-4 md:grid-cols-2">{field("base_salary", "Lương cơ bản", "number", true)}{field("social_insurance_salary", "Lương đóng bảo hiểm", "number", true)}<p className="text-[11px] text-slate-400 md:col-span-2">Nhập số tiền VND, không nhập số lẻ.</p></div>}
-    {activeTab === "allowances" && <div className="space-y-3"><div className="flex items-center justify-between"><h3 className="font-display text-sm font-bold text-slate-900">Phụ cấp</h3><Button type="button" variant="secondary" size="sm" onClick={() => updateList("allowance_details", [...allowances, { allowance_type: "", amount: 0 }])}><Plus size={14} /> Thêm phụ cấp</Button></div><div className="overflow-x-auto rounded-xl border border-slate-100"><table className="w-full min-w-[600px] text-left text-xs"><thead className="bg-slate-50 text-[10px] uppercase tracking-wider text-slate-400"><tr><th className="px-3 py-3">Loại phụ cấp</th><th className="px-3 py-3">Tiền hưởng</th><th className="px-3 py-3">Xóa</th></tr></thead><tbody className="divide-y divide-slate-100">{allowances.map((item, index) => <tr key={index}><td className="px-3 py-2"><Input value={String(item.allowance_type ?? "")} onChange={(event) => updateRow("allowance_details", allowances, index, "allowance_type", event.target.value)} /></td><td className="px-3 py-2"><Input type="number" step="1" value={String(item.amount ?? "")} onChange={(event) => updateRow("allowance_details", allowances, index, "amount", Number(event.target.value) || 0)} /></td><td className="px-3 py-2"><Button type="button" variant="ghost" size="sm" onClick={() => updateList("allowance_details", allowances.filter((_, itemIndex) => itemIndex !== index))}><Trash2 size={15} /></Button></td></tr>)}</tbody></table></div>{!allowances.length && <p className="rounded-xl border border-dashed border-slate-200 p-6 text-center text-xs text-slate-400">Chưa có phụ cấp.</p>}</div>}
-    {activeTab === "appendices" && <div className="space-y-3"><div className="flex items-center justify-between"><div><h3 className="font-display text-sm font-bold text-slate-900">Phụ lục hợp đồng</h3><p className="mt-1 text-xs text-slate-400">Phụ lục sẽ được lưu sau khi HĐLĐ được tạo thành công.</p></div><Button type="button" variant="secondary" size="sm" onClick={() => updateList("appendices", [...appendices, { appendix_no: "", signed_date: "", appendix_type: appendixTypes[0], effective_date: "", changed_content: "", signer_id: "", signer_name: "", attachment_url: "", note: "" }])}><Plus size={14} /> Thêm phụ lục</Button></div>{appendices.map((item, index) => <div key={index} className="space-y-4 rounded-xl border border-slate-100 p-4"><div className="flex items-center justify-between"><b className="text-sm text-slate-800">Phụ lục {index + 1}</b><Button type="button" variant="ghost" size="sm" onClick={() => updateList("appendices", appendices.filter((_, itemIndex) => itemIndex !== index))}><Trash2 size={15} /></Button></div><div className="grid gap-4 md:grid-cols-2">{[["appendix_no", "Số phụ lục"], ["signed_date", "Ngày ký"], ["effective_date", "Ngày hiệu lực"], ["attachment_url", "File đính kèm"], ["changed_content", "Nội dung thay đổi"], ["note", "Ghi chú"]].map(([key, label]) => <div key={key}><label className="mb-1.5 block text-xs font-bold text-slate-600">{label}</label><Input type={key.includes("date") ? "date" : "text"} value={String(item[key] ?? "")} onChange={(event) => updateRow("appendices", appendices, index, key, event.target.value)} /></div>)}<div><label className="mb-1.5 block text-xs font-bold text-slate-600">Loại phụ lục *</label><select className="h-10 w-full rounded-xl border border-slate-200 px-3 text-sm" value={String(item.appendix_type ?? appendixTypes[0])} onChange={(event) => updateRow("appendices", appendices, index, "appendix_type", event.target.value)}>{appendixTypes.map((type) => <option key={type}>{type}</option>)}</select></div><div><label className="mb-1.5 block text-xs font-bold text-slate-600">Người ký</label><select className="h-10 w-full rounded-xl border border-slate-200 px-3 text-sm" value={String(item.signer_id ?? "")} onChange={(event) => { const selected = lookups.employees.find((person) => String(person.employee_id ?? "") === event.target.value); const next = [...appendices]; next[index] = { ...next[index], signer_id: event.target.value, signer_name: selected?.full_name ?? "" }; updateList("appendices", next); }}><option value="">-- Chọn người ký --</option>{lookups.employees.map((person) => <option key={String(person.employee_id)} value={String(person.employee_id)}>{String(person.employee_code ?? person.employee_id)} - {String(person.full_name ?? "")}</option>)}</select></div></div></div>)}{!appendices.length && <p className="rounded-xl border border-dashed border-slate-200 p-6 text-center text-xs text-slate-400">Chưa có phụ lục.</p>}</div>}
-  </div>;
+  return (
+    <div className="space-y-5">
+      <div className="flex gap-1 overflow-x-auto border-b border-slate-200">
+        {[
+          ["general", "1. Thông tin HĐLĐ"],
+          ["salary", "2. Thông tin lương"],
+          ["allowances", "3. Phụ cấp"],
+          ["appendices", "4. Phụ lục hợp đồng"],
+        ].map(([key, label]) => (
+          <button
+            key={key}
+            type="button"
+            onClick={() => setActiveTab(key as typeof activeTab)}
+            className={`whitespace-nowrap border-b-2 px-4 py-3 text-xs font-bold ${activeTab === key ? "border-teal-600 text-teal-700" : "border-transparent text-slate-400"}`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+      {activeTab === "general" && (
+        <div className="grid gap-4 md:grid-cols-2">
+          {field("contract_date", "Ngày HĐ", "date", true)}
+          {field("contract_no", "Số HĐ")}
+          {
+            <div>
+              <label className="mb-1.5 block text-xs font-bold text-slate-600">
+                Đại diện ký *
+              </label>
+              <select
+                className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm"
+                value={values.signer_id ?? ""}
+                required
+                onChange={(event) => selectSigner(event.target.value)}
+              >
+                <option value="">-- Chọn người ký --</option>
+                {lookups.employees.map((item) => (
+                  <option
+                    key={String(item.employee_id)}
+                    value={String(item.employee_id)}
+                  >
+                    {String(item.employee_code ?? item.employee_id)} -{" "}
+                    {String(item.full_name ?? "")}
+                  </option>
+                ))}
+              </select>
+            </div>
+          }
+          {field("signer_position", "Vị trí người ký", "text", false, true)}
+          {
+            <div>
+              <label className="mb-1.5 block text-xs font-bold text-slate-600">
+                Nhân viên *
+              </label>
+              <select
+                className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm"
+                value={values.employee_id ?? ""}
+                required
+                onChange={(event) => selectEmployee(event.target.value)}
+              >
+                <option value="">-- Chọn nhân viên --</option>
+                {lookups.employees.map((item) => (
+                  <option
+                    key={String(item.employee_id)}
+                    value={String(item.employee_id)}
+                  >
+                    {String(item.employee_code ?? item.employee_id)} -{" "}
+                    {String(item.full_name ?? "")}
+                  </option>
+                ))}
+              </select>
+            </div>
+          }
+          {field("employee_position", "Vị trí nhân viên", "text", false, true)}
+          {
+            <div>
+              <label className="mb-1.5 block text-xs font-bold text-slate-600">
+                Loại HĐLĐ *
+              </label>
+              <select
+                className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm"
+                value={values.contract_type ?? ""}
+                required
+                onChange={(event) => selectType(event.target.value)}
+              >
+                <option value="">-- Chọn loại HĐLĐ --</option>
+                {lookups.contractTypes.map((item) => (
+                  <option
+                    key={String(item.contract_type_id)}
+                    value={String(
+                      item.contract_type_code ?? item.contract_type_name,
+                    )}
+                  >
+                    {String(item.contract_type_code ?? "")} -{" "}
+                    {String(item.contract_type_name ?? "")}
+                  </option>
+                ))}
+              </select>
+            </div>
+          }
+          {
+            <div>
+              <label className="mb-1.5 block text-xs font-bold text-slate-600">
+                Thời hạn HĐ
+              </label>
+              <Input
+                value={
+                  selectedType
+                    ? `${String(selectedType.duration_months ?? 0)} tháng`
+                    : "Theo loại HĐLĐ"
+                }
+                disabled
+                className="h-10 bg-slate-100 text-slate-500"
+              />
+            </div>
+          }
+          {field("start_date", "Từ ngày", "date", true)}
+          {field("end_date", "Đến ngày", "date")}
+          {
+            <div className="flex items-center gap-3 rounded-xl border border-slate-100 p-3">
+              <input
+                id="has-probation"
+                type="checkbox"
+                checked={hasProbation}
+                onChange={(event) =>
+                  set("has_probation", event.target.checked ? "1" : "0")
+                }
+                className="size-4 accent-teal-600"
+              />
+              <label
+                htmlFor="has-probation"
+                className="text-sm font-semibold text-slate-700"
+              >
+                Có thử việc
+              </label>
+            </div>
+          }
+          {hasProbation && (
+            <>
+              {field("probation_from_date", "Thử việc từ ngày", "date", true)}
+              {field("probation_to_date", "Thử việc đến ngày", "date", true)}
+              {field(
+                "probation_salary_rate",
+                "Tỷ lệ lương thử việc (%)",
+                "number",
+                true,
+              )}
+            </>
+          )}
+          {field("job_description", "Mô tả công việc", "textarea")}
+        </div>
+      )}
+      {activeTab === "salary" && (
+        <div className="grid gap-4 md:grid-cols-2">
+          {field("base_salary", "Lương cơ bản", "number", true)}
+          {field(
+            "social_insurance_salary",
+            "Lương đóng bảo hiểm",
+            "number",
+            true,
+          )}
+          <p className="text-[11px] text-slate-400 md:col-span-2">
+            Nhập số tiền VND, không nhập số lẻ.
+          </p>
+        </div>
+      )}
+      {activeTab === "allowances" && (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="font-display text-sm font-bold text-slate-900">
+              Phụ cấp
+            </h3>
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={() =>
+                updateList("allowance_details", [
+                  ...allowances,
+                  { allowance_type: "", amount: 0 },
+                ])
+              }
+            >
+              <Plus size={14} /> Thêm phụ cấp
+            </Button>
+          </div>
+          <div className="overflow-x-auto rounded-xl border border-slate-100">
+            <table className="w-full min-w-[600px] text-left text-xs">
+              <thead className="bg-slate-50 text-[10px] uppercase tracking-wider text-slate-400">
+                <tr>
+                  <th className="px-3 py-3">Loại phụ cấp</th>
+                  <th className="px-3 py-3">Tiền hưởng</th>
+                  <th className="px-3 py-3">Xóa</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {allowances.map((item, index) => (
+                  <tr key={index}>
+                    <td className="px-3 py-2">
+                      <Input
+                        value={String(item.allowance_type ?? "")}
+                        onChange={(event) =>
+                          updateRow(
+                            "allowance_details",
+                            allowances,
+                            index,
+                            "allowance_type",
+                            event.target.value,
+                          )
+                        }
+                      />
+                    </td>
+                    <td className="px-3 py-2">
+                      <Input
+                        type="number"
+                        step="1"
+                        value={String(item.amount ?? "")}
+                        onChange={(event) =>
+                          updateRow(
+                            "allowance_details",
+                            allowances,
+                            index,
+                            "amount",
+                            Number(event.target.value) || 0,
+                          )
+                        }
+                      />
+                    </td>
+                    <td className="px-3 py-2">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() =>
+                          updateList(
+                            "allowance_details",
+                            allowances.filter(
+                              (_, itemIndex) => itemIndex !== index,
+                            ),
+                          )
+                        }
+                      >
+                        <Trash2 size={15} />
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {!allowances.length && (
+            <p className="rounded-xl border border-dashed border-slate-200 p-6 text-center text-xs text-slate-400">
+              Chưa có phụ cấp.
+            </p>
+          )}
+        </div>
+      )}
+      {activeTab === "appendices" && (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="font-display text-sm font-bold text-slate-900">
+                Phụ lục hợp đồng
+              </h3>
+              <p className="mt-1 text-xs text-slate-400">
+                Phụ lục sẽ được lưu sau khi HĐLĐ được tạo thành công.
+              </p>
+            </div>
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={() =>
+                updateList("appendices", [
+                  ...appendices,
+                  {
+                    appendix_no: "",
+                    signed_date: "",
+                    appendix_type: appendixTypes[0],
+                    effective_date: "",
+                    changed_content: "",
+                    signer_id: "",
+                    signer_name: "",
+                    attachment_url: "",
+                    note: "",
+                  },
+                ])
+              }
+            >
+              <Plus size={14} /> Thêm phụ lục
+            </Button>
+          </div>
+          {appendices.map((item, index) => (
+            <div
+              key={index}
+              className="space-y-4 rounded-xl border border-slate-100 p-4"
+            >
+              <div className="flex items-center justify-between">
+                <b className="text-sm text-slate-800">Phụ lục {index + 1}</b>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() =>
+                    updateList(
+                      "appendices",
+                      appendices.filter((_, itemIndex) => itemIndex !== index),
+                    )
+                  }
+                >
+                  <Trash2 size={15} />
+                </Button>
+              </div>
+              <div className="grid gap-4 md:grid-cols-2">
+                {[
+                  ["appendix_no", "Số phụ lục"],
+                  ["signed_date", "Ngày ký"],
+                  ["effective_date", "Ngày hiệu lực"],
+                  ["attachment_url", "File đính kèm"],
+                  ["changed_content", "Nội dung thay đổi"],
+                  ["note", "Ghi chú"],
+                ].map(([key, label]) => (
+                  <div key={key}>
+                    <label className="mb-1.5 block text-xs font-bold text-slate-600">
+                      {label}
+                    </label>
+                    <Input
+                      type={key.includes("date") ? "date" : "text"}
+                      value={String(item[key] ?? "")}
+                      onChange={(event) =>
+                        updateRow(
+                          "appendices",
+                          appendices,
+                          index,
+                          key,
+                          event.target.value,
+                        )
+                      }
+                    />
+                  </div>
+                ))}
+                <div>
+                  <label className="mb-1.5 block text-xs font-bold text-slate-600">
+                    Loại phụ lục *
+                  </label>
+                  <select
+                    className="h-10 w-full rounded-xl border border-slate-200 px-3 text-sm"
+                    value={String(item.appendix_type ?? appendixTypes[0])}
+                    onChange={(event) =>
+                      updateRow(
+                        "appendices",
+                        appendices,
+                        index,
+                        "appendix_type",
+                        event.target.value,
+                      )
+                    }
+                  >
+                    {appendixTypes.map((type) => (
+                      <option key={type}>{type}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-xs font-bold text-slate-600">
+                    Người ký
+                  </label>
+                  <select
+                    className="h-10 w-full rounded-xl border border-slate-200 px-3 text-sm"
+                    value={String(item.signer_id ?? "")}
+                    onChange={(event) => {
+                      const selected = lookups.employees.find(
+                        (person) =>
+                          String(person.employee_id ?? "") ===
+                          event.target.value,
+                      );
+                      const next = [...appendices];
+                      next[index] = {
+                        ...next[index],
+                        signer_id: event.target.value,
+                        signer_name: selected?.full_name ?? "",
+                      };
+                      updateList("appendices", next);
+                    }}
+                  >
+                    <option value="">-- Chọn người ký --</option>
+                    {lookups.employees.map((person) => (
+                      <option
+                        key={String(person.employee_id)}
+                        value={String(person.employee_id)}
+                      >
+                        {String(person.employee_code ?? person.employee_id)} -{" "}
+                        {String(person.full_name ?? "")}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </div>
+          ))}
+          {!appendices.length && (
+            <p className="rounded-xl border border-dashed border-slate-200 p-6 text-center text-xs text-slate-400">
+              Chưa có phụ lục.
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  );
 }
 
 function TransferProposalForm({
@@ -791,28 +2324,311 @@ function TransferProposalForm({
   session,
 }: {
   values: Record<string, string>;
-  setValues: (updater: (current: Record<string, string>) => Record<string, string>) => void;
+  setValues: (
+    updater: (current: Record<string, string>) => Record<string, string>,
+  ) => void;
   lookups: RequestLookups;
   session: Session | null;
 }) {
   const [activeTab, setActiveTab] = useState<"general" | "detail">("general");
   const details = parseDetailList(values.detail_items);
   const detail = details[0] ?? {};
-  const proposer = lookups.employees.find((item) => String(item.employee_id ?? "") === values.proposer_id);
-  const selectedEmployee = lookups.employees.find((item) => String(item.employee_id ?? "") === String(detail.employee_id ?? ""));
-  const currentDepartment = lookups.departments.find((item) => String(item.department_id ?? "") === String(detail.current_department_id ?? selectedEmployee?.department_id ?? ""));
-  const currentPosition = lookups.positions.find((item) => String(item.position_id ?? "") === String(detail.current_position_id ?? selectedEmployee?.position_id ?? ""));
-  const targetPositions = lookups.positions.filter((item) => !detail.target_department_id || String(item.department_id ?? "") === String(detail.target_department_id));
-  const set = (name: string, value: string) => setValues((current) => ({ ...current, [name]: value }));
-  const updateDetail = (key: string, value: unknown) => setValues((current) => ({ ...current, detail_items: JSON.stringify([{ ...detail, [key]: value }]) }));
-  const selectProposer = (employeeId: string) => { const employee = lookups.employees.find((item) => String(item.employee_id ?? "") === employeeId); setValues((current) => ({ ...current, proposer_id: employeeId, proposer_name: String(employee?.full_name ?? ""), proposer_position: String(employee?.position_name ?? ""), proposer_department: String(lookups.departments.find((item) => String(item.department_id ?? "") === String(employee?.department_id ?? ""))?.department_name ?? "") })); };
-  const selectEmployee = (employeeId: string) => { const employee = lookups.employees.find((item) => String(item.employee_id ?? "") === employeeId); setValues((current) => ({ ...current, detail_items: JSON.stringify([{ ...detail, employee_id: employeeId, employee_name: employee?.full_name ?? "", current_department_id: employee?.department_id ?? "", current_position_id: employee?.position_id ?? "", target_department_id: "", target_position_id: "", note: detail.note ?? "" }]) })); };
-  const employeeDetail = (label: string, value: unknown) => <div className="rounded-xl border border-slate-100 bg-slate-50/70 p-3"><div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{label}</div><div className="mt-1 text-sm text-slate-700">{String(value ?? "-") || "-"}</div></div>;
+  const proposer = lookups.employees.find(
+    (item) => String(item.employee_id ?? "") === values.proposer_id,
+  );
+  const selectedEmployee = lookups.employees.find(
+    (item) =>
+      String(item.employee_id ?? "") === String(detail.employee_id ?? ""),
+  );
+  const currentDepartment = lookups.departments.find(
+    (item) =>
+      String(item.department_id ?? "") ===
+      String(
+        detail.current_department_id ?? selectedEmployee?.department_id ?? "",
+      ),
+  );
+  const currentPosition = lookups.positions.find(
+    (item) =>
+      String(item.position_id ?? "") ===
+      String(detail.current_position_id ?? selectedEmployee?.position_id ?? ""),
+  );
+  const targetPositions = lookups.positions.filter(
+    (item) =>
+      !detail.target_department_id ||
+      String(item.department_id ?? "") === String(detail.target_department_id),
+  );
+  const set = (name: string, value: string) =>
+    setValues((current) => ({ ...current, [name]: value }));
+  const updateDetail = (key: string, value: unknown) =>
+    setValues((current) => ({
+      ...current,
+      detail_items: JSON.stringify([{ ...detail, [key]: value }]),
+    }));
+  const selectProposer = (employeeId: string) => {
+    const employee = lookups.employees.find(
+      (item) => String(item.employee_id ?? "") === employeeId,
+    );
+    setValues((current) => ({
+      ...current,
+      proposer_id: employeeId,
+      proposer_name: String(employee?.full_name ?? ""),
+      proposer_position: String(employee?.position_name ?? ""),
+      proposer_department: String(
+        lookups.departments.find(
+          (item) =>
+            String(item.department_id ?? "") ===
+            String(employee?.department_id ?? ""),
+        )?.department_name ?? "",
+      ),
+    }));
+  };
+  const selectEmployee = (employeeId: string) => {
+    const employee = lookups.employees.find(
+      (item) => String(item.employee_id ?? "") === employeeId,
+    );
+    setValues((current) => ({
+      ...current,
+      detail_items: JSON.stringify([
+        {
+          ...detail,
+          employee_id: employeeId,
+          employee_name: employee?.full_name ?? "",
+          current_department_id: employee?.department_id ?? "",
+          current_position_id: employee?.position_id ?? "",
+          target_department_id: "",
+          target_position_id: "",
+          note: detail.note ?? "",
+        },
+      ]),
+    }));
+  };
+  const employeeDetail = (label: string, value: unknown) => (
+    <div className="rounded-xl border border-slate-100 bg-slate-50/70 p-3">
+      <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+        {label}
+      </div>
+      <div className="mt-1 text-sm text-slate-700">
+        {String(value ?? "-") || "-"}
+      </div>
+    </div>
+  );
 
-  return <div className="space-y-5"><div className="flex gap-1 overflow-x-auto border-b border-slate-200">{[["general", "1. Thông tin chung"], ["detail", "2. Chi tiết"]].map(([key, label]) => <button key={key} type="button" onClick={() => setActiveTab(key as typeof activeTab)} className={`whitespace-nowrap border-b-2 px-4 py-3 text-xs font-bold ${activeTab === key ? "border-teal-600 text-teal-700" : "border-transparent text-slate-400"}`}>{label}</button>)}</div>
-    {activeTab === "general" && <div className="grid gap-4 md:grid-cols-2">{<WorkspaceInput field={{ name: "proposal_date", label: "Ngày đề xuất", type: "date", required: true }} tabId="transfer-proposals" value={values.proposal_date ?? ""} onChange={(value) => set("proposal_date", value)} />}{<WorkspaceInput field={{ name: "proposal_code", label: "Số đề xuất" }} tabId="transfer-proposals" value={values.proposal_code ?? ""} onChange={(value) => set("proposal_code", value)} />}{<WorkspaceInput field={{ name: "effective_date", label: "Ngày hiệu lực đề xuất", type: "date", required: true }} tabId="transfer-proposals" value={values.effective_date ?? ""} onChange={(value) => set("effective_date", value)} />}{<WorkspaceInput field={{ name: "decision_type", label: "Loại quyết định", type: "select", options: [{ value: "Thuyên chuyển", label: "Thuyên chuyển" }, { value: "Bổ nhiệm", label: "Bổ nhiệm" }, { value: "Miễn nhiệm", label: "Miễn nhiệm" }] }} tabId="transfer-proposals" value={values.decision_type ?? "Thuyên chuyển"} onChange={(value) => set("decision_type", value)} />}{<div><label className="mb-1.5 block text-xs font-bold text-slate-600">Người đề xuất *</label><select className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm" value={values.proposer_id ?? ""} required onChange={(event) => selectProposer(event.target.value)}><option value="">-- Chọn người đề xuất --</option>{lookups.employees.map((item) => <option key={String(item.employee_id)} value={String(item.employee_id)}>{String(item.employee_code ?? item.employee_id)} - {String(item.full_name ?? "")}</option>)}</select></div>}{employeeDetail("Vị trí", proposer?.position_name ?? values.proposer_position)}{employeeDetail("Bộ phận", proposer?.department_name ?? values.proposer_department)}<div className="md:col-span-2"><WorkspaceInput field={{ name: "description", label: "Diễn giải", type: "textarea" }} tabId="transfer-proposals" value={values.description ?? ""} onChange={(value) => set("description", value)} /></div></div>}
-    {activeTab === "detail" && <div className="space-y-4"><div><label className="mb-1.5 block text-xs font-bold text-slate-600">Mã nhân viên *</label><select className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm" value={String(detail.employee_id ?? "")} required onChange={(event) => selectEmployee(event.target.value)}><option value="">-- Chọn nhân viên --</option>{lookups.employees.map((item) => <option key={String(item.employee_id)} value={String(item.employee_id)}>{String(item.employee_code ?? item.employee_id)} - {String(item.full_name ?? "")}</option>)}</select></div><div className="grid gap-3 sm:grid-cols-2">{employeeDetail("Tên nhân viên", selectedEmployee?.full_name ?? detail.employee_name)}{employeeDetail("Vị trí hiện tại", currentPosition?.position_name ?? detail.current_position_name)}{employeeDetail("Bộ phận hiện tại", currentDepartment?.department_name ?? detail.current_department_name)}</div><div className="grid gap-4 md:grid-cols-2"><div><label className="mb-1.5 block text-xs font-bold text-slate-600">Vị trí mới</label><select className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm" value={String(detail.target_position_id ?? "")} onChange={(event) => updateDetail("target_position_id", event.target.value)}><option value="">-- Chọn vị trí mới --</option>{targetPositions.map((item) => <option key={String(item.position_id)} value={String(item.position_id)}>{String(item.position_code ?? item.position_id)} - {String(item.position_name ?? "")}</option>)}</select></div><div><label className="mb-1.5 block text-xs font-bold text-slate-600">Bộ phận mới</label><select className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm" value={String(detail.target_department_id ?? "")} onChange={(event) => updateDetail("target_department_id", event.target.value)}><option value="">-- Chọn bộ phận mới --</option>{lookups.departments.map((item) => <option key={String(item.department_id)} value={String(item.department_id)}>{String(item.department_code ?? item.department_id)} - {String(item.department_name ?? "")}</option>)}</select></div><div className="md:col-span-2"><label className="mb-1.5 block text-xs font-bold text-slate-600">Ghi chú</label><Input value={String(detail.note ?? "")} onChange={(event) => updateDetail("note", event.target.value)} /></div></div></div>}
-  </div>;
+  return (
+    <div className="space-y-5">
+      <div className="flex gap-1 overflow-x-auto border-b border-slate-200">
+        {[
+          ["general", "1. Thông tin chung"],
+          ["detail", "2. Chi tiết"],
+        ].map(([key, label]) => (
+          <button
+            key={key}
+            type="button"
+            onClick={() => setActiveTab(key as typeof activeTab)}
+            className={`whitespace-nowrap border-b-2 px-4 py-3 text-xs font-bold ${activeTab === key ? "border-teal-600 text-teal-700" : "border-transparent text-slate-400"}`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+      {activeTab === "general" && (
+        <div className="grid gap-4 md:grid-cols-2">
+          {
+            <WorkspaceInput
+              field={{
+                name: "proposal_date",
+                label: "Ngày đề xuất",
+                type: "date",
+                required: true,
+              }}
+              tabId="transfer-proposals"
+              value={values.proposal_date ?? ""}
+              onChange={(value) => set("proposal_date", value)}
+            />
+          }
+          {
+            <WorkspaceInput
+              field={{ name: "proposal_code", label: "Số đề xuất" }}
+              tabId="transfer-proposals"
+              value={values.proposal_code ?? ""}
+              onChange={(value) => set("proposal_code", value)}
+            />
+          }
+          {
+            <WorkspaceInput
+              field={{
+                name: "effective_date",
+                label: "Ngày hiệu lực đề xuất",
+                type: "date",
+                required: true,
+              }}
+              tabId="transfer-proposals"
+              value={values.effective_date ?? ""}
+              onChange={(value) => set("effective_date", value)}
+            />
+          }
+          {
+            <WorkspaceInput
+              field={{
+                name: "decision_type",
+                label: "Loại quyết định",
+                type: "select",
+                options: [
+                  { value: "Thuyên chuyển", label: "Thuyên chuyển" },
+                  { value: "Bổ nhiệm", label: "Bổ nhiệm" },
+                  { value: "Miễn nhiệm", label: "Miễn nhiệm" },
+                ],
+              }}
+              tabId="transfer-proposals"
+              value={values.decision_type ?? "Thuyên chuyển"}
+              onChange={(value) => set("decision_type", value)}
+            />
+          }
+          {
+            <div>
+              <label className="mb-1.5 block text-xs font-bold text-slate-600">
+                Người đề xuất *
+              </label>
+              <select
+                className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm"
+                value={values.proposer_id ?? ""}
+                required
+                onChange={(event) => selectProposer(event.target.value)}
+              >
+                <option value="">-- Chọn người đề xuất --</option>
+                {lookups.employees.map((item) => (
+                  <option
+                    key={String(item.employee_id)}
+                    value={String(item.employee_id)}
+                  >
+                    {String(item.employee_code ?? item.employee_id)} -{" "}
+                    {String(item.full_name ?? "")}
+                  </option>
+                ))}
+              </select>
+            </div>
+          }
+          {employeeDetail(
+            "Vị trí",
+            proposer?.position_name ?? values.proposer_position,
+          )}
+          {employeeDetail(
+            "Bộ phận",
+            proposer?.department_name ?? values.proposer_department,
+          )}
+          <div className="md:col-span-2">
+            <WorkspaceInput
+              field={{
+                name: "description",
+                label: "Diễn giải",
+                type: "textarea",
+              }}
+              tabId="transfer-proposals"
+              value={values.description ?? ""}
+              onChange={(value) => set("description", value)}
+            />
+          </div>
+        </div>
+      )}
+      {activeTab === "detail" && (
+        <div className="space-y-4">
+          <div>
+            <label className="mb-1.5 block text-xs font-bold text-slate-600">
+              Mã nhân viên *
+            </label>
+            <select
+              className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm"
+              value={String(detail.employee_id ?? "")}
+              required
+              onChange={(event) => selectEmployee(event.target.value)}
+            >
+              <option value="">-- Chọn nhân viên --</option>
+              {lookups.employees.map((item) => (
+                <option
+                  key={String(item.employee_id)}
+                  value={String(item.employee_id)}
+                >
+                  {String(item.employee_code ?? item.employee_id)} -{" "}
+                  {String(item.full_name ?? "")}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {employeeDetail(
+              "Tên nhân viên",
+              selectedEmployee?.full_name ?? detail.employee_name,
+            )}
+            {employeeDetail(
+              "Vị trí hiện tại",
+              currentPosition?.position_name ?? detail.current_position_name,
+            )}
+            {employeeDetail(
+              "Bộ phận hiện tại",
+              currentDepartment?.department_name ??
+                detail.current_department_name,
+            )}
+          </div>
+          <div className="grid gap-4 md:grid-cols-2">
+            <div>
+              <label className="mb-1.5 block text-xs font-bold text-slate-600">
+                Vị trí mới
+              </label>
+              <select
+                className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm"
+                value={String(detail.target_position_id ?? "")}
+                onChange={(event) =>
+                  updateDetail("target_position_id", event.target.value)
+                }
+              >
+                <option value="">-- Chọn vị trí mới --</option>
+                {targetPositions.map((item) => (
+                  <option
+                    key={String(item.position_id)}
+                    value={String(item.position_id)}
+                  >
+                    {String(item.position_code ?? item.position_id)} -{" "}
+                    {String(item.position_name ?? "")}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="mb-1.5 block text-xs font-bold text-slate-600">
+                Bộ phận mới
+              </label>
+              <select
+                className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm"
+                value={String(detail.target_department_id ?? "")}
+                onChange={(event) =>
+                  updateDetail("target_department_id", event.target.value)
+                }
+              >
+                <option value="">-- Chọn bộ phận mới --</option>
+                {lookups.departments.map((item) => (
+                  <option
+                    key={String(item.department_id)}
+                    value={String(item.department_id)}
+                  >
+                    {String(item.department_code ?? item.department_id)} -{" "}
+                    {String(item.department_name ?? "")}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="md:col-span-2">
+              <label className="mb-1.5 block text-xs font-bold text-slate-600">
+                Ghi chú
+              </label>
+              <Input
+                value={String(detail.note ?? "")}
+                onChange={(event) => updateDetail("note", event.target.value)}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
 
 function TransferDecisionForm({
@@ -822,33 +2638,423 @@ function TransferDecisionForm({
   session,
 }: {
   values: Record<string, string>;
-  setValues: (updater: (current: Record<string, string>) => Record<string, string>) => void;
+  setValues: (
+    updater: (current: Record<string, string>) => Record<string, string>,
+  ) => void;
   lookups: TransferDecisionLookups;
   session: Session | null;
 }) {
   const [activeTab, setActiveTab] = useState<"general" | "detail">("general");
   const details = parseDetailList(values.detail_items);
   const detail = details[0] ?? {};
-  const employee = lookups.employees.find((item) => String(item.employee_id ?? "") === String(values.employee_id ?? detail.employee_id ?? ""));
-  const creator = lookups.employees.find((item) => String(item.employee_id ?? "") === String(values.creator_id ?? ""));
-  const currentDepartment = lookups.departments.find((item) => String(item.department_id ?? "") === String(detail.current_department_id ?? employee?.department_id ?? ""));
-  const currentPosition = lookups.positions.find((item) => String(item.position_id ?? "") === String(detail.current_position_id ?? employee?.position_id ?? ""));
-  const targetPositions = lookups.positions.filter((item) => !values.target_department_id || String(item.department_id ?? "") === String(values.target_department_id));
-  const managers = lookups.employees.filter((item) => String(item.employee_id ?? "") !== String(employee?.employee_id ?? "") && (!values.target_department_id || String(item.department_id ?? "") === String(values.target_department_id)));
-  const set = (name: string, value: string) => setValues((current) => ({ ...current, [name]: value }));
-  const syncDetail = (next: Record<string, unknown>) => setValues((current) => ({ ...current, detail_items: JSON.stringify([{ ...detail, ...next }]) }));
-  const display = (label: string, value: unknown) => <div className="rounded-xl border border-slate-100 bg-slate-50/70 p-3"><div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{label}</div><div className="mt-1 text-sm text-slate-700">{String(value ?? "-") || "-"}</div></div>;
-  const selectCreator = (employeeId: string) => { const selected = lookups.employees.find((item) => String(item.employee_id ?? "") === employeeId); setValues((current) => ({ ...current, creator_id: employeeId, creator_name: String(selected?.full_name ?? ""), creator_position: String(selected?.position_name ?? ""), creator_department: String(selected?.department_name ?? "") })); };
-  const selectProposal = (proposalId: string) => { const proposal = lookups.transferProposals.find((item) => String(item.proposal_id ?? "") === proposalId); const proposalDetail = parseDetailList(proposal?.detail_items)[0] ?? {}; setValues((current) => ({ ...current, proposal_id: proposalId, employee_id: String(proposalDetail.employee_id ?? proposal?.employee_id ?? ""), target_department_id: String(proposalDetail.target_department_id ?? proposal?.target_department_id ?? ""), target_position_id: String(proposalDetail.target_position_id ?? proposal?.target_position_id ?? ""), effective_date: formatDateValue(proposal?.effective_date ?? proposal?.proposed_effective_date), decision_type: String(proposal?.decision_type ?? current.decision_type ?? "Thuyên chuyển"), detail_items: JSON.stringify([{ ...proposalDetail, employee_id: proposalDetail.employee_id ?? proposal?.employee_id ?? "", current_department_id: proposalDetail.current_department_id ?? proposal?.current_department_id ?? "", current_position_id: proposalDetail.current_position_id ?? proposal?.current_position_id ?? "", target_department_id: proposalDetail.target_department_id ?? proposal?.target_department_id ?? "", target_position_id: proposalDetail.target_position_id ?? proposal?.target_position_id ?? "", manager_id: proposalDetail.manager_id ?? "", note: proposalDetail.note ?? "" }]) })); };
-  const selectEmployee = (employeeId: string) => { const selected = lookups.employees.find((item) => String(item.employee_id ?? "") === employeeId); setValues((current) => ({ ...current, employee_id: employeeId, target_department_id: "", target_position_id: "", manager_id: "", detail_items: JSON.stringify([{ ...detail, employee_id: employeeId, current_department_id: selected?.department_id ?? "", current_position_id: selected?.position_id ?? "", target_department_id: "", target_position_id: "", manager_id: "", note: detail.note ?? "" }]) })); };
-  const selectTargetDepartment = (departmentId: string) => setValues((current) => ({ ...current, target_department_id: departmentId, target_position_id: "", manager_id: "", detail_items: JSON.stringify([{ ...detail, target_department_id: departmentId, target_position_id: "", manager_id: "" }]) }));
-  const selectTargetPosition = (positionId: string) => { set("target_position_id", positionId); syncDetail({ target_position_id: positionId }); };
-  const selectManager = (managerId: string) => { set("manager_id", managerId); syncDetail({ manager_id: managerId }); };
+  const employee = lookups.employees.find(
+    (item) =>
+      String(item.employee_id ?? "") ===
+      String(values.employee_id ?? detail.employee_id ?? ""),
+  );
+  const creator = lookups.employees.find(
+    (item) =>
+      String(item.employee_id ?? "") === String(values.creator_id ?? ""),
+  );
+  const currentDepartment = lookups.departments.find(
+    (item) =>
+      String(item.department_id ?? "") ===
+      String(detail.current_department_id ?? employee?.department_id ?? ""),
+  );
+  const currentPosition = lookups.positions.find(
+    (item) =>
+      String(item.position_id ?? "") ===
+      String(detail.current_position_id ?? employee?.position_id ?? ""),
+  );
+  const targetPositions = lookups.positions.filter(
+    (item) =>
+      !values.target_department_id ||
+      String(item.department_id ?? "") === String(values.target_department_id),
+  );
+  const managers = lookups.employees.filter(
+    (item) =>
+      String(item.employee_id ?? "") !== String(employee?.employee_id ?? "") &&
+      (!values.target_department_id ||
+        String(item.department_id ?? "") ===
+          String(values.target_department_id)),
+  );
+  const set = (name: string, value: string) =>
+    setValues((current) => ({ ...current, [name]: value }));
+  const syncDetail = (next: Record<string, unknown>) =>
+    setValues((current) => ({
+      ...current,
+      detail_items: JSON.stringify([{ ...detail, ...next }]),
+    }));
+  const display = (label: string, value: unknown) => (
+    <div className="rounded-xl border border-slate-100 bg-slate-50/70 p-3">
+      <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+        {label}
+      </div>
+      <div className="mt-1 text-sm text-slate-700">
+        {String(value ?? "-") || "-"}
+      </div>
+    </div>
+  );
+  const selectCreator = (employeeId: string) => {
+    const selected = lookups.employees.find(
+      (item) => String(item.employee_id ?? "") === employeeId,
+    );
+    setValues((current) => ({
+      ...current,
+      creator_id: employeeId,
+      creator_name: String(selected?.full_name ?? ""),
+      creator_position: String(selected?.position_name ?? ""),
+      creator_department: String(selected?.department_name ?? ""),
+    }));
+  };
+  const selectProposal = (proposalId: string) => {
+    const proposal = lookups.transferProposals.find(
+      (item) => String(item.proposal_id ?? "") === proposalId,
+    );
+    const proposalDetail = parseDetailList(proposal?.detail_items)[0] ?? {};
+    setValues((current) => ({
+      ...current,
+      proposal_id: proposalId,
+      employee_id: String(
+        proposalDetail.employee_id ?? proposal?.employee_id ?? "",
+      ),
+      target_department_id: String(
+        proposalDetail.target_department_id ??
+          proposal?.target_department_id ??
+          "",
+      ),
+      target_position_id: String(
+        proposalDetail.target_position_id ?? proposal?.target_position_id ?? "",
+      ),
+      effective_date: formatDateValue(
+        proposal?.effective_date ?? proposal?.proposed_effective_date,
+      ),
+      decision_type: String(
+        proposal?.decision_type ?? current.decision_type ?? "Thuyên chuyển",
+      ),
+      detail_items: JSON.stringify([
+        {
+          ...proposalDetail,
+          employee_id:
+            proposalDetail.employee_id ?? proposal?.employee_id ?? "",
+          current_department_id:
+            proposalDetail.current_department_id ??
+            proposal?.current_department_id ??
+            "",
+          current_position_id:
+            proposalDetail.current_position_id ??
+            proposal?.current_position_id ??
+            "",
+          target_department_id:
+            proposalDetail.target_department_id ??
+            proposal?.target_department_id ??
+            "",
+          target_position_id:
+            proposalDetail.target_position_id ??
+            proposal?.target_position_id ??
+            "",
+          manager_id: proposalDetail.manager_id ?? "",
+          note: proposalDetail.note ?? "",
+        },
+      ]),
+    }));
+  };
+  const selectEmployee = (employeeId: string) => {
+    const selected = lookups.employees.find(
+      (item) => String(item.employee_id ?? "") === employeeId,
+    );
+    setValues((current) => ({
+      ...current,
+      employee_id: employeeId,
+      target_department_id: "",
+      target_position_id: "",
+      manager_id: "",
+      detail_items: JSON.stringify([
+        {
+          ...detail,
+          employee_id: employeeId,
+          current_department_id: selected?.department_id ?? "",
+          current_position_id: selected?.position_id ?? "",
+          target_department_id: "",
+          target_position_id: "",
+          manager_id: "",
+          note: detail.note ?? "",
+        },
+      ]),
+    }));
+  };
+  const selectTargetDepartment = (departmentId: string) =>
+    setValues((current) => ({
+      ...current,
+      target_department_id: departmentId,
+      target_position_id: "",
+      manager_id: "",
+      detail_items: JSON.stringify([
+        {
+          ...detail,
+          target_department_id: departmentId,
+          target_position_id: "",
+          manager_id: "",
+        },
+      ]),
+    }));
+  const selectTargetPosition = (positionId: string) => {
+    set("target_position_id", positionId);
+    syncDetail({ target_position_id: positionId });
+  };
+  const selectManager = (managerId: string) => {
+    set("manager_id", managerId);
+    syncDetail({ manager_id: managerId });
+  };
 
-  return <div className="space-y-5"><div className="flex gap-1 overflow-x-auto border-b border-slate-200">{[["general", "1. Thông tin chung"], ["detail", "2. Chi tiết"]].map(([key, label]) => <button key={key} type="button" onClick={() => setActiveTab(key as typeof activeTab)} className={`whitespace-nowrap border-b-2 px-4 py-3 text-xs font-bold ${activeTab === key ? "border-teal-600 text-teal-700" : "border-transparent text-slate-400"}`}>{label}</button>)}</div>
-    {activeTab === "general" && <div className="grid gap-4 md:grid-cols-2"><div><label className="mb-1.5 block text-xs font-bold text-slate-600">Đề xuất liên quan</label><select className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm" value={values.proposal_id ?? ""} onChange={(event) => selectProposal(event.target.value)}><option value="">-- Không chọn --</option>{lookups.transferProposals.map((item) => <option key={String(item.proposal_id)} value={String(item.proposal_id)}>{String(item.proposal_code ?? item.proposal_id)} - {String(item.employee_name ?? "")}</option>)}</select></div><WorkspaceInput field={{ name: "decision_number", label: "Số quyết định" }} tabId="transfer-decisions" value={values.decision_number ?? ""} onChange={(value) => set("decision_number", value)} /><WorkspaceInput field={{ name: "decision_date", label: "Ngày", type: "date", required: true }} tabId="transfer-decisions" value={values.decision_date ?? ""} onChange={(value) => set("decision_date", value)} /><WorkspaceInput field={{ name: "effective_date", label: "Ngày hiệu lực", type: "date", required: true }} tabId="transfer-decisions" value={values.effective_date ?? ""} onChange={(value) => set("effective_date", value)} /><WorkspaceInput field={{ name: "decision_type", label: "Loại quyết định", type: "select", required: true, options: [{ value: "Thuyên chuyển", label: "Thuyên chuyển" }, { value: "Bổ nhiệm", label: "Bổ nhiệm" }, { value: "Miễn nhiệm", label: "Miễn nhiệm" }] }} tabId="transfer-decisions" value={values.decision_type ?? "Thuyên chuyển"} onChange={(value) => set("decision_type", value)} /><div><label className="mb-1.5 block text-xs font-bold text-slate-600">Người lập *</label><select className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm" value={values.creator_id ?? session?.employeeId ?? ""} required onChange={(event) => selectCreator(event.target.value)}><option value="">-- Chọn người lập --</option>{lookups.employees.map((item) => <option key={String(item.employee_id)} value={String(item.employee_id)}>{String(item.employee_code ?? item.employee_id)} - {String(item.full_name ?? "")}</option>)}</select></div>{display("Vị trí", creator?.position_name ?? values.creator_position)}{display("Bộ phận", creator?.department_name ?? values.creator_department)}<div className="md:col-span-2"><WorkspaceInput field={{ name: "description", label: "Diễn giải", type: "textarea" }} tabId="transfer-decisions" value={values.description ?? ""} onChange={(value) => set("description", value)} /></div></div>}
-    {activeTab === "detail" && <div className="space-y-4"><div><label className="mb-1.5 block text-xs font-bold text-slate-600">Mã nhân viên *</label><select className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm" value={String(values.employee_id ?? detail.employee_id ?? "")} required onChange={(event) => selectEmployee(event.target.value)}><option value="">-- Chọn nhân viên --</option>{lookups.employees.map((item) => <option key={String(item.employee_id)} value={String(item.employee_id)}>{String(item.employee_code ?? item.employee_id)} - {String(item.full_name ?? "")}</option>)}</select></div><div className="grid gap-3 sm:grid-cols-3">{display("Tên nhân viên", employee?.full_name ?? detail.employee_name)}{display("Vị trí hiện tại", currentPosition?.position_name ?? detail.current_position_name)}{display("Bộ phận hiện tại", currentDepartment?.department_name ?? detail.current_department_name)}</div><div className="grid gap-4 md:grid-cols-2"><div><label className="mb-1.5 block text-xs font-bold text-slate-600">Vị trí mới</label><select className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm" value={values.target_position_id ?? detail.target_position_id ?? ""} onChange={(event) => selectTargetPosition(event.target.value)}><option value="">-- Chọn vị trí mới --</option>{targetPositions.map((item) => <option key={String(item.position_id)} value={String(item.position_id)}>{String(item.position_code ?? item.position_id)} - {String(item.position_name ?? "")}</option>)}</select></div><div><label className="mb-1.5 block text-xs font-bold text-slate-600">Bộ phận mới</label><select className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm" value={values.target_department_id ?? detail.target_department_id ?? ""} onChange={(event) => selectTargetDepartment(event.target.value)}><option value="">-- Chọn bộ phận mới --</option>{lookups.departments.map((item) => <option key={String(item.department_id)} value={String(item.department_id)}>{String(item.department_code ?? item.department_id)} - {String(item.department_name ?? "")}</option>)}</select></div><div><label className="mb-1.5 block text-xs font-bold text-slate-600">Quản lý trực tiếp mới</label><select className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm" value={values.manager_id ?? detail.manager_id ?? ""} onChange={(event) => selectManager(event.target.value)}><option value="">-- Chọn quản lý trực tiếp mới --</option>{managers.map((item) => <option key={String(item.employee_id)} value={String(item.employee_id)}>{String(item.employee_code ?? item.employee_id)} - {String(item.full_name ?? "")}</option>)}</select></div><div className="md:col-span-2"><label className="mb-1.5 block text-xs font-bold text-slate-600">Ghi chú</label><Input value={String(detail.note ?? values.note ?? "")} onChange={(event) => syncDetail({ note: event.target.value })} /></div></div></div>}
-  </div>;
+  return (
+    <div className="space-y-5">
+      <div className="flex gap-1 overflow-x-auto border-b border-slate-200">
+        {[
+          ["general", "1. Thông tin chung"],
+          ["detail", "2. Chi tiết"],
+        ].map(([key, label]) => (
+          <button
+            key={key}
+            type="button"
+            onClick={() => setActiveTab(key as typeof activeTab)}
+            className={`whitespace-nowrap border-b-2 px-4 py-3 text-xs font-bold ${activeTab === key ? "border-teal-600 text-teal-700" : "border-transparent text-slate-400"}`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+      {activeTab === "general" && (
+        <div className="grid gap-4 md:grid-cols-2">
+          <div>
+            <label className="mb-1.5 block text-xs font-bold text-slate-600">
+              Đề xuất liên quan
+            </label>
+            <select
+              className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm"
+              value={values.proposal_id ?? ""}
+              onChange={(event) => selectProposal(event.target.value)}
+            >
+              <option value="">-- Không chọn --</option>
+              {lookups.transferProposals.map((item) => (
+                <option
+                  key={String(item.proposal_id)}
+                  value={String(item.proposal_id)}
+                >
+                  {String(item.proposal_code ?? item.proposal_id)} -{" "}
+                  {String(item.employee_name ?? "")}
+                </option>
+              ))}
+            </select>
+          </div>
+          <WorkspaceInput
+            field={{ name: "decision_number", label: "Số quyết định" }}
+            tabId="transfer-decisions"
+            value={values.decision_number ?? ""}
+            onChange={(value) => set("decision_number", value)}
+          />
+          <WorkspaceInput
+            field={{
+              name: "decision_date",
+              label: "Ngày",
+              type: "date",
+              required: true,
+            }}
+            tabId="transfer-decisions"
+            value={values.decision_date ?? ""}
+            onChange={(value) => set("decision_date", value)}
+          />
+          <WorkspaceInput
+            field={{
+              name: "effective_date",
+              label: "Ngày hiệu lực",
+              type: "date",
+              required: true,
+            }}
+            tabId="transfer-decisions"
+            value={values.effective_date ?? ""}
+            onChange={(value) => set("effective_date", value)}
+          />
+          <WorkspaceInput
+            field={{
+              name: "decision_type",
+              label: "Loại quyết định",
+              type: "select",
+              required: true,
+              options: [
+                { value: "Thuyên chuyển", label: "Thuyên chuyển" },
+                { value: "Bổ nhiệm", label: "Bổ nhiệm" },
+                { value: "Miễn nhiệm", label: "Miễn nhiệm" },
+              ],
+            }}
+            tabId="transfer-decisions"
+            value={values.decision_type ?? "Thuyên chuyển"}
+            onChange={(value) => set("decision_type", value)}
+          />
+          <div>
+            <label className="mb-1.5 block text-xs font-bold text-slate-600">
+              Người lập *
+            </label>
+            <select
+              className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm"
+              value={values.creator_id ?? session?.employeeId ?? ""}
+              required
+              onChange={(event) => selectCreator(event.target.value)}
+            >
+              <option value="">-- Chọn người lập --</option>
+              {lookups.employees.map((item) => (
+                <option
+                  key={String(item.employee_id)}
+                  value={String(item.employee_id)}
+                >
+                  {String(item.employee_code ?? item.employee_id)} -{" "}
+                  {String(item.full_name ?? "")}
+                </option>
+              ))}
+            </select>
+          </div>
+          {display("Vị trí", creator?.position_name ?? values.creator_position)}
+          {display(
+            "Bộ phận",
+            creator?.department_name ?? values.creator_department,
+          )}
+          <div className="md:col-span-2">
+            <WorkspaceInput
+              field={{
+                name: "description",
+                label: "Diễn giải",
+                type: "textarea",
+              }}
+              tabId="transfer-decisions"
+              value={values.description ?? ""}
+              onChange={(value) => set("description", value)}
+            />
+          </div>
+        </div>
+      )}
+      {activeTab === "detail" && (
+        <div className="space-y-4">
+          <div>
+            <label className="mb-1.5 block text-xs font-bold text-slate-600">
+              Mã nhân viên *
+            </label>
+            <select
+              className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm"
+              value={String(values.employee_id ?? detail.employee_id ?? "")}
+              required
+              onChange={(event) => selectEmployee(event.target.value)}
+            >
+              <option value="">-- Chọn nhân viên --</option>
+              {lookups.employees.map((item) => (
+                <option
+                  key={String(item.employee_id)}
+                  value={String(item.employee_id)}
+                >
+                  {String(item.employee_code ?? item.employee_id)} -{" "}
+                  {String(item.full_name ?? "")}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-3">
+            {display(
+              "Tên nhân viên",
+              employee?.full_name ?? detail.employee_name,
+            )}
+            {display(
+              "Vị trí hiện tại",
+              currentPosition?.position_name ?? detail.current_position_name,
+            )}
+            {display(
+              "Bộ phận hiện tại",
+              currentDepartment?.department_name ??
+                detail.current_department_name,
+            )}
+          </div>
+          <div className="grid gap-4 md:grid-cols-2">
+            <div>
+              <label className="mb-1.5 block text-xs font-bold text-slate-600">
+                Vị trí mới
+              </label>
+              <select
+                className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm"
+                value={
+                  values.target_position_id ?? detail.target_position_id ?? ""
+                }
+                onChange={(event) => selectTargetPosition(event.target.value)}
+              >
+                <option value="">-- Chọn vị trí mới --</option>
+                {targetPositions.map((item) => (
+                  <option
+                    key={String(item.position_id)}
+                    value={String(item.position_id)}
+                  >
+                    {String(item.position_code ?? item.position_id)} -{" "}
+                    {String(item.position_name ?? "")}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="mb-1.5 block text-xs font-bold text-slate-600">
+                Bộ phận mới
+              </label>
+              <select
+                className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm"
+                value={
+                  values.target_department_id ??
+                  detail.target_department_id ??
+                  ""
+                }
+                onChange={(event) => selectTargetDepartment(event.target.value)}
+              >
+                <option value="">-- Chọn bộ phận mới --</option>
+                {lookups.departments.map((item) => (
+                  <option
+                    key={String(item.department_id)}
+                    value={String(item.department_id)}
+                  >
+                    {String(item.department_code ?? item.department_id)} -{" "}
+                    {String(item.department_name ?? "")}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="mb-1.5 block text-xs font-bold text-slate-600">
+                Quản lý trực tiếp mới
+              </label>
+              <select
+                className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm"
+                value={values.manager_id ?? detail.manager_id ?? ""}
+                onChange={(event) => selectManager(event.target.value)}
+              >
+                <option value="">-- Chọn quản lý trực tiếp mới --</option>
+                {managers.map((item) => (
+                  <option
+                    key={String(item.employee_id)}
+                    value={String(item.employee_id)}
+                  >
+                    {String(item.employee_code ?? item.employee_id)} -{" "}
+                    {String(item.full_name ?? "")}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="md:col-span-2">
+              <label className="mb-1.5 block text-xs font-bold text-slate-600">
+                Ghi chú
+              </label>
+              <Input
+                value={String(detail.note ?? values.note ?? "")}
+                onChange={(event) => syncDetail({ note: event.target.value })}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
 
 function EvaluationForm({
@@ -858,28 +3064,341 @@ function EvaluationForm({
   session,
 }: {
   values: Record<string, string>;
-  setValues: (updater: (current: Record<string, string>) => Record<string, string>) => void;
+  setValues: (
+    updater: (current: Record<string, string>) => Record<string, string>,
+  ) => void;
   lookups: EvaluationFormLookups;
   session: Session | null;
 }) {
   const [activeTab, setActiveTab] = useState<"general" | "detail">("general");
   const details = parseDetailList(values.details);
-  const employee = lookups.employees.find((item) => String(item.employee_id ?? "") === values.employee_id);
-  const evaluator = lookups.employees.find((item) => String(item.employee_id ?? "") === values.evaluator_id);
-  const totalWeight = details.reduce((sum, item) => sum + (Number(item.weight) || 0), 0);
-  const totalScore = totalWeight ? details.reduce((sum, item) => sum + (Number(item.score) || 0) * (Number(item.weight) || 0), 0) / totalWeight : 0;
-  const set = (name: string, value: string) => setValues((current) => ({ ...current, [name]: value }));
-  const updateDetails = (next: Array<Record<string, unknown>>) => set("details", JSON.stringify(next));
-  const updateDetail = (index: number, key: string, value: unknown) => { const next = [...details]; next[index] = { ...next[index], [key]: value }; updateDetails(next); };
-  const display = (label: string, value: unknown) => <div className="rounded-xl border border-slate-100 bg-slate-50/70 p-3"><div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{label}</div><div className="mt-1 text-sm text-slate-700">{String(value ?? "-") || "-"}</div></div>;
-  const addCriterion = () => updateDetails([...details, { criteria_id: "", criteria_code: "", criteria_name: "", weight: 0, score: 0, note: "" }]);
-  const selectCriterion = (index: number, criteriaId: string) => { const criterion = lookups.criteria.find((item) => String(item.criteria_id ?? "") === criteriaId); const next = [...details]; next[index] = { ...next[index], criteria_id: criteriaId, criteria_code: criterion?.criteria_code ?? "", criteria_name: criterion?.criteria_name ?? "", weight: criterion?.weight ?? 0 }; updateDetails(next); };
-  const selectEmployee = (employeeId: string) => { const selected = lookups.employees.find((item) => String(item.employee_id ?? "") === employeeId); setValues((current) => ({ ...current, employee_id: employeeId, department_id: String(selected?.department_id ?? ""), position_id: String(selected?.position_id ?? "") })); };
+  const employee = lookups.employees.find(
+    (item) => String(item.employee_id ?? "") === values.employee_id,
+  );
+  const evaluator = lookups.employees.find(
+    (item) => String(item.employee_id ?? "") === values.evaluator_id,
+  );
+  const totalWeight = details.reduce(
+    (sum, item) => sum + (Number(item.weight) || 0),
+    0,
+  );
+  const totalScore = totalWeight
+    ? details.reduce(
+        (sum, item) =>
+          sum + (Number(item.score) || 0) * (Number(item.weight) || 0),
+        0,
+      ) / totalWeight
+    : 0;
+  const set = (name: string, value: string) =>
+    setValues((current) => ({ ...current, [name]: value }));
+  const updateDetails = (next: Array<Record<string, unknown>>) =>
+    set("details", JSON.stringify(next));
+  const updateDetail = (index: number, key: string, value: unknown) => {
+    const next = [...details];
+    next[index] = { ...next[index], [key]: value };
+    updateDetails(next);
+  };
+  const display = (label: string, value: unknown) => (
+    <div className="rounded-xl border border-slate-100 bg-slate-50/70 p-3">
+      <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+        {label}
+      </div>
+      <div className="mt-1 text-sm text-slate-700">
+        {String(value ?? "-") || "-"}
+      </div>
+    </div>
+  );
+  const addCriterion = () =>
+    updateDetails([
+      ...details,
+      {
+        criteria_id: "",
+        criteria_code: "",
+        criteria_name: "",
+        weight: 0,
+        score: 0,
+        note: "",
+      },
+    ]);
+  const selectCriterion = (index: number, criteriaId: string) => {
+    const criterion = lookups.criteria.find(
+      (item) => String(item.criteria_id ?? "") === criteriaId,
+    );
+    const next = [...details];
+    next[index] = {
+      ...next[index],
+      criteria_id: criteriaId,
+      criteria_code: criterion?.criteria_code ?? "",
+      criteria_name: criterion?.criteria_name ?? "",
+      weight: criterion?.weight ?? 0,
+    };
+    updateDetails(next);
+  };
+  const selectEmployee = (employeeId: string) => {
+    const selected = lookups.employees.find(
+      (item) => String(item.employee_id ?? "") === employeeId,
+    );
+    setValues((current) => ({
+      ...current,
+      employee_id: employeeId,
+      department_id: String(selected?.department_id ?? ""),
+      position_id: String(selected?.position_id ?? ""),
+    }));
+  };
 
-  return <div className="space-y-5"><div className="flex gap-1 overflow-x-auto border-b border-slate-200">{[["general", "1. Thông tin chung"], ["detail", "2. Chi tiết"]].map(([key, label]) => <button key={key} type="button" onClick={() => setActiveTab(key as typeof activeTab)} className={`whitespace-nowrap border-b-2 px-4 py-3 text-xs font-bold ${activeTab === key ? "border-teal-600 text-teal-700" : "border-transparent text-slate-400"}`}>{label}</button>)}</div>
-    {activeTab === "general" && <div className="grid gap-4 md:grid-cols-2"><WorkspaceInput field={{ name: "evaluation_date", label: "Ngày đánh giá", type: "date", required: true }} tabId="evaluations" value={values.evaluation_date ?? ""} onChange={(value) => set("evaluation_date", value)} /><WorkspaceInput field={{ name: "evaluation_quarter", label: "Kỳ đánh giá", type: "select", required: true, options: [{ value: "1", label: "Quý I" }, { value: "2", label: "Quý II" }, { value: "3", label: "Quý III" }, { value: "4", label: "Quý IV" }] }} tabId="evaluations" value={values.evaluation_quarter ?? "1"} onChange={(value) => set("evaluation_quarter", value)} /><WorkspaceInput field={{ name: "year", label: "Năm đánh giá", type: "number", required: true }} tabId="evaluations" value={values.year ?? ""} onChange={(value) => set("year", value)} /><div><label className="mb-1.5 block text-xs font-bold text-slate-600">Người đánh giá *</label><select className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm" value={values.evaluator_id ?? session?.employeeId ?? ""} required onChange={(event) => set("evaluator_id", event.target.value)}><option value="">-- Chọn người đánh giá --</option>{lookups.employees.map((item) => <option key={String(item.employee_id)} value={String(item.employee_id)}>{String(item.employee_code ?? item.employee_id)} - {String(item.full_name ?? "")}</option>)}</select></div><div><label className="mb-1.5 block text-xs font-bold text-slate-600">Nhân viên được đánh giá *</label><select className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm" value={values.employee_id ?? ""} required onChange={(event) => selectEmployee(event.target.value)}><option value="">-- Chọn nhân viên --</option>{lookups.employees.map((item) => <option key={String(item.employee_id)} value={String(item.employee_id)}>{String(item.employee_code ?? item.employee_id)} - {String(item.full_name ?? "")}</option>)}</select></div>{display("Vị trí", employee?.position_name ?? values.position_id)}{display("Bộ phận", employee?.department_name ?? values.department_id)}<div className="md:col-span-2"><WorkspaceInput field={{ name: "description", label: "Diễn giải", type: "textarea" }} tabId="evaluations" value={values.description ?? ""} onChange={(value) => set("description", value)} /></div></div>}
-    {activeTab === "detail" && <div className="space-y-4"><div className="flex items-center justify-between"><div><h3 className="font-display text-sm font-bold text-slate-900">Chi tiết tiêu chí đánh giá</h3><p className="mt-1 text-xs text-slate-400">Điểm của quản lý được tính theo trọng số tiêu chí.</p></div><Button type="button" variant="secondary" size="sm" onClick={addCriterion}><Plus size={14} /> Thêm tiêu chí</Button></div><div className="overflow-x-auto rounded-xl border border-slate-100"><table className="w-full min-w-[1050px] text-left text-xs"><thead className="bg-slate-50 text-[10px] uppercase tracking-wider text-slate-400"><tr><th className="px-3 py-3">Mã tiêu chí</th><th className="px-3 py-3">Tên TC</th><th className="px-3 py-3">Quản lý đánh giá</th><th className="px-3 py-3">Trọng số (%)</th><th className="px-3 py-3">Ý kiến, đề xuất</th><th className="px-3 py-3">Xóa</th></tr></thead><tbody className="divide-y divide-slate-100">{details.map((item, index) => <tr key={index}><td className="px-3 py-2"><select className="h-9 min-w-36 rounded-lg border border-slate-200 px-2" value={String(item.criteria_id ?? "")} required onChange={(event) => selectCriterion(index, event.target.value)}><option value="">-- Chọn --</option>{lookups.criteria.map((criterion) => <option key={String(criterion.criteria_id)} value={String(criterion.criteria_id)}>{String(criterion.criteria_code ?? criterion.criteria_id)}</option>)}</select></td><td className="px-3 py-2"><Input value={String(item.criteria_name ?? "")} disabled className="h-9 min-w-52 bg-slate-50" /></td><td className="px-3 py-2"><Input type="number" min={0} max={10} step="0.01" value={String(item.score ?? "")} required onChange={(event) => updateDetail(index, "score", event.target.value)} className="h-9 w-28" /></td><td className="px-3 py-2"><Input type="number" min={0.01} value={String(item.weight ?? "")} required onChange={(event) => updateDetail(index, "weight", event.target.value)} className="h-9 w-28" /></td><td className="px-3 py-2"><Input value={String(item.note ?? "")} onChange={(event) => updateDetail(index, "note", event.target.value)} className="h-9 min-w-64" /></td><td className="px-3 py-2"><button type="button" className="rounded-lg p-2 text-rose-500 hover:bg-rose-50" onClick={() => updateDetails(details.filter((_, detailIndex) => detailIndex !== index))} aria-label="Xóa tiêu chí"><X size={15} /></button></td></tr>)}</tbody></table>{details.length === 0 && <p className="p-6 text-center text-xs text-slate-400">Chưa có tiêu chí. Nhấn “Thêm tiêu chí” để bắt đầu.</p>}</div><div className="flex items-center justify-end rounded-xl border border-teal-100 bg-teal-50 px-4 py-3 text-sm font-bold text-teal-800">Tổng điểm: {totalScore.toFixed(2)}</div></div>}
-  </div>;
+  return (
+    <div className="space-y-5">
+      <div className="flex gap-1 overflow-x-auto border-b border-slate-200">
+        {[
+          ["general", "1. Thông tin chung"],
+          ["detail", "2. Chi tiết"],
+        ].map(([key, label]) => (
+          <button
+            key={key}
+            type="button"
+            onClick={() => setActiveTab(key as typeof activeTab)}
+            className={`whitespace-nowrap border-b-2 px-4 py-3 text-xs font-bold ${activeTab === key ? "border-teal-600 text-teal-700" : "border-transparent text-slate-400"}`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+      {activeTab === "general" && (
+        <div className="grid gap-4 md:grid-cols-2">
+          <WorkspaceInput
+            field={{
+              name: "evaluation_date",
+              label: "Ngày đánh giá",
+              type: "date",
+              required: true,
+            }}
+            tabId="evaluations"
+            value={values.evaluation_date ?? ""}
+            onChange={(value) => set("evaluation_date", value)}
+          />
+          <WorkspaceInput
+            field={{
+              name: "evaluation_quarter",
+              label: "Kỳ đánh giá",
+              type: "select",
+              required: true,
+              options: [
+                { value: "1", label: "Quý I" },
+                { value: "2", label: "Quý II" },
+                { value: "3", label: "Quý III" },
+                { value: "4", label: "Quý IV" },
+              ],
+            }}
+            tabId="evaluations"
+            value={values.evaluation_quarter ?? "1"}
+            onChange={(value) => set("evaluation_quarter", value)}
+          />
+          <WorkspaceInput
+            field={{
+              name: "year",
+              label: "Năm đánh giá",
+              type: "number",
+              required: true,
+            }}
+            tabId="evaluations"
+            value={values.year ?? ""}
+            onChange={(value) => set("year", value)}
+          />
+          <div>
+            <label className="mb-1.5 block text-xs font-bold text-slate-600">
+              Người đánh giá *
+            </label>
+            <select
+              className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm"
+              value={values.evaluator_id ?? session?.employeeId ?? ""}
+              required
+              onChange={(event) => set("evaluator_id", event.target.value)}
+            >
+              <option value="">-- Chọn người đánh giá --</option>
+              {lookups.employees.map((item) => (
+                <option
+                  key={String(item.employee_id)}
+                  value={String(item.employee_id)}
+                >
+                  {String(item.employee_code ?? item.employee_id)} -{" "}
+                  {String(item.full_name ?? "")}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="mb-1.5 block text-xs font-bold text-slate-600">
+              Nhân viên được đánh giá *
+            </label>
+            <select
+              className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm"
+              value={values.employee_id ?? ""}
+              required
+              onChange={(event) => selectEmployee(event.target.value)}
+            >
+              <option value="">-- Chọn nhân viên --</option>
+              {lookups.employees.map((item) => (
+                <option
+                  key={String(item.employee_id)}
+                  value={String(item.employee_id)}
+                >
+                  {String(item.employee_code ?? item.employee_id)} -{" "}
+                  {String(item.full_name ?? "")}
+                </option>
+              ))}
+            </select>
+          </div>
+          {display("Vị trí", employee?.position_name ?? values.position_id)}
+          {display(
+            "Bộ phận",
+            employee?.department_name ?? values.department_id,
+          )}
+          <div className="md:col-span-2">
+            <WorkspaceInput
+              field={{
+                name: "description",
+                label: "Diễn giải",
+                type: "textarea",
+              }}
+              tabId="evaluations"
+              value={values.description ?? ""}
+              onChange={(value) => set("description", value)}
+            />
+          </div>
+        </div>
+      )}
+      {activeTab === "detail" && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="font-display text-sm font-bold text-slate-900">
+                Chi tiết tiêu chí đánh giá
+              </h3>
+              <p className="mt-1 text-xs text-slate-400">
+                Điểm của quản lý được tính theo trọng số tiêu chí.
+              </p>
+            </div>
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={addCriterion}
+            >
+              <Plus size={14} /> Thêm tiêu chí
+            </Button>
+          </div>
+          <div className="overflow-x-auto rounded-xl border border-slate-100">
+            <table className="w-full min-w-[1050px] text-left text-xs">
+              <thead className="bg-slate-50 text-[10px] uppercase tracking-wider text-slate-400">
+                <tr>
+                  <th className="px-3 py-3">Mã tiêu chí</th>
+                  <th className="px-3 py-3">Tên TC</th>
+                  <th className="px-3 py-3">Quản lý đánh giá</th>
+                  <th className="px-3 py-3">Trọng số (%)</th>
+                  <th className="px-3 py-3">Ý kiến, đề xuất</th>
+                  <th className="px-3 py-3">Xóa</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {details.map((item, index) => (
+                  <tr key={index}>
+                    <td className="px-3 py-2">
+                      <select
+                        className="h-9 min-w-36 rounded-lg border border-slate-200 px-2"
+                        value={String(item.criteria_id ?? "")}
+                        required
+                        onChange={(event) =>
+                          selectCriterion(index, event.target.value)
+                        }
+                      >
+                        <option value="">-- Chọn --</option>
+                        {lookups.criteria.map((criterion) => (
+                          <option
+                            key={String(criterion.criteria_id)}
+                            value={String(criterion.criteria_id)}
+                          >
+                            {String(
+                              criterion.criteria_code ?? criterion.criteria_id,
+                            )}
+                          </option>
+                        ))}
+                      </select>
+                    </td>
+                    <td className="px-3 py-2">
+                      <Input
+                        value={String(item.criteria_name ?? "")}
+                        disabled
+                        className="h-9 min-w-52 bg-slate-50"
+                      />
+                    </td>
+                    <td className="px-3 py-2">
+                      <Input
+                        type="number"
+                        min={0}
+                        max={10}
+                        step="0.01"
+                        value={String(item.score ?? "")}
+                        required
+                        onChange={(event) =>
+                          updateDetail(index, "score", event.target.value)
+                        }
+                        className="h-9 w-28"
+                      />
+                    </td>
+                    <td className="px-3 py-2">
+                      <Input
+                        type="number"
+                        min={0.01}
+                        value={String(item.weight ?? "")}
+                        required
+                        onChange={(event) =>
+                          updateDetail(index, "weight", event.target.value)
+                        }
+                        className="h-9 w-28"
+                      />
+                    </td>
+                    <td className="px-3 py-2">
+                      <Input
+                        value={String(item.note ?? "")}
+                        onChange={(event) =>
+                          updateDetail(index, "note", event.target.value)
+                        }
+                        className="h-9 min-w-64"
+                      />
+                    </td>
+                    <td className="px-3 py-2">
+                      <button
+                        type="button"
+                        className="rounded-lg p-2 text-rose-500 hover:bg-rose-50"
+                        onClick={() =>
+                          updateDetails(
+                            details.filter(
+                              (_, detailIndex) => detailIndex !== index,
+                            ),
+                          )
+                        }
+                        aria-label="Xóa tiêu chí"
+                      >
+                        <X size={15} />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {details.length === 0 && (
+              <p className="p-6 text-center text-xs text-slate-400">
+                Chưa có tiêu chí. Nhấn “Thêm tiêu chí” để bắt đầu.
+              </p>
+            )}
+          </div>
+          <div className="flex items-center justify-end rounded-xl border border-teal-100 bg-teal-50 px-4 py-3 text-sm font-bold text-teal-800">
+            Tổng điểm: {totalScore.toFixed(2)}
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
 
 function RewardProposalForm({
@@ -889,19 +3408,151 @@ function RewardProposalForm({
   session,
 }: {
   values: Record<string, string>;
-  setValues: (updater: (current: Record<string, string>) => Record<string, string>) => void;
+  setValues: (
+    updater: (current: Record<string, string>) => Record<string, string>,
+  ) => void;
   lookups: RequestLookups;
   session: Session | null;
 }) {
-  const employee = lookups.employees.find((item) => String(item.employee_id ?? "") === values.employee_id);
-  const set = (name: string, value: string) => setValues((current) => ({ ...current, [name]: value }));
-  const selectEmployee = (employeeId: string) => setValues((current) => ({ ...current, employee_id: employeeId }));
+  const employee = lookups.employees.find(
+    (item) => String(item.employee_id ?? "") === values.employee_id,
+  );
+  const set = (name: string, value: string) =>
+    setValues((current) => ({ ...current, [name]: value }));
+  const selectEmployee = (employeeId: string) =>
+    setValues((current) => ({ ...current, employee_id: employeeId }));
   const selectProposer = (employeeId: string) => {
-    const proposer = lookups.employees.find((item) => String(item.employee_id ?? "") === employeeId);
-    setValues((current) => ({ ...current, proposed_by_employee_id: employeeId, proposed_by: String(proposer?.full_name ?? current.proposed_by ?? session?.name ?? "") }));
+    const proposer = lookups.employees.find(
+      (item) => String(item.employee_id ?? "") === employeeId,
+    );
+    setValues((current) => ({
+      ...current,
+      proposed_by_employee_id: employeeId,
+      proposed_by: String(
+        proposer?.full_name ?? current.proposed_by ?? session?.name ?? "",
+      ),
+    }));
   };
-  const employeeOptions = lookups.employees.map((item) => <option key={String(item.employee_id)} value={String(item.employee_id)}>{String(item.employee_code ?? item.employee_id)} - {String(item.full_name ?? "")}</option>);
-  return <div className="space-y-5"><div className="rounded-xl border border-teal-100 bg-teal-50/60 p-4 text-xs text-teal-800">Đề xuất sẽ ở trạng thái <b>Chờ duyệt</b>. Sau khi được duyệt, HR mới có thể ban hành quyết định khen thưởng hoặc kỷ luật.</div><div className="grid gap-4 md:grid-cols-2"><div><label className="mb-1.5 block text-xs font-bold text-slate-600">Loại đề xuất *</label><select className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm" value={values.record_type ?? "KHEN_THUONG"} required onChange={(event) => set("record_type", event.target.value)}><option value="KHEN_THUONG">Khen thưởng</option><option value="KY_LUAT">Kỷ luật</option></select></div><div><label className="mb-1.5 block text-xs font-bold text-slate-600">Nhân viên *</label><select className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm" value={values.employee_id ?? ""} required onChange={(event) => selectEmployee(event.target.value)}><option value="">-- Chọn nhân viên --</option>{employeeOptions}</select></div><div><label className="mb-1.5 block text-xs font-bold text-slate-600">Người đề xuất *</label><select className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm" value={values.proposed_by_employee_id ?? ""} required onChange={(event) => selectProposer(event.target.value)}><option value="">-- Chọn người đề xuất --</option>{employeeOptions}</select></div><WorkspaceInput field={{ name: "proposal_date", label: "Ngày đề xuất", type: "date", required: true }} tabId="proposals" value={values.proposal_date ?? ""} onChange={(value) => set("proposal_date", value)} /><WorkspaceInput field={{ name: "proposed_amount", label: "Số tiền đề xuất", type: "number" }} tabId="proposals" value={values.proposed_amount ?? "0"} onChange={(value) => set("proposed_amount", value)} /><div className="rounded-xl border border-slate-100 bg-slate-50/70 p-3"><div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Thông tin nhân viên</div><div className="mt-1 text-sm text-slate-700">{employee ? `${String(employee.department_name ?? "-")} - ${String(employee.position_name ?? "-")}` : "Chọn nhân viên để xem thông tin"}</div></div><div className="md:col-span-2"><WorkspaceInput field={{ name: "reason", label: "Lý do", type: "textarea", required: true }} tabId="proposals" value={values.reason ?? ""} onChange={(value) => set("reason", value)} /></div><div className="md:col-span-2"><WorkspaceInput field={{ name: "content", label: "Nội dung đề xuất", type: "textarea" }} tabId="proposals" value={values.content ?? ""} onChange={(value) => set("content", value)} /></div><WorkspaceInput field={{ name: "attachment_url", label: "Tệp đính kèm" }} tabId="proposals" value={values.attachment_url ?? ""} onChange={(value) => set("attachment_url", value)} /></div></div>;
+  const employeeOptions = lookups.employees.map((item) => (
+    <option key={String(item.employee_id)} value={String(item.employee_id)}>
+      {String(item.employee_code ?? item.employee_id)} -{" "}
+      {String(item.full_name ?? "")}
+    </option>
+  ));
+  return (
+    <div className="space-y-5">
+      <div className="rounded-xl border border-teal-100 bg-teal-50/60 p-4 text-xs text-teal-800">
+        Đề xuất sẽ ở trạng thái <b>Chờ duyệt</b>. Sau khi được duyệt, HR mới có
+        thể ban hành quyết định khen thưởng hoặc kỷ luật.
+      </div>
+      <div className="grid gap-4 md:grid-cols-2">
+        <div>
+          <label className="mb-1.5 block text-xs font-bold text-slate-600">
+            Loại đề xuất *
+          </label>
+          <select
+            className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm"
+            value={values.record_type ?? "KHEN_THUONG"}
+            required
+            onChange={(event) => set("record_type", event.target.value)}
+          >
+            <option value="KHEN_THUONG">Khen thưởng</option>
+            <option value="KY_LUAT">Kỷ luật</option>
+          </select>
+        </div>
+        <div>
+          <label className="mb-1.5 block text-xs font-bold text-slate-600">
+            Nhân viên *
+          </label>
+          <select
+            className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm"
+            value={values.employee_id ?? ""}
+            required
+            onChange={(event) => selectEmployee(event.target.value)}
+          >
+            <option value="">-- Chọn nhân viên --</option>
+            {employeeOptions}
+          </select>
+        </div>
+        <div>
+          <label className="mb-1.5 block text-xs font-bold text-slate-600">
+            Người đề xuất *
+          </label>
+          <select
+            className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm"
+            value={values.proposed_by_employee_id ?? ""}
+            required
+            onChange={(event) => selectProposer(event.target.value)}
+          >
+            <option value="">-- Chọn người đề xuất --</option>
+            {employeeOptions}
+          </select>
+        </div>
+        <WorkspaceInput
+          field={{
+            name: "proposal_date",
+            label: "Ngày đề xuất",
+            type: "date",
+            required: true,
+          }}
+          tabId="proposals"
+          value={values.proposal_date ?? ""}
+          onChange={(value) => set("proposal_date", value)}
+        />
+        <WorkspaceInput
+          field={{
+            name: "proposed_amount",
+            label: "Số tiền đề xuất",
+            type: "number",
+          }}
+          tabId="proposals"
+          value={values.proposed_amount ?? "0"}
+          onChange={(value) => set("proposed_amount", value)}
+        />
+        <div className="rounded-xl border border-slate-100 bg-slate-50/70 p-3">
+          <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+            Thông tin nhân viên
+          </div>
+          <div className="mt-1 text-sm text-slate-700">
+            {employee
+              ? `${String(employee.department_name ?? "-")} - ${String(employee.position_name ?? "-")}`
+              : "Chọn nhân viên để xem thông tin"}
+          </div>
+        </div>
+        <div className="md:col-span-2">
+          <WorkspaceInput
+            field={{
+              name: "reason",
+              label: "Lý do",
+              type: "textarea",
+              required: true,
+            }}
+            tabId="proposals"
+            value={values.reason ?? ""}
+            onChange={(value) => set("reason", value)}
+          />
+        </div>
+        <div className="md:col-span-2">
+          <WorkspaceInput
+            field={{
+              name: "content",
+              label: "Nội dung đề xuất",
+              type: "textarea",
+            }}
+            tabId="proposals"
+            value={values.content ?? ""}
+            onChange={(value) => set("content", value)}
+          />
+        </div>
+        <WorkspaceInput
+          field={{ name: "attachment_url", label: "Tệp đính kèm" }}
+          tabId="proposals"
+          value={values.attachment_url ?? ""}
+          onChange={(value) => set("attachment_url", value)}
+        />
+      </div>
+    </div>
+  );
 }
 
 function RewardDecisionForm({
@@ -911,19 +3562,170 @@ function RewardDecisionForm({
   session,
 }: {
   values: Record<string, string>;
-  setValues: (updater: (current: Record<string, string>) => Record<string, string>) => void;
+  setValues: (
+    updater: (current: Record<string, string>) => Record<string, string>,
+  ) => void;
   lookups: RewardDecisionLookups;
   session: Session | null;
 }) {
-  const approvedProposals = lookups.rewardProposals.filter((item) => String(item.status ?? "").toUpperCase() === "APPROVED");
-  const proposal = lookups.rewardProposals.find((item) => String(item.proposal_id ?? "") === values.proposal_id);
-  const employee = lookups.employees.find((item) => String(item.employee_id ?? "") === String(values.employee_id ?? proposal?.employee_id ?? ""));
-  const set = (name: string, value: string) => setValues((current) => ({ ...current, [name]: value }));
+  const approvedProposals = lookups.rewardProposals.filter(
+    (item) => String(item.status ?? "").toUpperCase() === "APPROVED",
+  );
+  const proposal = lookups.rewardProposals.find(
+    (item) => String(item.proposal_id ?? "") === values.proposal_id,
+  );
+  const employee = lookups.employees.find(
+    (item) =>
+      String(item.employee_id ?? "") ===
+      String(values.employee_id ?? proposal?.employee_id ?? ""),
+  );
+  const set = (name: string, value: string) =>
+    setValues((current) => ({ ...current, [name]: value }));
   const selectProposal = (proposalId: string) => {
-    const selected = lookups.rewardProposals.find((item) => String(item.proposal_id ?? "") === proposalId);
-    setValues((current) => ({ ...current, proposal_id: proposalId, employee_id: String(selected?.employee_id ?? ""), decision_type: String(selected?.record_type ?? current.decision_type ?? "KHEN_THUONG"), amount: String(selected?.proposed_amount ?? current.amount ?? "0"), reason: String(selected?.reason ?? current.reason ?? "") }));
+    const selected = lookups.rewardProposals.find(
+      (item) => String(item.proposal_id ?? "") === proposalId,
+    );
+    setValues((current) => ({
+      ...current,
+      proposal_id: proposalId,
+      employee_id: String(selected?.employee_id ?? ""),
+      decision_type: String(
+        selected?.record_type ?? current.decision_type ?? "KHEN_THUONG",
+      ),
+      amount: String(selected?.proposed_amount ?? current.amount ?? "0"),
+      reason: String(selected?.reason ?? current.reason ?? ""),
+    }));
   };
-  return <div className="space-y-5"><div className="rounded-xl border border-amber-100 bg-amber-50/70 p-4 text-xs text-amber-800">Chỉ đề xuất đã được duyệt mới xuất hiện trong danh sách và được phép lập quyết định.</div>{approvedProposals.length === 0 && <div className="rounded-xl border border-dashed border-slate-200 p-5 text-center text-xs text-slate-500">Chưa có đề xuất đã duyệt. Hãy duyệt đề xuất trước khi ban hành quyết định.</div>}<div className="grid gap-4 md:grid-cols-2"><div className="md:col-span-2"><label className="mb-1.5 block text-xs font-bold text-slate-600">Đề xuất đã duyệt *</label><select className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm" value={values.proposal_id ?? ""} required onChange={(event) => selectProposal(event.target.value)}><option value="">-- Chọn đề xuất đã duyệt --</option>{approvedProposals.map((item) => <option key={String(item.proposal_id)} value={String(item.proposal_id)}>{String(item.proposal_code ?? item.proposal_id)} - {String(item.employee_name ?? "")}</option>)}</select></div><div><label className="mb-1.5 block text-xs font-bold text-slate-600">Loại quyết định *</label><select className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm" value={values.decision_type ?? "KHEN_THUONG"} required onChange={(event) => set("decision_type", event.target.value)}><option value="KHEN_THUONG">Khen thưởng</option><option value="KY_LUAT">Kỷ luật</option></select></div><div className="rounded-xl border border-slate-100 bg-slate-50/70 p-3"><div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Nhân viên</div><div className="mt-1 text-sm text-slate-700">{employee ? `${String(employee.employee_code ?? "")} - ${String(employee.full_name ?? "")}` : "Tự động theo đề xuất"}</div></div><WorkspaceInput field={{ name: "decision_date", label: "Ngày ban hành", type: "date", required: true }} tabId="decisions" value={values.decision_date ?? ""} onChange={(value) => set("decision_date", value)} /><WorkspaceInput field={{ name: "effective_date", label: "Ngày hiệu lực", type: "date" }} tabId="decisions" value={values.effective_date ?? ""} onChange={(value) => set("effective_date", value)} /><WorkspaceInput field={{ name: "amount", label: "Số tiền", type: "number" }} tabId="decisions" value={values.amount ?? "0"} onChange={(value) => set("amount", value)} /><WorkspaceInput field={{ name: "decision_by", label: "Người ký", placeholder: session?.name }} tabId="decisions" value={values.decision_by ?? ""} onChange={(value) => set("decision_by", value)} /><div className="md:col-span-2"><WorkspaceInput field={{ name: "reason", label: "Lý do", type: "textarea", required: true }} tabId="decisions" value={values.reason ?? ""} onChange={(value) => set("reason", value)} /></div><div className="md:col-span-2"><WorkspaceInput field={{ name: "content", label: "Nội dung quyết định", type: "textarea" }} tabId="decisions" value={values.content ?? ""} onChange={(value) => set("content", value)} /></div><WorkspaceInput field={{ name: "attachment_url", label: "Tệp đính kèm" }} tabId="decisions" value={values.attachment_url ?? ""} onChange={(value) => set("attachment_url", value)} /></div></div>;
+  return (
+    <div className="space-y-5">
+      <div className="rounded-xl border border-amber-100 bg-amber-50/70 p-4 text-xs text-amber-800">
+        Chỉ đề xuất đã được duyệt mới xuất hiện trong danh sách và được phép lập
+        quyết định.
+      </div>
+      {approvedProposals.length === 0 && (
+        <div className="rounded-xl border border-dashed border-slate-200 p-5 text-center text-xs text-slate-500">
+          Chưa có đề xuất đã duyệt. Hãy duyệt đề xuất trước khi ban hành quyết
+          định.
+        </div>
+      )}
+      <div className="grid gap-4 md:grid-cols-2">
+        <div className="md:col-span-2">
+          <label className="mb-1.5 block text-xs font-bold text-slate-600">
+            Đề xuất đã duyệt *
+          </label>
+          <select
+            className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm"
+            value={values.proposal_id ?? ""}
+            required
+            onChange={(event) => selectProposal(event.target.value)}
+          >
+            <option value="">-- Chọn đề xuất đã duyệt --</option>
+            {approvedProposals.map((item) => (
+              <option
+                key={String(item.proposal_id)}
+                value={String(item.proposal_id)}
+              >
+                {String(item.proposal_code ?? item.proposal_id)} -{" "}
+                {String(item.employee_name ?? "")}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="mb-1.5 block text-xs font-bold text-slate-600">
+            Loại quyết định *
+          </label>
+          <select
+            className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm"
+            value={values.decision_type ?? "KHEN_THUONG"}
+            required
+            onChange={(event) => set("decision_type", event.target.value)}
+          >
+            <option value="KHEN_THUONG">Khen thưởng</option>
+            <option value="KY_LUAT">Kỷ luật</option>
+          </select>
+        </div>
+        <div className="rounded-xl border border-slate-100 bg-slate-50/70 p-3">
+          <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+            Nhân viên
+          </div>
+          <div className="mt-1 text-sm text-slate-700">
+            {employee
+              ? `${String(employee.employee_code ?? "")} - ${String(employee.full_name ?? "")}`
+              : "Tự động theo đề xuất"}
+          </div>
+        </div>
+        <WorkspaceInput
+          field={{
+            name: "decision_date",
+            label: "Ngày ban hành",
+            type: "date",
+            required: true,
+          }}
+          tabId="decisions"
+          value={values.decision_date ?? ""}
+          onChange={(value) => set("decision_date", value)}
+        />
+        <WorkspaceInput
+          field={{
+            name: "effective_date",
+            label: "Ngày hiệu lực",
+            type: "date",
+          }}
+          tabId="decisions"
+          value={values.effective_date ?? ""}
+          onChange={(value) => set("effective_date", value)}
+        />
+        <WorkspaceInput
+          field={{ name: "amount", label: "Số tiền", type: "number" }}
+          tabId="decisions"
+          value={values.amount ?? "0"}
+          onChange={(value) => set("amount", value)}
+        />
+        <WorkspaceInput
+          field={{
+            name: "decision_by",
+            label: "Người ký",
+            placeholder: session?.name,
+          }}
+          tabId="decisions"
+          value={values.decision_by ?? ""}
+          onChange={(value) => set("decision_by", value)}
+        />
+        <div className="md:col-span-2">
+          <WorkspaceInput
+            field={{
+              name: "reason",
+              label: "Lý do",
+              type: "textarea",
+              required: true,
+            }}
+            tabId="decisions"
+            value={values.reason ?? ""}
+            onChange={(value) => set("reason", value)}
+          />
+        </div>
+        <div className="md:col-span-2">
+          <WorkspaceInput
+            field={{
+              name: "content",
+              label: "Nội dung quyết định",
+              type: "textarea",
+            }}
+            tabId="decisions"
+            value={values.content ?? ""}
+            onChange={(value) => set("content", value)}
+          />
+        </div>
+        <WorkspaceInput
+          field={{ name: "attachment_url", label: "Tệp đính kèm" }}
+          tabId="decisions"
+          value={values.attachment_url ?? ""}
+          onChange={(value) => set("attachment_url", value)}
+        />
+      </div>
+    </div>
+  );
 }
 
 function EmployeeForm({
@@ -935,32 +3737,325 @@ function EmployeeForm({
   onAvatarChange,
 }: {
   values: Record<string, string>;
-  setValues: (updater: (current: Record<string, string>) => Record<string, string>) => void;
+  setValues: (
+    updater: (current: Record<string, string>) => Record<string, string>,
+  ) => void;
   lookups: EmployeeLookups;
   avatarUrl?: string;
   avatarFile: File | null;
   onAvatarChange: (file: File | null) => void;
 }) {
-  const [activeTab, setActiveTab] = useState<"general" | "contact" | "onboarding" | "additional">("general");
-  const set = (name: string, value: string) => setValues((current) => ({ ...current, [name]: value }));
-  const department = lookups.departments.find((item) => String(item.department_id ?? "") === values.department_id);
-  const positions = lookups.positions.filter((item) => !values.department_id || String(item.department_id ?? "") === values.department_id);
-  const managers = lookups.employees.filter((item) => String(item.department_id ?? "") === values.department_id && String(item.employee_id ?? "") !== String(values.employee_id ?? ""));
-  const candidate = lookups.candidates.find((item) => String(item.candidate_id ?? "") === values.candidate_id);
+  const [activeTab, setActiveTab] = useState<
+    "general" | "contact" | "onboarding" | "additional"
+  >("general");
+  const set = (name: string, value: string) =>
+    setValues((current) => ({ ...current, [name]: value }));
+  const department = lookups.departments.find(
+    (item) => String(item.department_id ?? "") === values.department_id,
+  );
+  const positions = lookups.positions.filter(
+    (item) =>
+      !values.department_id ||
+      String(item.department_id ?? "") === values.department_id,
+  );
+  const managers = lookups.employees.filter(
+    (item) =>
+      String(item.department_id ?? "") === values.department_id &&
+      String(item.employee_id ?? "") !== String(values.employee_id ?? ""),
+  );
+  const candidate = lookups.candidates.find(
+    (item) => String(item.candidate_id ?? "") === values.candidate_id,
+  );
   const selectCandidate = (candidateId: string) => {
-    const selected = lookups.candidates.find((item) => String(item.candidate_id ?? "") === candidateId);
-    setValues((current) => ({ ...current, candidate_id: candidateId, full_name: String(selected?.full_name ?? current.full_name ?? ""), gender: String(selected?.gender ?? current.gender ?? "Nam"), date_of_birth: formatDateValue(selected?.date_of_birth ?? current.date_of_birth), phone: String(selected?.phone ?? current.phone ?? ""), personal_email: String(selected?.email ?? current.personal_email ?? ""), department_id: String(selected?.department_id ?? current.department_id ?? ""), position_id: String(selected?.position_id ?? current.position_id ?? "") }));
+    const selected = lookups.candidates.find(
+      (item) => String(item.candidate_id ?? "") === candidateId,
+    );
+    setValues((current) => ({
+      ...current,
+      candidate_id: candidateId,
+      full_name: String(selected?.full_name ?? current.full_name ?? ""),
+      gender: String(selected?.gender ?? current.gender ?? "Nam"),
+      date_of_birth: formatDateValue(
+        selected?.date_of_birth ?? current.date_of_birth,
+      ),
+      phone: String(selected?.phone ?? current.phone ?? ""),
+      personal_email: String(selected?.email ?? current.personal_email ?? ""),
+      department_id: String(
+        selected?.department_id ?? current.department_id ?? "",
+      ),
+      position_id: String(selected?.position_id ?? current.position_id ?? ""),
+    }));
   };
-  const input = (name: string, label: string, type: WorkspaceField["type"] = "text", required = false, disabled = false) => <WorkspaceInput field={{ name, label, type, required, disabled, options: name === "gender" ? [{ value: "Nam", label: "Nam" }, { value: "Nữ", label: "Nữ" }] : undefined }} tabId="employees" value={values[name] ?? ""} onChange={(value) => set(name, value)} />;
+  const input = (
+    name: string,
+    label: string,
+    type: WorkspaceField["type"] = "text",
+    required = false,
+    disabled = false,
+  ) => (
+    <WorkspaceInput
+      field={{
+        name,
+        label,
+        type,
+        required,
+        disabled,
+        options:
+          name === "gender"
+            ? [
+                { value: "Nam", label: "Nam" },
+                { value: "Nữ", label: "Nữ" },
+              ]
+            : undefined,
+      }}
+      tabId="employees"
+      value={values[name] ?? ""}
+      onChange={(value) => set(name, value)}
+    />
+  );
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center gap-4 rounded-xl border border-slate-100 bg-slate-50/70 p-4"><EmployeeAvatar name={values.full_name || "Nhân viên"} avatarUrl={avatarUrl} className="size-16 text-base" /><div className="flex-1"><div className="text-xs font-bold text-slate-700">Ảnh hồ sơ</div><div className="mt-1 text-[11px] text-slate-400">JPG, PNG hoặc WEBP. Ảnh sẽ được tải lên sau khi lưu hồ sơ.</div><Input type="file" accept="image/jpeg,image/png,image/webp" className="mt-2 h-9 max-w-sm py-1.5 text-xs" onChange={(event) => onAvatarChange(event.target.files?.[0] ?? null)} />{avatarFile && <div className="mt-1 text-[11px] text-teal-700">Đã chọn: {avatarFile.name}</div>}</div></div>
-      <div className="flex gap-1 overflow-x-auto border-b border-slate-200">{[["general", "1. Thông tin chung"], ["contact", "2. Thông tin liên hệ"], ["onboarding", "3. Thông tin tiếp nhận ban đầu"], ["additional", "4. Thông tin bổ sung"]].map(([key, label]) => <button key={key} type="button" onClick={() => setActiveTab(key as typeof activeTab)} className={`whitespace-nowrap border-b-2 px-4 py-3 text-xs font-bold ${activeTab === key ? "border-teal-600 text-teal-700" : "border-transparent text-slate-400"}`}>{label}</button>)}</div>
-      {activeTab === "general" && <div className="grid gap-4 md:grid-cols-2">{input("employee_code", "Mã nhân viên")}{<div><label className="mb-1.5 block text-xs font-bold text-slate-600">Mã ứng viên</label><select className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm" value={values.candidate_id ?? ""} onChange={(event) => selectCandidate(event.target.value)}><option value="">-- Chọn ứng viên --</option>{lookups.candidates.map((item) => <option key={String(item.candidate_id)} value={String(item.candidate_id)}>{String(item.candidate_code ?? item.candidate_id)} - {String(item.full_name ?? "")}</option>)}</select></div>}{input("full_name", "Họ tên", "text", true)}{input("gender", "Giới tính", "select")}{input("date_of_birth", "Ngày sinh", "date")}{input("place_of_birth", "Nơi sinh")}{input("ethnicity", "Dân tộc")}{input("religion", "Tôn giáo")}{input("blood_type", "Nhóm máu")}{input("tax_code", "MST")}{input("resignation_date", "Ngày nghỉ việc", "date")}</div>}
-      {activeTab === "contact" && <div className="grid gap-4 md:grid-cols-2">{input("phone", "SĐT")}{input("personal_email", "Email cá nhân")}{<div><label className="mb-1.5 block text-xs font-bold text-slate-600">Email cơ quan</label><Input value={values.company_email ?? values.email ?? ""} onChange={(event) => setValues((current) => ({ ...current, company_email: event.target.value, email: event.target.value }))} /></div>}{input("emergency_contact_name", "Người liên hệ khẩn cấp")}{input("emergency_contact_relationship", "Quan hệ thân nhân")}{input("emergency_contact_phone", "SĐT")}</div>}
-      {activeTab === "onboarding" && <div className="grid gap-4 md:grid-cols-2">{input("join_date", "Ngày vào làm", "date", true)}{input("initial_contract_date", "Ngày ký hợp đồng", "date")}{<div><label className="mb-1.5 block text-xs font-bold text-slate-600">Vị trí *</label><select className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm" value={values.position_id ?? ""} required onChange={(event) => set("position_id", event.target.value)}><option value="">-- Chọn vị trí --</option>{positions.map((item) => <option key={String(item.position_id)} value={String(item.position_id)}>{String(item.position_code ?? item.position_id)} - {String(item.position_name ?? "")}</option>)}</select></div>}{<div><label className="mb-1.5 block text-xs font-bold text-slate-600">Bộ phận *</label><select className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm" value={values.department_id ?? ""} required onChange={(event) => { const selected = lookups.departments.find((item) => String(item.department_id ?? "") === event.target.value); setValues((current) => ({ ...current, department_id: event.target.value, manager_id: String(selected?.manager_id ?? ""), position_id: "" })); }}><option value="">-- Chọn bộ phận --</option>{lookups.departments.map((item) => <option key={String(item.department_id)} value={String(item.department_id)}>{String(item.department_code ?? item.department_id)} - {String(item.department_name ?? "")}</option>)}</select></div>}{<div><label className="mb-1.5 block text-xs font-bold text-slate-600">Quản lý trực tiếp</label><select className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm" value={values.manager_id ?? ""} onChange={(event) => set("manager_id", event.target.value)}><option value="">-- Quản lý của bộ phận --</option>{managers.map((item) => <option key={String(item.employee_id)} value={String(item.employee_id)}>{String(item.employee_code ?? item.employee_id)} - {String(item.full_name ?? "")}</option>)}</select>{department && <p className="mt-1 text-[11px] text-slate-400">Danh sách được lọc theo {String(department.department_name ?? "bộ phận")}.</p>}</div>}</div>}
-      {activeTab === "additional" && <div className="space-y-5"><section><h3 className="mb-3 font-display text-sm font-bold text-slate-900">CCCD và địa chỉ</h3><div className="grid gap-4 md:grid-cols-2">{input("citizen_id", "Số CCCD")}{input("citizen_issue_place", "Nơi cấp")}{input("citizen_issue_date", "Ngày cấp", "date")}{input("citizen_expiry_date", "Ngày hết hạn", "date")}{input("address", "Địa chỉ hiện tại", "textarea")}</div></section><section><h3 className="mb-3 font-display text-sm font-bold text-slate-900">Ngân hàng</h3><div className="grid gap-4 md:grid-cols-2">{input("bank_account_number", "STK")}{input("bank_account_holder", "Chủ tài khoản")}{input("bank_name", "Tên ngân hàng")}{input("bank_branch", "Chi nhánh")}</div></section><section><h3 className="mb-3 font-display text-sm font-bold text-slate-900">Trình độ</h3><div className="grid gap-4 md:grid-cols-2">{input("culture_level", "Trình độ văn hóa")}{input("education_level", "Trình độ đào tạo")}{input("education_school", "Nơi đào tạo")}{input("major", "Ngành đào tạo")}{input("gpa", "Xếp loại / GPA", "number")}{input("graduation_year", "Năm tốt nghiệp", "number")}</div></section></div>}
+      <div className="flex items-center gap-4 rounded-xl border border-slate-100 bg-slate-50/70 p-4">
+        <EmployeeAvatar
+          name={values.full_name || "Nhân viên"}
+          avatarUrl={avatarUrl}
+          className="size-16 text-base"
+        />
+        <div className="flex-1">
+          <div className="text-xs font-bold text-slate-700">Ảnh hồ sơ</div>
+          <div className="mt-1 text-[11px] text-slate-400">
+            JPG, PNG hoặc WEBP. Ảnh sẽ được tải lên sau khi lưu hồ sơ.
+          </div>
+          <Input
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            className="mt-2 h-9 max-w-sm py-1.5 text-xs"
+            onChange={(event) =>
+              onAvatarChange(event.target.files?.[0] ?? null)
+            }
+          />
+          {avatarFile && (
+            <div className="mt-1 text-[11px] text-teal-700">
+              Đã chọn: {avatarFile.name}
+            </div>
+          )}
+        </div>
+      </div>
+      <div className="flex gap-1 overflow-x-auto border-b border-slate-200">
+        {[
+          ["general", "1. Thông tin chung"],
+          ["contact", "2. Thông tin liên hệ"],
+          ["onboarding", "3. Thông tin tiếp nhận ban đầu"],
+          ["additional", "4. Thông tin bổ sung"],
+        ].map(([key, label]) => (
+          <button
+            key={key}
+            type="button"
+            onClick={() => setActiveTab(key as typeof activeTab)}
+            className={`whitespace-nowrap border-b-2 px-4 py-3 text-xs font-bold ${activeTab === key ? "border-teal-600 text-teal-700" : "border-transparent text-slate-400"}`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+      {activeTab === "general" && (
+        <div className="grid gap-4 md:grid-cols-2">
+          {input("employee_code", "Mã nhân viên")}
+          {
+            <div>
+              <label className="mb-1.5 block text-xs font-bold text-slate-600">
+                Mã ứng viên
+              </label>
+              <select
+                className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm"
+                value={values.candidate_id ?? ""}
+                onChange={(event) => selectCandidate(event.target.value)}
+              >
+                <option value="">-- Chọn ứng viên --</option>
+                {lookups.candidates.map((item) => (
+                  <option
+                    key={String(item.candidate_id)}
+                    value={String(item.candidate_id)}
+                  >
+                    {String(item.candidate_code ?? item.candidate_id)} -{" "}
+                    {String(item.full_name ?? "")}
+                  </option>
+                ))}
+              </select>
+            </div>
+          }
+          {input("full_name", "Họ tên", "text", true)}
+          {input("gender", "Giới tính", "select")}
+          {input("date_of_birth", "Ngày sinh", "date")}
+          {input("place_of_birth", "Nơi sinh")}
+          {input("ethnicity", "Dân tộc")}
+          {input("religion", "Tôn giáo")}
+          {input("blood_type", "Nhóm máu")}
+          {input("tax_code", "MST")}
+          {input("resignation_date", "Ngày nghỉ việc", "date")}
+        </div>
+      )}
+      {activeTab === "contact" && (
+        <div className="grid gap-4 md:grid-cols-2">
+          {input("phone", "SĐT")}
+          {input("personal_email", "Email cá nhân")}
+          {
+            <div>
+              <label className="mb-1.5 block text-xs font-bold text-slate-600">
+                Email cơ quan
+              </label>
+              <Input
+                value={values.company_email ?? values.email ?? ""}
+                onChange={(event) =>
+                  setValues((current) => ({
+                    ...current,
+                    company_email: event.target.value,
+                    email: event.target.value,
+                  }))
+                }
+              />
+            </div>
+          }
+          {input("emergency_contact_name", "Người liên hệ khẩn cấp")}
+          {input("emergency_contact_relationship", "Quan hệ thân nhân")}
+          {input("emergency_contact_phone", "SĐT")}
+        </div>
+      )}
+      {activeTab === "onboarding" && (
+        <div className="grid gap-4 md:grid-cols-2">
+          {input("join_date", "Ngày vào làm", "date", true)}
+          {input("initial_contract_date", "Ngày ký hợp đồng", "date")}
+          {
+            <div>
+              <label className="mb-1.5 block text-xs font-bold text-slate-600">
+                Vị trí *
+              </label>
+              <select
+                className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm"
+                value={values.position_id ?? ""}
+                required
+                onChange={(event) => set("position_id", event.target.value)}
+              >
+                <option value="">-- Chọn vị trí --</option>
+                {positions.map((item) => (
+                  <option
+                    key={String(item.position_id)}
+                    value={String(item.position_id)}
+                  >
+                    {String(item.position_code ?? item.position_id)} -{" "}
+                    {String(item.position_name ?? "")}
+                  </option>
+                ))}
+              </select>
+            </div>
+          }
+          {
+            <div>
+              <label className="mb-1.5 block text-xs font-bold text-slate-600">
+                Bộ phận *
+              </label>
+              <select
+                className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm"
+                value={values.department_id ?? ""}
+                required
+                onChange={(event) => {
+                  const selected = lookups.departments.find(
+                    (item) =>
+                      String(item.department_id ?? "") === event.target.value,
+                  );
+                  setValues((current) => ({
+                    ...current,
+                    department_id: event.target.value,
+                    manager_id: String(selected?.manager_id ?? ""),
+                    position_id: "",
+                  }));
+                }}
+              >
+                <option value="">-- Chọn bộ phận --</option>
+                {lookups.departments.map((item) => (
+                  <option
+                    key={String(item.department_id)}
+                    value={String(item.department_id)}
+                  >
+                    {String(item.department_code ?? item.department_id)} -{" "}
+                    {String(item.department_name ?? "")}
+                  </option>
+                ))}
+              </select>
+            </div>
+          }
+          {
+            <div>
+              <label className="mb-1.5 block text-xs font-bold text-slate-600">
+                Quản lý trực tiếp
+              </label>
+              <select
+                className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm"
+                value={values.manager_id ?? ""}
+                onChange={(event) => set("manager_id", event.target.value)}
+              >
+                <option value="">-- Quản lý của bộ phận --</option>
+                {managers.map((item) => (
+                  <option
+                    key={String(item.employee_id)}
+                    value={String(item.employee_id)}
+                  >
+                    {String(item.employee_code ?? item.employee_id)} -{" "}
+                    {String(item.full_name ?? "")}
+                  </option>
+                ))}
+              </select>
+              {department && (
+                <p className="mt-1 text-[11px] text-slate-400">
+                  Danh sách được lọc theo{" "}
+                  {String(department.department_name ?? "bộ phận")}.
+                </p>
+              )}
+            </div>
+          }
+        </div>
+      )}
+      {activeTab === "additional" && (
+        <div className="space-y-5">
+          <section>
+            <h3 className="mb-3 font-display text-sm font-bold text-slate-900">
+              CCCD và địa chỉ
+            </h3>
+            <div className="grid gap-4 md:grid-cols-2">
+              {input("citizen_id", "Số CCCD")}
+              {input("citizen_issue_place", "Nơi cấp")}
+              {input("citizen_issue_date", "Ngày cấp", "date")}
+              {input("citizen_expiry_date", "Ngày hết hạn", "date")}
+              {input("address", "Địa chỉ hiện tại", "textarea")}
+            </div>
+          </section>
+          <section>
+            <h3 className="mb-3 font-display text-sm font-bold text-slate-900">
+              Ngân hàng
+            </h3>
+            <div className="grid gap-4 md:grid-cols-2">
+              {input("bank_account_number", "STK")}
+              {input("bank_account_holder", "Chủ tài khoản")}
+              {input("bank_name", "Tên ngân hàng")}
+              {input("bank_branch", "Chi nhánh")}
+            </div>
+          </section>
+          <section>
+            <h3 className="mb-3 font-display text-sm font-bold text-slate-900">
+              Trình độ
+            </h3>
+            <div className="grid gap-4 md:grid-cols-2">
+              {input("culture_level", "Trình độ văn hóa")}
+              {input("education_level", "Trình độ đào tạo")}
+              {input("education_school", "Nơi đào tạo")}
+              {input("major", "Ngành đào tạo")}
+              {input("gpa", "Xếp loại / GPA", "number")}
+              {input("graduation_year", "Năm tốt nghiệp", "number")}
+            </div>
+          </section>
+        </div>
+      )}
     </div>
   );
 }
@@ -981,80 +4076,645 @@ function InterviewEvaluationForm({
   onViewCandidate,
 }: {
   values: Record<string, string>;
-  setValues: (updater: (current: Record<string, string>) => Record<string, string>) => void;
+  setValues: (
+    updater: (current: Record<string, string>) => Record<string, string>,
+  ) => void;
   lookups: EvaluationLookups;
   session: Session | null;
   onViewCandidate: (candidate: Row) => void;
 }) {
-  const [activeTab, setActiveTab] = useState<"general" | "script" | "criteria" | "offer" | "assessment">("general");
-  const selectedSchedule = lookups.schedules.find((item) => String(item.schedule_id ?? "") === values.schedule_id);
-  const scheduleCandidateRows = parseDetailList(selectedSchedule?.candidates ?? selectedSchedule?.candidates_json);
-  const scheduleCandidateIds = scheduleCandidateRows.map((item) => String(item.candidate_id ?? item.id ?? "")).filter(Boolean);
-  const candidates = scheduleCandidateIds.length ? lookups.candidates.filter((item) => scheduleCandidateIds.includes(String(item.candidate_id ?? ""))) : [];
-  const candidate = lookups.candidates.find((item) => String(item.candidate_id ?? "") === values.candidate_id);
-  const panelRows = parseDetailList(selectedSchedule?.council ?? selectedSchedule?.council_json);
-  const panelIds = panelRows.map((item) => String(item.employee_id ?? item.id ?? "")).filter(Boolean);
-  const panelEmployees = lookups.employees.filter((item) => panelIds.includes(String(item.employee_id ?? "")));
-  const decisionMakerIds = panelRows.filter((item) => Number(item.is_decision_maker) === 1 || item.is_decision_maker === true).map((item) => String(item.employee_id ?? item.id ?? ""));
+  const [activeTab, setActiveTab] = useState<
+    "general" | "script" | "criteria" | "offer" | "assessment"
+  >("general");
+  const selectedSchedule = lookups.schedules.find(
+    (item) => String(item.schedule_id ?? "") === values.schedule_id,
+  );
+  const scheduleCandidateRows = parseDetailList(
+    selectedSchedule?.candidates ?? selectedSchedule?.candidates_json,
+  );
+  const scheduleCandidateIds = scheduleCandidateRows
+    .map((item) => String(item.candidate_id ?? item.id ?? ""))
+    .filter(Boolean);
+  const candidates = scheduleCandidateIds.length
+    ? lookups.candidates.filter((item) =>
+        scheduleCandidateIds.includes(String(item.candidate_id ?? "")),
+      )
+    : [];
+  const candidate = lookups.candidates.find(
+    (item) => String(item.candidate_id ?? "") === values.candidate_id,
+  );
+  const panelRows = parseDetailList(
+    selectedSchedule?.council ?? selectedSchedule?.council_json,
+  );
+  const panelIds = panelRows
+    .map((item) => String(item.employee_id ?? item.id ?? ""))
+    .filter(Boolean);
+  const panelEmployees = lookups.employees.filter((item) =>
+    panelIds.includes(String(item.employee_id ?? "")),
+  );
+  const decisionMakerIds = panelRows
+    .filter(
+      (item) =>
+        Number(item.is_decision_maker) === 1 || item.is_decision_maker === true,
+    )
+    .map((item) => String(item.employee_id ?? item.id ?? ""));
   const evaluatorOptions = panelEmployees;
-  const existingOffer = lookups.offers.find((item) => String(item.candidate_id ?? "") === values.candidate_id);
+  const existingOffer = lookups.offers.find(
+    (item) => String(item.candidate_id ?? "") === values.candidate_id,
+  );
   const offerValues = (() => {
     try {
       const parsed = JSON.parse(values.offer || "{}");
-      return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed as Row : existingOffer ?? {};
+      return parsed && typeof parsed === "object" && !Array.isArray(parsed)
+        ? (parsed as Row)
+        : (existingOffer ?? {});
     } catch {
       return existingOffer ?? {};
     }
   })();
   const scripts = parseDetailList(values.script);
   const criteria = parseDetailList(values.criteria);
-  const set = (name: string, value: string) => setValues((current) => ({ ...current, [name]: value }));
-  const updateList = (name: string, next: Array<Record<string, unknown>>) => set(name, JSON.stringify(next));
-  const updateRow = (name: string, rows: Array<Record<string, unknown>>, index: number, key: string, value: unknown) => {
+  const set = (name: string, value: string) =>
+    setValues((current) => ({ ...current, [name]: value }));
+  const updateList = (name: string, next: Array<Record<string, unknown>>) =>
+    set(name, JSON.stringify(next));
+  const updateRow = (
+    name: string,
+    rows: Array<Record<string, unknown>>,
+    index: number,
+    key: string,
+    value: unknown,
+  ) => {
     const next = [...rows];
     next[index] = { ...next[index], [key]: value };
     updateList(name, next);
   };
-  const setOffer = (key: string, value: string) => setValues((current) => {
-    let base: Row = existingOffer ?? {};
-    try {
-      const parsed = JSON.parse(current.offer || "{}");
-      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) base = parsed as Row;
-    } catch { /* use the existing offer as the edit base */ }
-    return { ...current, offer: JSON.stringify({ ...base, [key]: value }) };
-  });
+  const setOffer = (key: string, value: string) =>
+    setValues((current) => {
+      let base: Row = existingOffer ?? {};
+      try {
+        const parsed = JSON.parse(current.offer || "{}");
+        if (parsed && typeof parsed === "object" && !Array.isArray(parsed))
+          base = parsed as Row;
+      } catch {
+        /* use the existing offer as the edit base */
+      }
+      return { ...current, offer: JSON.stringify({ ...base, [key]: value }) };
+    });
   const selectSchedule = (scheduleId: string) => {
-    const schedule = lookups.schedules.find((item) => String(item.schedule_id ?? "") === scheduleId);
+    const schedule = lookups.schedules.find(
+      (item) => String(item.schedule_id ?? "") === scheduleId,
+    );
     const panel = parseDetailList(schedule?.council ?? schedule?.council_json);
-    const decisionMaker = panel.find((item) => Number(item.is_decision_maker) === 1 || item.is_decision_maker === true);
-    setValues((current) => ({ ...current, schedule_id: scheduleId, candidate_id: "", evaluator_id: String(decisionMaker?.employee_id ?? session?.employeeId ?? "") }));
+    const decisionMaker = panel.find(
+      (item) =>
+        Number(item.is_decision_maker) === 1 || item.is_decision_maker === true,
+    );
+    setValues((current) => ({
+      ...current,
+      schedule_id: scheduleId,
+      candidate_id: "",
+      evaluator_id: String(
+        decisionMaker?.employee_id ?? session?.employeeId ?? "",
+      ),
+    }));
   };
-  const addScript = () => updateList("script", [...scripts, { question: "", expectation: "", answer: "" }]);
-  const addCriterion = () => updateList("criteria", [...criteria, { criteria_type: "Năng lực chuyên môn", required_from: "", candidate_value: "", candidate_description: "", is_passed: true, note: "" }]);
+  const addScript = () =>
+    updateList("script", [
+      ...scripts,
+      { question: "", expectation: "", answer: "" },
+    ]);
+  const addCriterion = () =>
+    updateList("criteria", [
+      ...criteria,
+      {
+        criteria_type: "Năng lực chuyên môn",
+        required_from: "",
+        candidate_value: "",
+        candidate_description: "",
+        is_passed: true,
+        note: "",
+      },
+    ]);
 
   return (
     <div className="space-y-5">
       <div className="flex gap-1 overflow-x-auto border-b border-slate-200">
-        {[["general", "1. Thông tin chung"], ["script", "2. Câu hỏi phỏng vấn"], ["criteria", "3. Chi tiết đánh giá"], ["offer", "4. Thông tin offer"], ["assessment", "5. Đánh giá chung"]].map(([key, label]) => <button key={key} type="button" onClick={() => setActiveTab(key as typeof activeTab)} className={`whitespace-nowrap border-b-2 px-4 py-3 text-xs font-bold ${activeTab === key ? "border-teal-600 text-teal-700" : "border-transparent text-slate-400"}`}>{label}</button>)}
+        {[
+          ["general", "1. Thông tin chung"],
+          ["script", "2. Câu hỏi phỏng vấn"],
+          ["criteria", "3. Chi tiết đánh giá"],
+          ["offer", "4. Thông tin offer"],
+          ["assessment", "5. Đánh giá chung"],
+        ].map(([key, label]) => (
+          <button
+            key={key}
+            type="button"
+            onClick={() => setActiveTab(key as typeof activeTab)}
+            className={`whitespace-nowrap border-b-2 px-4 py-3 text-xs font-bold ${activeTab === key ? "border-teal-600 text-teal-700" : "border-transparent text-slate-400"}`}
+          >
+            {label}
+          </button>
+        ))}
       </div>
 
-      {activeTab === "general" && <div className="grid gap-4 md:grid-cols-2">
-        <WorkspaceInput field={{ name: "evaluation_date", label: "Ngày đánh giá", type: "date", required: true }} tabId="interview-evaluations" value={values.evaluation_date ?? ""} onChange={(value) => set("evaluation_date", value)} />
-        <WorkspaceInput field={{ name: "eval_code", label: "Số phiếu", disabled: true }} tabId="interview-evaluations" value={values.eval_code ?? ""} onChange={() => undefined} />
-        <div><label className="mb-1.5 block text-xs font-bold text-slate-600">Số lịch *</label><select className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm" value={values.schedule_id ?? ""} required onChange={(event) => selectSchedule(event.target.value)}><option value="">-- Chọn lịch phỏng vấn --</option>{lookups.schedules.map((item) => <option key={String(item.schedule_id)} value={String(item.schedule_id)}>{String(item.schedule_code ?? item.schedule_id)} - {String(item.round_type ?? "")}</option>)}</select></div>
-        <div><label className="mb-1.5 block text-xs font-bold text-slate-600">Người đánh giá *</label><select className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm" value={values.evaluator_id ?? ""} required onChange={(event) => set("evaluator_id", event.target.value)}><option value="">-- Chọn người đánh giá --</option>{evaluatorOptions.map((item) => <option key={String(item.employee_id)} value={String(item.employee_id)}>{String(item.employee_code ?? item.employee_id)} - {String(item.full_name ?? "")}{decisionMakerIds.includes(String(item.employee_id)) ? " (Người quyết định)" : ""}</option>)}</select></div>
-        <div><label className="mb-1.5 block text-xs font-bold text-slate-600">Ứng viên theo lịch *</label><select className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm" value={values.candidate_id ?? ""} required onChange={(event) => set("candidate_id", event.target.value)}><option value="">-- Chọn ứng viên --</option>{candidates.map((item) => <option key={String(item.candidate_id)} value={String(item.candidate_id)}>{String(item.candidate_code ?? item.candidate_id)} - {String(item.full_name ?? "")}</option>)}</select>{selectedSchedule && !candidates.length && <p className="mt-1 text-[11px] text-amber-600">Lịch này chưa có ứng viên được khai báo.</p>}</div>
-        <WorkspaceInput field={{ name: "duration_minutes", label: "Thời lượng (phút)", type: "number" }} tabId="interview-evaluations" value={values.duration_minutes ?? ""} onChange={(value) => set("duration_minutes", value)} />
-        {candidate && <div className="rounded-xl border border-teal-100 bg-teal-50/60 p-4 md:col-span-2"><div className="flex items-center justify-between gap-3"><div><div className="text-[10px] font-bold uppercase tracking-wider text-teal-600">Hồ sơ ứng viên</div><div className="mt-1 font-display text-sm font-bold text-slate-900">{String(candidate.full_name ?? "")} <span className="font-normal text-slate-500">({String(candidate.candidate_code ?? "")})</span></div><div className="mt-1 text-xs text-slate-600">{String(candidate.phone ?? "-")} · {String(candidate.email ?? "-")} · {String(candidate.apply_position_name ?? "-")}</div></div><Button type="button" variant="secondary" size="sm" onClick={() => onViewCandidate(candidate)}><Eye size={14} /> Xem thông tin ứng viên</Button></div></div>}
-      </div>}
+      {activeTab === "general" && (
+        <div className="grid gap-4 md:grid-cols-2">
+          <WorkspaceInput
+            field={{
+              name: "evaluation_date",
+              label: "Ngày đánh giá",
+              type: "date",
+              required: true,
+            }}
+            tabId="interview-evaluations"
+            value={values.evaluation_date ?? ""}
+            onChange={(value) => set("evaluation_date", value)}
+          />
+          <WorkspaceInput
+            field={{ name: "eval_code", label: "Số phiếu", disabled: true }}
+            tabId="interview-evaluations"
+            value={values.eval_code ?? ""}
+            onChange={() => undefined}
+          />
+          <div>
+            <label className="mb-1.5 block text-xs font-bold text-slate-600">
+              Số lịch *
+            </label>
+            <select
+              className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm"
+              value={values.schedule_id ?? ""}
+              required
+              onChange={(event) => selectSchedule(event.target.value)}
+            >
+              <option value="">-- Chọn lịch phỏng vấn --</option>
+              {lookups.schedules.map((item) => (
+                <option
+                  key={String(item.schedule_id)}
+                  value={String(item.schedule_id)}
+                >
+                  {String(item.schedule_code ?? item.schedule_id)} -{" "}
+                  {String(item.round_type ?? "")}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="mb-1.5 block text-xs font-bold text-slate-600">
+              Người đánh giá *
+            </label>
+            <select
+              className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm"
+              value={values.evaluator_id ?? ""}
+              required
+              onChange={(event) => set("evaluator_id", event.target.value)}
+            >
+              <option value="">-- Chọn người đánh giá --</option>
+              {evaluatorOptions.map((item) => (
+                <option
+                  key={String(item.employee_id)}
+                  value={String(item.employee_id)}
+                >
+                  {String(item.employee_code ?? item.employee_id)} -{" "}
+                  {String(item.full_name ?? "")}
+                  {decisionMakerIds.includes(String(item.employee_id))
+                    ? " (Người quyết định)"
+                    : ""}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="mb-1.5 block text-xs font-bold text-slate-600">
+              Ứng viên theo lịch *
+            </label>
+            <select
+              className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm"
+              value={values.candidate_id ?? ""}
+              required
+              onChange={(event) => set("candidate_id", event.target.value)}
+            >
+              <option value="">-- Chọn ứng viên --</option>
+              {candidates.map((item) => (
+                <option
+                  key={String(item.candidate_id)}
+                  value={String(item.candidate_id)}
+                >
+                  {String(item.candidate_code ?? item.candidate_id)} -{" "}
+                  {String(item.full_name ?? "")}
+                </option>
+              ))}
+            </select>
+            {selectedSchedule && !candidates.length && (
+              <p className="mt-1 text-[11px] text-amber-600">
+                Lịch này chưa có ứng viên được khai báo.
+              </p>
+            )}
+          </div>
+          <WorkspaceInput
+            field={{
+              name: "duration_minutes",
+              label: "Thời lượng (phút)",
+              type: "number",
+            }}
+            tabId="interview-evaluations"
+            value={values.duration_minutes ?? ""}
+            onChange={(value) => set("duration_minutes", value)}
+          />
+          {candidate && (
+            <div className="rounded-xl border border-teal-100 bg-teal-50/60 p-4 md:col-span-2">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-teal-600">
+                    Hồ sơ ứng viên
+                  </div>
+                  <div className="mt-1 font-display text-sm font-bold text-slate-900">
+                    {String(candidate.full_name ?? "")}{" "}
+                    <span className="font-normal text-slate-500">
+                      ({String(candidate.candidate_code ?? "")})
+                    </span>
+                  </div>
+                  <div className="mt-1 text-xs text-slate-600">
+                    {String(candidate.phone ?? "-")} ·{" "}
+                    {String(candidate.email ?? "-")} ·{" "}
+                    {String(candidate.apply_position_name ?? "-")}
+                  </div>
+                </div>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => onViewCandidate(candidate)}
+                >
+                  <Eye size={14} /> Xem thông tin ứng viên
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
-      {activeTab === "script" && <div className="space-y-3"><div className="flex items-center justify-between"><div><h3 className="font-display text-sm font-bold text-slate-900">Câu hỏi phỏng vấn</h3><p className="mt-1 text-xs text-slate-400">Ghi lại câu hỏi, kết quả kỳ vọng và câu trả lời/đánh giá.</p></div><Button type="button" variant="secondary" size="sm" onClick={addScript}><Plus size={14} /> Thêm câu hỏi</Button></div><div className="overflow-x-auto rounded-xl border border-slate-100"><table className="w-full min-w-[850px] text-left text-xs"><thead className="bg-slate-50 text-[10px] uppercase tracking-wider text-slate-400"><tr><th className="px-3 py-3">Câu hỏi</th><th className="px-3 py-3">Kết quả kỳ vọng</th><th className="px-3 py-3">Câu trả lời / Đánh giá</th><th className="px-3 py-3">Xóa</th></tr></thead><tbody className="divide-y divide-slate-100">{scripts.map((item, index) => <tr key={index}><td className="px-3 py-2"><Input value={String(item.question ?? "")} onChange={(event) => updateRow("script", scripts, index, "question", event.target.value)} className="h-9" /></td><td className="px-3 py-2"><Input value={String(item.expectation ?? "")} onChange={(event) => updateRow("script", scripts, index, "expectation", event.target.value)} className="h-9" /></td><td className="px-3 py-2"><Input value={String(item.answer ?? "")} onChange={(event) => updateRow("script", scripts, index, "answer", event.target.value)} className="h-9" /></td><td className="px-3 py-2"><Button type="button" variant="ghost" size="sm" onClick={() => updateList("script", scripts.filter((_, itemIndex) => itemIndex !== index))}><Trash2 size={15} /></Button></td></tr>)}</tbody></table></div>{!scripts.length && <p className="rounded-xl border border-dashed border-slate-200 p-6 text-center text-xs text-slate-400">Chưa có câu hỏi.</p>}</div>}
+      {activeTab === "script" && (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="font-display text-sm font-bold text-slate-900">
+                Câu hỏi phỏng vấn
+              </h3>
+              <p className="mt-1 text-xs text-slate-400">
+                Ghi lại câu hỏi, kết quả kỳ vọng và câu trả lời/đánh giá.
+              </p>
+            </div>
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={addScript}
+            >
+              <Plus size={14} /> Thêm câu hỏi
+            </Button>
+          </div>
+          <div className="overflow-x-auto rounded-xl border border-slate-100">
+            <table className="w-full min-w-[850px] text-left text-xs">
+              <thead className="bg-slate-50 text-[10px] uppercase tracking-wider text-slate-400">
+                <tr>
+                  <th className="px-3 py-3">Câu hỏi</th>
+                  <th className="px-3 py-3">Kết quả kỳ vọng</th>
+                  <th className="px-3 py-3">Câu trả lời / Đánh giá</th>
+                  <th className="px-3 py-3">Xóa</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {scripts.map((item, index) => (
+                  <tr key={index}>
+                    <td className="px-3 py-2">
+                      <Input
+                        value={String(item.question ?? "")}
+                        onChange={(event) =>
+                          updateRow(
+                            "script",
+                            scripts,
+                            index,
+                            "question",
+                            event.target.value,
+                          )
+                        }
+                        className="h-9"
+                      />
+                    </td>
+                    <td className="px-3 py-2">
+                      <Input
+                        value={String(item.expectation ?? "")}
+                        onChange={(event) =>
+                          updateRow(
+                            "script",
+                            scripts,
+                            index,
+                            "expectation",
+                            event.target.value,
+                          )
+                        }
+                        className="h-9"
+                      />
+                    </td>
+                    <td className="px-3 py-2">
+                      <Input
+                        value={String(item.answer ?? "")}
+                        onChange={(event) =>
+                          updateRow(
+                            "script",
+                            scripts,
+                            index,
+                            "answer",
+                            event.target.value,
+                          )
+                        }
+                        className="h-9"
+                      />
+                    </td>
+                    <td className="px-3 py-2">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() =>
+                          updateList(
+                            "script",
+                            scripts.filter(
+                              (_, itemIndex) => itemIndex !== index,
+                            ),
+                          )
+                        }
+                      >
+                        <Trash2 size={15} />
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {!scripts.length && (
+            <p className="rounded-xl border border-dashed border-slate-200 p-6 text-center text-xs text-slate-400">
+              Chưa có câu hỏi.
+            </p>
+          )}
+        </div>
+      )}
 
-      {activeTab === "criteria" && <div className="space-y-3"><div className="flex items-center justify-between"><div><h3 className="font-display text-sm font-bold text-slate-900">Chi tiết đánh giá</h3><p className="mt-1 text-xs text-slate-400">Đánh giá đích danh cho ứng viên đang được chọn.</p></div><Button type="button" variant="secondary" size="sm" onClick={addCriterion}><Plus size={14} /> Thêm điều kiện</Button></div><div className="overflow-x-auto rounded-xl border border-slate-100"><table className="w-full min-w-[980px] text-left text-xs"><thead className="bg-slate-50 text-[10px] uppercase tracking-wider text-slate-400"><tr><th className="px-3 py-3">Điều kiện</th><th className="px-3 py-3">Điều kiện đạt</th><th className="px-3 py-3">Đánh giá ứng viên / Điểm</th><th className="px-3 py-3">Đạt</th><th className="px-3 py-3">Ghi chú</th><th className="px-3 py-3">Xóa</th></tr></thead><tbody className="divide-y divide-slate-100">{criteria.map((item, index) => <tr key={index}><td className="px-3 py-2"><Input value={String(item.criteria_type ?? "")} onChange={(event) => updateRow("criteria", criteria, index, "criteria_type", event.target.value)} className="h-9" /></td><td className="px-3 py-2"><Input value={String(item.required_from ?? item.required_description ?? "")} onChange={(event) => updateRow("criteria", criteria, index, "required_from", event.target.value)} className="h-9" /></td><td className="px-3 py-2"><Input value={String(item.candidate_description ?? item.candidate_value ?? "")} onChange={(event) => { const next = [...criteria]; next[index] = { ...next[index], candidate_description: event.target.value, candidate_value: event.target.value }; updateList("criteria", next); }} className="h-9" /></td><td className="px-3 py-2 text-center"><input type="checkbox" checked={Boolean(item.is_passed)} onChange={(event) => updateRow("criteria", criteria, index, "is_passed", event.target.checked)} className="size-4 accent-teal-600" aria-label={`Điều kiện ${index + 1} đạt`} /></td><td className="px-3 py-2"><Input value={String(item.note ?? "")} onChange={(event) => updateRow("criteria", criteria, index, "note", event.target.value)} className="h-9" /></td><td className="px-3 py-2"><Button type="button" variant="ghost" size="sm" onClick={() => updateList("criteria", criteria.filter((_, itemIndex) => itemIndex !== index))}><Trash2 size={15} /></Button></td></tr>)}</tbody></table></div>{!criteria.length && <p className="rounded-xl border border-dashed border-slate-200 p-6 text-center text-xs text-slate-400">Chưa có điều kiện đánh giá.</p>}</div>}
+      {activeTab === "criteria" && (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="font-display text-sm font-bold text-slate-900">
+                Chi tiết đánh giá
+              </h3>
+              <p className="mt-1 text-xs text-slate-400">
+                Đánh giá đích danh cho ứng viên đang được chọn.
+              </p>
+            </div>
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={addCriterion}
+            >
+              <Plus size={14} /> Thêm điều kiện
+            </Button>
+          </div>
+          <div className="overflow-x-auto rounded-xl border border-slate-100">
+            <table className="w-full min-w-[980px] text-left text-xs">
+              <thead className="bg-slate-50 text-[10px] uppercase tracking-wider text-slate-400">
+                <tr>
+                  <th className="px-3 py-3">Điều kiện</th>
+                  <th className="px-3 py-3">Điều kiện đạt</th>
+                  <th className="px-3 py-3">Đánh giá ứng viên / Điểm</th>
+                  <th className="px-3 py-3">Đạt</th>
+                  <th className="px-3 py-3">Ghi chú</th>
+                  <th className="px-3 py-3">Xóa</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {criteria.map((item, index) => (
+                  <tr key={index}>
+                    <td className="px-3 py-2">
+                      <Input
+                        value={String(item.criteria_type ?? "")}
+                        onChange={(event) =>
+                          updateRow(
+                            "criteria",
+                            criteria,
+                            index,
+                            "criteria_type",
+                            event.target.value,
+                          )
+                        }
+                        className="h-9"
+                      />
+                    </td>
+                    <td className="px-3 py-2">
+                      <Input
+                        value={String(
+                          item.required_from ?? item.required_description ?? "",
+                        )}
+                        onChange={(event) =>
+                          updateRow(
+                            "criteria",
+                            criteria,
+                            index,
+                            "required_from",
+                            event.target.value,
+                          )
+                        }
+                        className="h-9"
+                      />
+                    </td>
+                    <td className="px-3 py-2">
+                      <Input
+                        value={String(
+                          item.candidate_description ??
+                            item.candidate_value ??
+                            "",
+                        )}
+                        onChange={(event) => {
+                          const next = [...criteria];
+                          next[index] = {
+                            ...next[index],
+                            candidate_description: event.target.value,
+                            candidate_value: event.target.value,
+                          };
+                          updateList("criteria", next);
+                        }}
+                        className="h-9"
+                      />
+                    </td>
+                    <td className="px-3 py-2 text-center">
+                      <input
+                        type="checkbox"
+                        checked={Boolean(item.is_passed)}
+                        onChange={(event) =>
+                          updateRow(
+                            "criteria",
+                            criteria,
+                            index,
+                            "is_passed",
+                            event.target.checked,
+                          )
+                        }
+                        className="size-4 accent-teal-600"
+                        aria-label={`Điều kiện ${index + 1} đạt`}
+                      />
+                    </td>
+                    <td className="px-3 py-2">
+                      <Input
+                        value={String(item.note ?? "")}
+                        onChange={(event) =>
+                          updateRow(
+                            "criteria",
+                            criteria,
+                            index,
+                            "note",
+                            event.target.value,
+                          )
+                        }
+                        className="h-9"
+                      />
+                    </td>
+                    <td className="px-3 py-2">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() =>
+                          updateList(
+                            "criteria",
+                            criteria.filter(
+                              (_, itemIndex) => itemIndex !== index,
+                            ),
+                          )
+                        }
+                      >
+                        <Trash2 size={15} />
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {!criteria.length && (
+            <p className="rounded-xl border border-dashed border-slate-200 p-6 text-center text-xs text-slate-400">
+              Chưa có điều kiện đánh giá.
+            </p>
+          )}
+        </div>
+      )}
 
-      {activeTab === "offer" && <div className="grid gap-4 md:grid-cols-2"><div className="md:col-span-2 rounded-xl border border-slate-100 bg-slate-50/70 p-3 text-xs text-slate-500">Thông tin offer là tùy chọn. Nếu ứng viên đã có offer, dữ liệu hiện tại sẽ được nạp để đối chiếu.</div><div><label className="mb-1.5 block text-xs font-bold text-slate-600">Ngày bắt đầu đi làm</label><Input type="date" value={formatDateValue(offerValues.expected_start_date)} onChange={(event) => setOffer("expected_start_date", event.target.value)} /></div><div><label className="mb-1.5 block text-xs font-bold text-slate-600">Mức lương chính thức</label><Input type="number" value={String(offerValues.official_salary ?? offerValues.salary_offer ?? "")} onChange={(event) => setOffer("official_salary", event.target.value)} /></div><div><label className="mb-1.5 block text-xs font-bold text-slate-600">Lương thử việc</label><Input type="number" value={String(offerValues.probation_salary ?? "")} onChange={(event) => setOffer("probation_salary", event.target.value)} /></div><div className="md:col-span-2"><label className="mb-1.5 block text-xs font-bold text-slate-600">Ghi chú offer</label><Input value={String(offerValues.note ?? "")} onChange={(event) => setOffer("note", event.target.value)} /></div></div>}
+      {activeTab === "offer" && (
+        <div className="grid gap-4 md:grid-cols-2">
+          <div className="md:col-span-2 rounded-xl border border-slate-100 bg-slate-50/70 p-3 text-xs text-slate-500">
+            Thông tin offer là tùy chọn. Nếu ứng viên đã có offer, dữ liệu hiện
+            tại sẽ được nạp để đối chiếu.
+          </div>
+          <div>
+            <label className="mb-1.5 block text-xs font-bold text-slate-600">
+              Ngày bắt đầu đi làm
+            </label>
+            <Input
+              type="date"
+              value={formatDateValue(offerValues.expected_start_date)}
+              onChange={(event) =>
+                setOffer("expected_start_date", event.target.value)
+              }
+            />
+          </div>
+          <div>
+            <label className="mb-1.5 block text-xs font-bold text-slate-600">
+              Mức lương chính thức
+            </label>
+            <Input
+              type="number"
+              value={String(
+                offerValues.official_salary ?? offerValues.salary_offer ?? "",
+              )}
+              onChange={(event) =>
+                setOffer("official_salary", event.target.value)
+              }
+            />
+          </div>
+          <div>
+            <label className="mb-1.5 block text-xs font-bold text-slate-600">
+              Lương thử việc
+            </label>
+            <Input
+              type="number"
+              value={String(offerValues.probation_salary ?? "")}
+              onChange={(event) =>
+                setOffer("probation_salary", event.target.value)
+              }
+            />
+          </div>
+          <div className="md:col-span-2">
+            <label className="mb-1.5 block text-xs font-bold text-slate-600">
+              Ghi chú offer
+            </label>
+            <Input
+              value={String(offerValues.note ?? "")}
+              onChange={(event) => setOffer("note", event.target.value)}
+            />
+          </div>
+        </div>
+      )}
 
-      {activeTab === "assessment" && <div className="grid gap-4 md:grid-cols-2"><div><label className="mb-1.5 block text-xs font-bold text-slate-600">Mức độ *</label><select className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm" value={String(Math.min(5, Math.max(1, Number(values.level_score) || 3)))} required onChange={(event) => set("level_score", event.target.value)}>{interviewRatings.map((rating) => <option key={rating.value} value={rating.value}>{rating.label}</option>)}</select></div><WorkspaceInput field={{ name: "overall_result", label: "Đánh giá chung", type: "select", options: [{ value: "ĐẠT", label: "Đạt" }, { value: "KHÔNG ĐẠT", label: "Không đạt" }] }} tabId="interview-evaluations" value={values.overall_result ?? "ĐẠT"} onChange={(value) => set("overall_result", value)} /><div className="md:col-span-2"><WorkspaceInput field={{ name: "overall_comment", label: "Nhận xét chung", type: "textarea" }} tabId="interview-evaluations" value={values.overall_comment ?? ""} onChange={(value) => set("overall_comment", value)} /></div></div>}
+      {activeTab === "assessment" && (
+        <div className="grid gap-4 md:grid-cols-2">
+          <div>
+            <label className="mb-1.5 block text-xs font-bold text-slate-600">
+              Mức độ *
+            </label>
+            <select
+              className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm"
+              value={String(
+                Math.min(5, Math.max(1, Number(values.level_score) || 3)),
+              )}
+              required
+              onChange={(event) => set("level_score", event.target.value)}
+            >
+              {interviewRatings.map((rating) => (
+                <option key={rating.value} value={rating.value}>
+                  {rating.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <WorkspaceInput
+            field={{
+              name: "overall_result",
+              label: "Đánh giá chung",
+              type: "select",
+              options: [
+                { value: "ĐẠT", label: "Đạt" },
+                { value: "KHÔNG ĐẠT", label: "Không đạt" },
+              ],
+            }}
+            tabId="interview-evaluations"
+            value={values.overall_result ?? "ĐẠT"}
+            onChange={(value) => set("overall_result", value)}
+          />
+          <div className="md:col-span-2">
+            <WorkspaceInput
+              field={{
+                name: "overall_comment",
+                label: "Nhận xét chung",
+                type: "textarea",
+              }}
+              tabId="interview-evaluations"
+              value={values.overall_comment ?? ""}
+              onChange={(value) => set("overall_comment", value)}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1066,50 +4726,230 @@ function RecruitmentDecisionForm({
   onViewCandidate,
 }: {
   values: Record<string, string>;
-  setValues: (updater: (current: Record<string, string>) => Record<string, string>) => void;
+  setValues: (
+    updater: (current: Record<string, string>) => Record<string, string>,
+  ) => void;
   lookups: DecisionLookups;
   onViewCandidate: (candidate: Row) => void;
 }) {
-  const candidate = lookups.candidates.find((item) => String(item.candidate_id ?? "") === values.candidate_id);
-  const evaluations = lookups.evaluations.filter((item) => String(item.candidate_id ?? "") === values.candidate_id);
-  const selectedEvaluation = evaluations.find((item) => String(item.interview_eval_id ?? "") === values.interview_eval_id) ?? evaluations[0];
-  const set = (name: string, value: string) => setValues((current) => ({ ...current, [name]: value }));
+  const candidate = lookups.candidates.find(
+    (item) => String(item.candidate_id ?? "") === values.candidate_id,
+  );
+  const evaluations = lookups.evaluations.filter(
+    (item) => String(item.candidate_id ?? "") === values.candidate_id,
+  );
+  const selectedEvaluation =
+    evaluations.find(
+      (item) =>
+        String(item.interview_eval_id ?? "") === values.interview_eval_id,
+    ) ?? evaluations[0];
+  const set = (name: string, value: string) =>
+    setValues((current) => ({ ...current, [name]: value }));
   const selectCandidate = (candidateId: string) => {
-    const evaluation = lookups.evaluations.find((item) => String(item.candidate_id ?? "") === candidateId);
-    const evaluationResult = String(evaluation?.overall_result ?? "").trim().toUpperCase();
+    const evaluation = lookups.evaluations.find(
+      (item) => String(item.candidate_id ?? "") === candidateId,
+    );
+    const evaluationResult = String(evaluation?.overall_result ?? "")
+      .trim()
+      .toUpperCase();
     const result = ["ĐẠT", "PASSED"].includes(evaluationResult)
       ? "ĐẠT"
       : ["KHÔNG ĐẠT", "FAILED"].includes(evaluationResult)
         ? "KHÔNG ĐẠT"
         : "";
-    setValues((current) => ({ ...current, candidate_id: candidateId, interview_eval_id: String(evaluation?.interview_eval_id ?? ""), result }));
+    setValues((current) => ({
+      ...current,
+      candidate_id: candidateId,
+      interview_eval_id: String(evaluation?.interview_eval_id ?? ""),
+      result,
+    }));
   };
 
   return (
     <div className="space-y-5">
-      <div className="rounded-xl border border-amber-100 bg-amber-50/70 p-4 text-xs text-amber-800">Quyết định được lập dựa trên kết quả <b>Đánh giá chung</b> của Phiếu Đánh giá phỏng vấn. Kết quả quyết định phải khớp với kết quả đánh giá đã chọn.</div>
-      <div className="grid gap-4 md:grid-cols-2">
-        <div><label className="mb-1.5 block text-xs font-bold text-slate-600">Ứng viên *</label><select className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm" value={values.candidate_id ?? ""} required onChange={(event) => selectCandidate(event.target.value)}><option value="">-- Chọn từ hồ sơ ứng viên --</option>{lookups.candidates.map((item) => { const hasEvaluation = lookups.evaluations.some((evaluation) => String(evaluation.candidate_id ?? "") === String(item.candidate_id ?? "")); return <option key={String(item.candidate_id)} value={String(item.candidate_id)} disabled={!hasEvaluation}>{String(item.candidate_code ?? item.candidate_id)} - {String(item.full_name ?? "")}{hasEvaluation ? "" : " - Chưa có đánh giá phỏng vấn"}</option>; })}</select></div>
-        <WorkspaceInput field={{ name: "decision_date", label: "Ngày quyết định", type: "date", required: true }} tabId="decisions" value={values.decision_date ?? ""} onChange={(value) => set("decision_date", value)} />
-        <WorkspaceInput field={{ name: "decision_number", label: "Số phiếu", placeholder: "Tự sinh khi lưu", disabled: true }} tabId="decisions" value={values.decision_number ?? ""} onChange={() => undefined} />
-        <div><label className="mb-1.5 block text-xs font-bold text-slate-600">Phiếu đánh giá phỏng vấn *</label><Input value={String(selectedEvaluation?.eval_code ?? values.interview_eval_id ?? "Chưa chọn")} disabled className="h-10 bg-slate-100 text-slate-500" />{candidate && !selectedEvaluation && <p className="mt-1 text-[11px] text-amber-600">Ứng viên chưa có Phiếu Đánh giá phỏng vấn đạt yêu cầu.</p>}</div>
-        <div><label className="mb-1.5 block text-xs font-bold text-slate-600">Kết quả *</label><select className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm" value={values.result ?? ""} required onChange={(event) => set("result", event.target.value)}><option value="">-- Chọn kết quả --</option><option value="ĐẠT">Đạt</option><option value="KHÔNG ĐẠT">Không đạt</option></select>{selectedEvaluation && <p className="mt-1 text-[11px] text-slate-500">Theo đánh giá chung: <b>{String(selectedEvaluation.overall_result ?? "-")}</b></p>}</div>
-        <div className="md:col-span-2"><WorkspaceInput field={{ name: "rejection_reason", label: `Lý do bị loại${values.result === "KHÔNG ĐẠT" ? " *" : ""}`, type: "textarea", required: values.result === "KHÔNG ĐẠT" }} tabId="decisions" value={values.rejection_reason ?? ""} onChange={(value) => set("rejection_reason", value)} /></div>
-        <div className="md:col-span-2"><WorkspaceInput field={{ name: "overall_comment", label: "Đánh giá chung", type: "textarea", required: true }} tabId="decisions" value={values.overall_comment ?? ""} onChange={(value) => set("overall_comment", value)} /></div>
+      <div className="rounded-xl border border-amber-100 bg-amber-50/70 p-4 text-xs text-amber-800">
+        Quyết định được lập dựa trên kết quả <b>Đánh giá chung</b> của Phiếu
+        Đánh giá phỏng vấn. Kết quả quyết định phải khớp với kết quả đánh giá đã
+        chọn.
       </div>
-      {candidate && <div className="flex items-center justify-between gap-3 rounded-xl border border-teal-100 bg-teal-50/60 p-4"><div><div className="text-[10px] font-bold uppercase tracking-wider text-teal-600">Ứng viên được chọn</div><div className="mt-1 text-sm font-bold text-slate-900">{String(candidate.full_name ?? "")} <span className="font-normal text-slate-500">({String(candidate.candidate_code ?? "")})</span></div></div><Button type="button" variant="secondary" size="sm" onClick={() => onViewCandidate(candidate)}><Eye size={14} /> Xem hồ sơ</Button></div>}
+      <div className="grid gap-4 md:grid-cols-2">
+        <div>
+          <label className="mb-1.5 block text-xs font-bold text-slate-600">
+            Ứng viên *
+          </label>
+          <select
+            className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm"
+            value={values.candidate_id ?? ""}
+            required
+            onChange={(event) => selectCandidate(event.target.value)}
+          >
+            <option value="">-- Chọn từ hồ sơ ứng viên --</option>
+            {lookups.candidates.map((item) => {
+              const hasEvaluation = lookups.evaluations.some(
+                (evaluation) =>
+                  String(evaluation.candidate_id ?? "") ===
+                  String(item.candidate_id ?? ""),
+              );
+              return (
+                <option
+                  key={String(item.candidate_id)}
+                  value={String(item.candidate_id)}
+                  disabled={!hasEvaluation}
+                >
+                  {String(item.candidate_code ?? item.candidate_id)} -{" "}
+                  {String(item.full_name ?? "")}
+                  {hasEvaluation ? "" : " - Chưa có đánh giá phỏng vấn"}
+                </option>
+              );
+            })}
+          </select>
+        </div>
+        <WorkspaceInput
+          field={{
+            name: "decision_date",
+            label: "Ngày quyết định",
+            type: "date",
+            required: true,
+          }}
+          tabId="decisions"
+          value={values.decision_date ?? ""}
+          onChange={(value) => set("decision_date", value)}
+        />
+        <WorkspaceInput
+          field={{
+            name: "decision_number",
+            label: "Số phiếu",
+            placeholder: "Tự sinh khi lưu",
+            disabled: true,
+          }}
+          tabId="decisions"
+          value={values.decision_number ?? ""}
+          onChange={() => undefined}
+        />
+        <div>
+          <label className="mb-1.5 block text-xs font-bold text-slate-600">
+            Phiếu đánh giá phỏng vấn *
+          </label>
+          <Input
+            value={String(
+              selectedEvaluation?.eval_code ??
+                values.interview_eval_id ??
+                "Chưa chọn",
+            )}
+            disabled
+            className="h-10 bg-slate-100 text-slate-500"
+          />
+          {candidate && !selectedEvaluation && (
+            <p className="mt-1 text-[11px] text-amber-600">
+              Ứng viên chưa có Phiếu Đánh giá phỏng vấn đạt yêu cầu.
+            </p>
+          )}
+        </div>
+        <div>
+          <label className="mb-1.5 block text-xs font-bold text-slate-600">
+            Kết quả *
+          </label>
+          <select
+            className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm"
+            value={values.result ?? ""}
+            required
+            onChange={(event) => set("result", event.target.value)}
+          >
+            <option value="">-- Chọn kết quả --</option>
+            <option value="ĐẠT">Đạt</option>
+            <option value="KHÔNG ĐẠT">Không đạt</option>
+          </select>
+          {selectedEvaluation && (
+            <p className="mt-1 text-[11px] text-slate-500">
+              Theo đánh giá chung:{" "}
+              <b>{String(selectedEvaluation.overall_result ?? "-")}</b>
+            </p>
+          )}
+        </div>
+        <div className="md:col-span-2">
+          <WorkspaceInput
+            field={{
+              name: "rejection_reason",
+              label: `Lý do bị loại${values.result === "KHÔNG ĐẠT" ? " *" : ""}`,
+              type: "textarea",
+              required: values.result === "KHÔNG ĐẠT",
+            }}
+            tabId="decisions"
+            value={values.rejection_reason ?? ""}
+            onChange={(value) => set("rejection_reason", value)}
+          />
+        </div>
+        <div className="md:col-span-2">
+          <WorkspaceInput
+            field={{
+              name: "overall_comment",
+              label: "Đánh giá chung",
+              type: "textarea",
+              required: true,
+            }}
+            tabId="decisions"
+            value={values.overall_comment ?? ""}
+            onChange={(value) => set("overall_comment", value)}
+          />
+        </div>
+      </div>
+      {candidate && (
+        <div className="flex items-center justify-between gap-3 rounded-xl border border-teal-100 bg-teal-50/60 p-4">
+          <div>
+            <div className="text-[10px] font-bold uppercase tracking-wider text-teal-600">
+              Ứng viên được chọn
+            </div>
+            <div className="mt-1 text-sm font-bold text-slate-900">
+              {String(candidate.full_name ?? "")}{" "}
+              <span className="font-normal text-slate-500">
+                ({String(candidate.candidate_code ?? "")})
+              </span>
+            </div>
+          </div>
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            onClick={() => onViewCandidate(candidate)}
+          >
+            <Eye size={14} /> Xem hồ sơ
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
 
-const candidateSources = ["TopCV", "LinkedIn", "Website công ty", "Giới thiệu nội bộ", "Khác"];
+const candidateSources = [
+  "TopCV",
+  "LinkedIn",
+  "Website công ty",
+  "Giới thiệu nội bộ",
+  "Khác",
+];
 
-function candidateDuplicate(values: Record<string, string>, candidates: Row[], editingId?: string) {
+function candidateDuplicate(
+  values: Record<string, string>,
+  candidates: Row[],
+  editingId?: string,
+) {
   const fields = ["citizen_id", "phone", "email"];
-  return candidates.find((candidate) => String(candidate.candidate_id ?? "") !== String(editingId ?? "") && fields.some((field) => {
-    const value = String(values[field] ?? "").trim().toLowerCase();
-    return value !== "" && value === String(candidate[field] ?? "").trim().toLowerCase();
-  }));
+  return candidates.find(
+    (candidate) =>
+      String(candidate.candidate_id ?? "") !== String(editingId ?? "") &&
+      fields.some((field) => {
+        const value = String(values[field] ?? "")
+          .trim()
+          .toLowerCase();
+        return (
+          value !== "" &&
+          value ===
+            String(candidate[field] ?? "")
+              .trim()
+              .toLowerCase()
+        );
+      }),
+  );
 }
 
 function CandidateForm({
@@ -1118,18 +4958,35 @@ function CandidateForm({
   lookups,
 }: {
   values: Record<string, string>;
-  setValues: (updater: (current: Record<string, string>) => Record<string, string>) => void;
+  setValues: (
+    updater: (current: Record<string, string>) => Record<string, string>,
+  ) => void;
   lookups: CandidateLookups;
 }) {
-  const [activeTab, setActiveTab] = useState<"candidate" | "application" | "attachments">("candidate");
+  const [activeTab, setActiveTab] = useState<
+    "candidate" | "application" | "attachments"
+  >("candidate");
   const requests = lookups.requests;
-  const selectedRequest = requests.find((item) => String(item.recruitment_request_id ?? "") === values.recruitment_request_id);
-  const positions = lookups.positions.filter((item) => !values.department_id || String(item.department_id ?? "") === values.department_id);
-  const selectedPosition = positions.find((item) => String(item.position_id ?? "") === values.position_id);
+  const selectedRequest = requests.find(
+    (item) =>
+      String(item.recruitment_request_id ?? "") ===
+      values.recruitment_request_id,
+  );
+  const positions = lookups.positions.filter(
+    (item) =>
+      !values.department_id ||
+      String(item.department_id ?? "") === values.department_id,
+  );
+  const selectedPosition = positions.find(
+    (item) => String(item.position_id ?? "") === values.position_id,
+  );
   const attachments = parseDetailList(values.attachments_json);
-  const set = (name: string, value: string) => setValues((current) => ({ ...current, [name]: value }));
+  const set = (name: string, value: string) =>
+    setValues((current) => ({ ...current, [name]: value }));
   const setRequest = (requestId: string) => {
-    const request = requests.find((item) => String(item.recruitment_request_id ?? "") === requestId);
+    const request = requests.find(
+      (item) => String(item.recruitment_request_id ?? "") === requestId,
+    );
     setValues((current) => ({
       ...current,
       recruitment_request_id: requestId,
@@ -1137,46 +4994,415 @@ function CandidateForm({
       department_id: String(request?.department_id ?? ""),
     }));
   };
-  const updateAttachments = (next: Array<Record<string, unknown>>) => set("attachments_json", JSON.stringify(next));
+  const updateAttachments = (next: Array<Record<string, unknown>>) =>
+    set("attachments_json", JSON.stringify(next));
 
   return (
     <div className="space-y-5">
       <div className="flex gap-1 overflow-x-auto border-b border-slate-200">
-        {[['candidate', '1. Thông tin ứng viên'], ['application', '2. Thông tin ứng tuyển'], ['attachments', '3. Tài liệu đính kèm']].map(([key, label]) => (
-          <button key={key} type="button" onClick={() => setActiveTab(key as "candidate" | "application" | "attachments")} className={`whitespace-nowrap border-b-2 px-4 py-3 text-xs font-bold ${activeTab === key ? "border-teal-600 text-teal-700" : "border-transparent text-slate-400"}`}>{label}</button>
+        {[
+          ["candidate", "1. Thông tin ứng viên"],
+          ["application", "2. Thông tin ứng tuyển"],
+          ["attachments", "3. Tài liệu đính kèm"],
+        ].map(([key, label]) => (
+          <button
+            key={key}
+            type="button"
+            onClick={() =>
+              setActiveTab(key as "candidate" | "application" | "attachments")
+            }
+            className={`whitespace-nowrap border-b-2 px-4 py-3 text-xs font-bold ${activeTab === key ? "border-teal-600 text-teal-700" : "border-transparent text-slate-400"}`}
+          >
+            {label}
+          </button>
         ))}
       </div>
 
-      {activeTab === "candidate" && <div className="grid gap-4 md:grid-cols-2">
-        <WorkspaceInput field={{ name: "candidate_code", label: "Mã ứng viên" }} tabId="candidates" value={values.candidate_code ?? ""} onChange={(value) => set("candidate_code", value)} />
-        <WorkspaceInput field={{ name: "full_name", label: "Họ tên", required: true }} tabId="candidates" value={values.full_name ?? ""} onChange={(value) => set("full_name", value)} />
-        <WorkspaceInput field={{ name: "citizen_id", label: "Số CCCD" }} tabId="candidates" value={values.citizen_id ?? ""} onChange={(value) => set("citizen_id", value)} />
-        <WorkspaceInput field={{ name: "date_of_birth", label: "Ngày sinh", type: "date" }} tabId="candidates" value={values.date_of_birth ?? ""} onChange={(value) => set("date_of_birth", value)} />
-        <WorkspaceInput field={{ name: "gender", label: "Giới tính", type: "select", options: [{ value: "Nam", label: "Nam" }, { value: "Nữ", label: "Nữ" }] }} tabId="candidates" value={values.gender ?? "Nam"} onChange={(value) => set("gender", value)} />
-        <WorkspaceInput field={{ name: "phone", label: "Số điện thoại" }} tabId="candidates" value={values.phone ?? ""} onChange={(value) => set("phone", value)} />
-        <WorkspaceInput field={{ name: "email", label: "Email" }} tabId="candidates" value={values.email ?? ""} onChange={(value) => set("email", value)} />
-        <WorkspaceInput field={{ name: "address", label: "Địa chỉ", type: "textarea", span: 2 }} tabId="candidates" value={values.address ?? ""} onChange={(value) => set("address", value)} />
-        <WorkspaceInput field={{ name: "culture_level", label: "Trình độ văn hóa" }} tabId="candidates" value={values.culture_level ?? ""} onChange={(value) => set("culture_level", value)} />
-        <WorkspaceInput field={{ name: "education_level", label: "Trình độ đào tạo", type: "select", options: [{ value: "Cao đẳng", label: "Cao đẳng" }, { value: "Cử nhân", label: "Cử nhân" }, { value: "Thạc sĩ", label: "Thạc sĩ" }, { value: "Tiến sĩ", label: "Tiến sĩ" }] }} tabId="candidates" value={values.education_level ?? "Cử nhân"} onChange={(value) => set("education_level", value)} />
-        <WorkspaceInput field={{ name: "education_school", label: "Nơi đào tạo" }} tabId="candidates" value={values.education_school ?? ""} onChange={(value) => set("education_school", value)} />
-        <WorkspaceInput field={{ name: "major", label: "Ngành đào tạo" }} tabId="candidates" value={values.major ?? ""} onChange={(value) => set("major", value)} />
-        <WorkspaceInput field={{ name: "gpa", label: "Xếp loại / GPA", type: "number" }} tabId="candidates" value={values.gpa ?? ""} onChange={(value) => set("gpa", value)} />
-        <div><label className="mb-1.5 block text-xs font-bold text-slate-600">Người giới thiệu</label><select className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm" value={values.referrer_employee_id ?? ""} onChange={(event) => { const employee = lookups.employees.find((item) => String(item.employee_id ?? "") === event.target.value); setValues((current) => ({ ...current, referrer_employee_id: event.target.value, referrer: String(employee?.full_name ?? "") })); }}><option value="">-- Chọn hồ sơ nhân sự --</option>{lookups.employees.map((employee) => <option key={String(employee.employee_id)} value={String(employee.employee_id)}>{String(employee.employee_code ?? employee.employee_id)} - {String(employee.full_name ?? "")}</option>)}</select></div>
-        <div><label className="mb-1.5 block text-xs font-bold text-slate-600">Nguồn tuyển dụng</label><select className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm" value={values.source ?? "TopCV"} onChange={(event) => set("source", event.target.value)}>{candidateSources.map((source) => <option key={source}>{source}</option>)}</select></div>
-        <WorkspaceInput field={{ name: "experience", label: "Kinh nghiệm làm việc", type: "textarea", span: 2 }} tabId="candidates" value={values.experience ?? ""} onChange={(value) => set("experience", value)} />
-      </div>}
+      {activeTab === "candidate" && (
+        <div className="grid gap-4 md:grid-cols-2">
+          <WorkspaceInput
+            field={{ name: "candidate_code", label: "Mã ứng viên" }}
+            tabId="candidates"
+            value={values.candidate_code ?? ""}
+            onChange={(value) => set("candidate_code", value)}
+          />
+          <WorkspaceInput
+            field={{ name: "full_name", label: "Họ tên", required: true }}
+            tabId="candidates"
+            value={values.full_name ?? ""}
+            onChange={(value) => set("full_name", value)}
+          />
+          <WorkspaceInput
+            field={{ name: "citizen_id", label: "Số CCCD" }}
+            tabId="candidates"
+            value={values.citizen_id ?? ""}
+            onChange={(value) => set("citizen_id", value)}
+          />
+          <WorkspaceInput
+            field={{ name: "date_of_birth", label: "Ngày sinh", type: "date" }}
+            tabId="candidates"
+            value={values.date_of_birth ?? ""}
+            onChange={(value) => set("date_of_birth", value)}
+          />
+          <WorkspaceInput
+            field={{
+              name: "gender",
+              label: "Giới tính",
+              type: "select",
+              options: [
+                { value: "Nam", label: "Nam" },
+                { value: "Nữ", label: "Nữ" },
+              ],
+            }}
+            tabId="candidates"
+            value={values.gender ?? "Nam"}
+            onChange={(value) => set("gender", value)}
+          />
+          <WorkspaceInput
+            field={{ name: "phone", label: "Số điện thoại" }}
+            tabId="candidates"
+            value={values.phone ?? ""}
+            onChange={(value) => set("phone", value)}
+          />
+          <WorkspaceInput
+            field={{ name: "email", label: "Email" }}
+            tabId="candidates"
+            value={values.email ?? ""}
+            onChange={(value) => set("email", value)}
+          />
+          <WorkspaceInput
+            field={{
+              name: "address",
+              label: "Địa chỉ",
+              type: "textarea",
+              span: 2,
+            }}
+            tabId="candidates"
+            value={values.address ?? ""}
+            onChange={(value) => set("address", value)}
+          />
+          <WorkspaceInput
+            field={{ name: "culture_level", label: "Trình độ văn hóa" }}
+            tabId="candidates"
+            value={values.culture_level ?? ""}
+            onChange={(value) => set("culture_level", value)}
+          />
+          <WorkspaceInput
+            field={{
+              name: "education_level",
+              label: "Trình độ đào tạo",
+              type: "select",
+              options: [
+                { value: "Cao đẳng", label: "Cao đẳng" },
+                { value: "Cử nhân", label: "Cử nhân" },
+                { value: "Thạc sĩ", label: "Thạc sĩ" },
+                { value: "Tiến sĩ", label: "Tiến sĩ" },
+              ],
+            }}
+            tabId="candidates"
+            value={values.education_level ?? "Cử nhân"}
+            onChange={(value) => set("education_level", value)}
+          />
+          <WorkspaceInput
+            field={{ name: "education_school", label: "Nơi đào tạo" }}
+            tabId="candidates"
+            value={values.education_school ?? ""}
+            onChange={(value) => set("education_school", value)}
+          />
+          <WorkspaceInput
+            field={{ name: "major", label: "Ngành đào tạo" }}
+            tabId="candidates"
+            value={values.major ?? ""}
+            onChange={(value) => set("major", value)}
+          />
+          <WorkspaceInput
+            field={{ name: "gpa", label: "Xếp loại / GPA", type: "number" }}
+            tabId="candidates"
+            value={values.gpa ?? ""}
+            onChange={(value) => set("gpa", value)}
+          />
+          <div>
+            <label className="mb-1.5 block text-xs font-bold text-slate-600">
+              Người giới thiệu
+            </label>
+            <select
+              className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm"
+              value={values.referrer_employee_id ?? ""}
+              onChange={(event) => {
+                const employee = lookups.employees.find(
+                  (item) =>
+                    String(item.employee_id ?? "") === event.target.value,
+                );
+                setValues((current) => ({
+                  ...current,
+                  referrer_employee_id: event.target.value,
+                  referrer: String(employee?.full_name ?? ""),
+                }));
+              }}
+            >
+              <option value="">-- Chọn hồ sơ nhân sự --</option>
+              {lookups.employees.map((employee) => (
+                <option
+                  key={String(employee.employee_id)}
+                  value={String(employee.employee_id)}
+                >
+                  {String(employee.employee_code ?? employee.employee_id)} -{" "}
+                  {String(employee.full_name ?? "")}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="mb-1.5 block text-xs font-bold text-slate-600">
+              Nguồn tuyển dụng
+            </label>
+            <select
+              className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm"
+              value={values.source ?? "TopCV"}
+              onChange={(event) => set("source", event.target.value)}
+            >
+              {candidateSources.map((source) => (
+                <option key={source}>{source}</option>
+              ))}
+            </select>
+          </div>
+          <WorkspaceInput
+            field={{
+              name: "experience",
+              label: "Kinh nghiệm làm việc",
+              type: "textarea",
+              span: 2,
+            }}
+            tabId="candidates"
+            value={values.experience ?? ""}
+            onChange={(value) => set("experience", value)}
+          />
+        </div>
+      )}
 
-      {activeTab === "application" && <div className="grid gap-4 md:grid-cols-2">
-         <WorkspaceInput field={{ name: "status", label: "Trạng thái ứng viên", type: "select", options: [{ value: "Đã tiếp nhận hồ sơ", label: "Đã tiếp nhận hồ sơ" }, { value: "Đã sơ loại, Đạt", label: "Đã sơ loại, Đạt" }, { value: "Đã sơ loại, Không đạt", label: "Đã sơ loại, Không đạt" }, { value: "Đã phỏng vấn, Đạt", label: "Đã phỏng vấn, Đạt" }, { value: "Đã phỏng vấn, Không đạt", label: "Đã phỏng vấn, Không đạt" }, { value: "S2: Phỏng vấn", label: "Phỏng vấn" }, { value: "S5: Trúng tuyển", label: "Trúng tuyển" }, { value: "S7: Loại", label: "Loại" }, { value: "HIRED", label: "Đã chuyển thành nhân viên" }] }} tabId="candidates" value={values.status ?? "Đã tiếp nhận hồ sơ"} onChange={(value) => set("status", value)} />
-        <WorkspaceInput field={{ name: "received_date", label: "Ngày nhận hồ sơ", type: "date", disabled: true }} tabId="candidates" value={values.received_date ?? ""} onChange={() => undefined} />
-        <div><label className="mb-1.5 block text-xs font-bold text-slate-600">Dựa trên yêu cầu</label><select className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm" value={values.recruitment_request_id ?? ""} required onChange={(event) => setRequest(event.target.value)}><option value="">-- Chọn yêu cầu tuyển dụng --</option>{requests.map((request) => <option key={String(request.recruitment_request_id)} value={String(request.recruitment_request_id)}>{String(request.request_code ?? request.recruitment_request_id)} - {String(request.position_name ?? "")}</option>)}</select></div>
-        <div><label className="mb-1.5 block text-xs font-bold text-slate-600">Vị trí ứng tuyển</label><Input value={String(selectedPosition?.position_name ?? selectedRequest?.position_name ?? "Tự động theo yêu cầu")} disabled className="h-10 bg-slate-100 text-slate-500" /></div>
-        <div><label className="mb-1.5 block text-xs font-bold text-slate-600">Bộ phận</label><Input value={String(selectedRequest?.department_name ?? lookups.departments.find((item) => String(item.department_id ?? "") === values.department_id)?.department_name ?? "Tự động theo vị trí")} disabled className="h-10 bg-slate-100 text-slate-500" /></div>
-        <div><label className="mb-1.5 block text-xs font-bold text-slate-600">Nguồn tuyển dụng</label><select className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm" value={values.source ?? "TopCV"} onChange={(event) => set("source", event.target.value)}>{candidateSources.map((source) => <option key={source}>{source}</option>)}</select></div>
-        <div className="md:col-span-2"><WorkspaceInput field={{ name: "note", label: "Ghi chú", type: "textarea" }} tabId="candidates" value={values.note ?? ""} onChange={(value) => set("note", value)} /></div>
-      </div>}
+      {activeTab === "application" && (
+        <div className="grid gap-4 md:grid-cols-2">
+          <WorkspaceInput
+            field={{
+              name: "status",
+              label: "Trạng thái ứng viên",
+              type: "select",
+              options: [
+                { value: "Đã tiếp nhận hồ sơ", label: "Đã tiếp nhận hồ sơ" },
+                { value: "Đã sơ loại, Đạt", label: "Đã sơ loại, Đạt" },
+                {
+                  value: "Đã sơ loại, Không đạt",
+                  label: "Đã sơ loại, Không đạt",
+                },
+                { value: "Đã phỏng vấn, Đạt", label: "Đã phỏng vấn, Đạt" },
+                {
+                  value: "Đã phỏng vấn, Không đạt",
+                  label: "Đã phỏng vấn, Không đạt",
+                },
+                { value: "S2: Phỏng vấn", label: "Phỏng vấn" },
+                { value: "S5: Trúng tuyển", label: "Trúng tuyển" },
+                { value: "S7: Loại", label: "Loại" },
+                { value: "HIRED", label: "Đã chuyển thành nhân viên" },
+              ],
+            }}
+            tabId="candidates"
+            value={values.status ?? "Đã tiếp nhận hồ sơ"}
+            onChange={(value) => set("status", value)}
+          />
+          <WorkspaceInput
+            field={{
+              name: "received_date",
+              label: "Ngày nhận hồ sơ",
+              type: "date",
+              disabled: true,
+            }}
+            tabId="candidates"
+            value={values.received_date ?? ""}
+            onChange={() => undefined}
+          />
+          <div>
+            <label className="mb-1.5 block text-xs font-bold text-slate-600">
+              Dựa trên yêu cầu
+            </label>
+            <select
+              className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm"
+              value={values.recruitment_request_id ?? ""}
+              required
+              onChange={(event) => setRequest(event.target.value)}
+            >
+              <option value="">-- Chọn yêu cầu tuyển dụng --</option>
+              {requests.map((request) => (
+                <option
+                  key={String(request.recruitment_request_id)}
+                  value={String(request.recruitment_request_id)}
+                >
+                  {String(
+                    request.request_code ?? request.recruitment_request_id,
+                  )}{" "}
+                  - {String(request.position_name ?? "")}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="mb-1.5 block text-xs font-bold text-slate-600">
+              Vị trí ứng tuyển
+            </label>
+            <Input
+              value={String(
+                selectedPosition?.position_name ??
+                  selectedRequest?.position_name ??
+                  "Tự động theo yêu cầu",
+              )}
+              disabled
+              className="h-10 bg-slate-100 text-slate-500"
+            />
+          </div>
+          <div>
+            <label className="mb-1.5 block text-xs font-bold text-slate-600">
+              Bộ phận
+            </label>
+            <Input
+              value={String(
+                selectedRequest?.department_name ??
+                  lookups.departments.find(
+                    (item) =>
+                      String(item.department_id ?? "") === values.department_id,
+                  )?.department_name ??
+                  "Tự động theo vị trí",
+              )}
+              disabled
+              className="h-10 bg-slate-100 text-slate-500"
+            />
+          </div>
+          <div>
+            <label className="mb-1.5 block text-xs font-bold text-slate-600">
+              Nguồn tuyển dụng
+            </label>
+            <select
+              className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm"
+              value={values.source ?? "TopCV"}
+              onChange={(event) => set("source", event.target.value)}
+            >
+              {candidateSources.map((source) => (
+                <option key={source}>{source}</option>
+              ))}
+            </select>
+          </div>
+          <div className="md:col-span-2">
+            <WorkspaceInput
+              field={{ name: "note", label: "Ghi chú", type: "textarea" }}
+              tabId="candidates"
+              value={values.note ?? ""}
+              onChange={(value) => set("note", value)}
+            />
+          </div>
+        </div>
+      )}
 
-      {activeTab === "attachments" && <div className="space-y-3"><div className="flex items-center justify-between"><h3 className="font-display text-sm font-bold text-slate-900">Tài liệu đính kèm</h3><Button type="button" variant="secondary" size="sm" onClick={() => updateAttachments([...attachments, { name: "", file: "", note: "" }])}><Plus size={14} /> Thêm tài liệu</Button></div><div className="overflow-x-auto rounded-xl border border-slate-100"><table className="w-full min-w-[700px] text-left text-xs"><thead className="bg-slate-50 text-[10px] uppercase tracking-wider text-slate-400"><tr><th className="px-3 py-3">Tên tài liệu</th><th className="px-3 py-3">File</th><th className="px-3 py-3">Ghi chú</th><th className="px-3 py-3">Xóa</th></tr></thead><tbody className="divide-y divide-slate-100">{attachments.map((attachment, index) => <tr key={index}><td className="px-3 py-2"><Input value={String(attachment.name ?? "")} onChange={(event) => { const next = [...attachments]; next[index] = { ...next[index], name: event.target.value }; updateAttachments(next); }} className="h-9" /></td><td className="px-3 py-2"><Input type="file" onChange={(event) => { const next = [...attachments]; next[index] = { ...next[index], file: event.target.files?.[0]?.name ?? "" }; updateAttachments(next); }} className="h-9 py-1.5 text-xs" /></td><td className="px-3 py-2"><Input value={String(attachment.note ?? "")} onChange={(event) => { const next = [...attachments]; next[index] = { ...next[index], note: event.target.value }; updateAttachments(next); }} className="h-9" /></td><td className="px-3 py-2"><Button type="button" variant="ghost" size="sm" onClick={() => updateAttachments(attachments.filter((_, itemIndex) => itemIndex !== index))}><Trash2 size={15} /></Button></td></tr>)}</tbody></table></div>{attachments.length === 0 && <p className="rounded-xl border border-dashed border-slate-200 p-6 text-center text-xs text-slate-400">Chưa có tài liệu đính kèm.</p>}</div>}
+      {activeTab === "attachments" && (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="font-display text-sm font-bold text-slate-900">
+              Tài liệu đính kèm
+            </h3>
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={() =>
+                updateAttachments([
+                  ...attachments,
+                  { name: "", file: "", note: "" },
+                ])
+              }
+            >
+              <Plus size={14} /> Thêm tài liệu
+            </Button>
+          </div>
+          <div className="overflow-x-auto rounded-xl border border-slate-100">
+            <table className="w-full min-w-[700px] text-left text-xs">
+              <thead className="bg-slate-50 text-[10px] uppercase tracking-wider text-slate-400">
+                <tr>
+                  <th className="px-3 py-3">Tên tài liệu</th>
+                  <th className="px-3 py-3">File</th>
+                  <th className="px-3 py-3">Ghi chú</th>
+                  <th className="px-3 py-3">Xóa</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {attachments.map((attachment, index) => (
+                  <tr key={index}>
+                    <td className="px-3 py-2">
+                      <Input
+                        value={String(attachment.name ?? "")}
+                        onChange={(event) => {
+                          const next = [...attachments];
+                          next[index] = {
+                            ...next[index],
+                            name: event.target.value,
+                          };
+                          updateAttachments(next);
+                        }}
+                        className="h-9"
+                      />
+                    </td>
+                    <td className="px-3 py-2">
+                      <Input
+                        type="file"
+                        onChange={(event) => {
+                          const next = [...attachments];
+                          next[index] = {
+                            ...next[index],
+                            file: event.target.files?.[0]?.name ?? "",
+                          };
+                          updateAttachments(next);
+                        }}
+                        className="h-9 py-1.5 text-xs"
+                      />
+                    </td>
+                    <td className="px-3 py-2">
+                      <Input
+                        value={String(attachment.note ?? "")}
+                        onChange={(event) => {
+                          const next = [...attachments];
+                          next[index] = {
+                            ...next[index],
+                            note: event.target.value,
+                          };
+                          updateAttachments(next);
+                        }}
+                        className="h-9"
+                      />
+                    </td>
+                    <td className="px-3 py-2">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() =>
+                          updateAttachments(
+                            attachments.filter(
+                              (_, itemIndex) => itemIndex !== index,
+                            ),
+                          )
+                        }
+                      >
+                        <Trash2 size={15} />
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {attachments.length === 0 && (
+            <p className="rounded-xl border border-dashed border-slate-200 p-6 text-center text-xs text-slate-400">
+              Chưa có tài liệu đính kèm.
+            </p>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -1184,16 +5410,34 @@ function CandidateForm({
 function quotaCheck(values: Record<string, string>, lookups: RequestLookups) {
   const departmentId = values.department_id;
   const positionId = values.position_id;
-  const quotas = lookups.quotas.filter((quota) => String(quota.department_id ?? "") === departmentId);
-  const quota = quotas.find((item) => String(item.quota_id ?? "") === values.quota_id) ?? quotas[0];
+  const quotas = lookups.quotas.filter(
+    (quota) => String(quota.department_id ?? "") === departmentId,
+  );
+  const quota =
+    quotas.find((item) => String(item.quota_id ?? "") === values.quota_id) ??
+    quotas[0];
   if (!quota || !positionId) return null;
   const details = parseDetailList(quota.details);
-  const detail = details.find((item) => String(item.position_id ?? "") === positionId);
-  const current = Number(detail?.current_headcount ?? quota.current_headcount ?? 0);
-  const target = Number(detail?.target_headcount ?? quota.target_headcount ?? 0);
-  const movement = Number(detail?.resignation_count ?? 0) + Number(detail?.maternity_count ?? 0);
+  const detail = details.find(
+    (item) => String(item.position_id ?? "") === positionId,
+  );
+  const current = Number(
+    detail?.current_headcount ?? quota.current_headcount ?? 0,
+  );
+  const target = Number(
+    detail?.target_headcount ?? quota.target_headcount ?? 0,
+  );
+  const movement =
+    Number(detail?.resignation_count ?? 0) +
+    Number(detail?.maternity_count ?? 0);
   const quantity = Number(values.quantity) || 0;
-  return { current, target, movement, quantity, exceeds: current + quantity - movement > target };
+  return {
+    current,
+    target,
+    movement,
+    quantity,
+    exceeds: current + quantity - movement > target,
+  };
 }
 
 function RecruitmentRequestForm({
@@ -1202,21 +5446,34 @@ function RecruitmentRequestForm({
   lookups,
 }: {
   values: Record<string, string>;
-  setValues: (updater: (current: Record<string, string>) => Record<string, string>) => void;
+  setValues: (
+    updater: (current: Record<string, string>) => Record<string, string>,
+  ) => void;
   lookups: RequestLookups;
 }) {
   const [activeTab, setActiveTab] = useState<"general" | "detail">("general");
   const departments = lookups.departments;
   const employees = lookups.employees;
-  const department = departments.find((item) => String(item.department_id ?? "") === values.department_id);
-  const positions = lookups.positions.filter((item) => String(item.department_id ?? "") === values.department_id);
-  const quotas = lookups.quotas.filter((item) => String(item.department_id ?? "") === values.department_id);
-  const selectedPosition = positions.find((item) => String(item.position_id ?? "") === values.position_id);
+  const department = departments.find(
+    (item) => String(item.department_id ?? "") === values.department_id,
+  );
+  const positions = lookups.positions.filter(
+    (item) => String(item.department_id ?? "") === values.department_id,
+  );
+  const quotas = lookups.quotas.filter(
+    (item) => String(item.department_id ?? "") === values.department_id,
+  );
+  const selectedPosition = positions.find(
+    (item) => String(item.position_id ?? "") === values.position_id,
+  );
   const check = quotaCheck(values, lookups);
   const outside = values.is_outside_headcount === "1";
-  const set = (name: string, value: string) => setValues((current) => ({ ...current, [name]: value }));
+  const set = (name: string, value: string) =>
+    setValues((current) => ({ ...current, [name]: value }));
   const setRequester = (employeeId: string) => {
-    const employee = employees.find((item) => String(item.employee_id ?? "") === employeeId);
+    const employee = employees.find(
+      (item) => String(item.employee_id ?? "") === employeeId,
+    );
     setValues((current) => ({
       ...current,
       requested_by: employeeId,
@@ -1225,13 +5482,26 @@ function RecruitmentRequestForm({
       position_id: "",
     }));
   };
-  const setRequestType = (value: string) => setValues((current) => ({ ...current, is_outside_headcount: value, quota_id: value === "1" ? "" : current.quota_id }));
+  const setRequestType = (value: string) =>
+    setValues((current) => ({
+      ...current,
+      is_outside_headcount: value,
+      quota_id: value === "1" ? "" : current.quota_id,
+    }));
 
   return (
     <div className="space-y-5">
       <div className="flex gap-1 overflow-x-auto border-b border-slate-200">
-        {[['general', '1. Thông tin chung'], ['detail', '2. Chi tiết vị trí định biên']].map(([key, label]) => (
-          <button key={key} type="button" onClick={() => setActiveTab(key as "general" | "detail")} className={`whitespace-nowrap border-b-2 px-4 py-3 text-xs font-bold ${activeTab === key ? "border-teal-600 text-teal-700" : "border-transparent text-slate-400"}`}>
+        {[
+          ["general", "1. Thông tin chung"],
+          ["detail", "2. Chi tiết vị trí định biên"],
+        ].map(([key, label]) => (
+          <button
+            key={key}
+            type="button"
+            onClick={() => setActiveTab(key as "general" | "detail")}
+            className={`whitespace-nowrap border-b-2 px-4 py-3 text-xs font-bold ${activeTab === key ? "border-teal-600 text-teal-700" : "border-transparent text-slate-400"}`}
+          >
             {label}
           </button>
         ))}
@@ -1239,51 +5509,201 @@ function RecruitmentRequestForm({
 
       {activeTab === "general" ? (
         <div className="grid gap-4 md:grid-cols-2">
-          <WorkspaceInput field={{ name: "created_date", label: "Ngày lập phiếu", type: "date", required: true }} tabId="requests" value={values.created_date ?? ""} onChange={(value) => set("created_date", value)} />
-          <WorkspaceInput field={{ name: "request_code", label: "Số phiếu", disabled: true }} tabId="requests" value={values.request_code ?? ""} onChange={() => undefined} />
+          <WorkspaceInput
+            field={{
+              name: "created_date",
+              label: "Ngày lập phiếu",
+              type: "date",
+              required: true,
+            }}
+            tabId="requests"
+            value={values.created_date ?? ""}
+            onChange={(value) => set("created_date", value)}
+          />
+          <WorkspaceInput
+            field={{ name: "request_code", label: "Số phiếu", disabled: true }}
+            tabId="requests"
+            value={values.request_code ?? ""}
+            onChange={() => undefined}
+          />
           <div>
-            <label className="mb-1.5 block text-xs font-bold text-slate-600">Loại yêu cầu *</label>
-            <select className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm" value={values.is_outside_headcount ?? "0"} onChange={(event) => setRequestType(event.target.value)}>
-              <option value="0">Trong định biên</option><option value="1">Ngoài định biên</option>
+            <label className="mb-1.5 block text-xs font-bold text-slate-600">
+              Loại yêu cầu *
+            </label>
+            <select
+              className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm"
+              value={values.is_outside_headcount ?? "0"}
+              onChange={(event) => setRequestType(event.target.value)}
+            >
+              <option value="0">Trong định biên</option>
+              <option value="1">Ngoài định biên</option>
             </select>
           </div>
           <div>
-            <label className="mb-1.5 block text-xs font-bold text-slate-600">Phiếu định biên {outside ? "(không áp dụng)" : "*"}</label>
-            <select className={`h-10 w-full rounded-xl border px-3 text-sm ${outside ? "cursor-not-allowed border-slate-200 bg-slate-100 text-slate-400" : "border-slate-200 bg-white"}`} value={values.quota_id ?? ""} disabled={outside} required={!outside} onChange={(event) => set("quota_id", event.target.value)}>
+            <label className="mb-1.5 block text-xs font-bold text-slate-600">
+              Phiếu định biên {outside ? "(không áp dụng)" : "*"}
+            </label>
+            <select
+              className={`h-10 w-full rounded-xl border px-3 text-sm ${outside ? "cursor-not-allowed border-slate-200 bg-slate-100 text-slate-400" : "border-slate-200 bg-white"}`}
+              value={values.quota_id ?? ""}
+              disabled={outside}
+              required={!outside}
+              onChange={(event) => set("quota_id", event.target.value)}
+            >
               <option value="">-- Chọn phiếu định biên --</option>
-              {quotas.map((quota) => <option key={String(quota.quota_id)} value={String(quota.quota_id)}>{String(quota.quota_code ?? quota.quota_id)} - {String(quota.department_name ?? department?.department_name ?? "")}</option>)}
+              {quotas.map((quota) => (
+                <option
+                  key={String(quota.quota_id)}
+                  value={String(quota.quota_id)}
+                >
+                  {String(quota.quota_code ?? quota.quota_id)} -{" "}
+                  {String(
+                    quota.department_name ?? department?.department_name ?? "",
+                  )}
+                </option>
+              ))}
             </select>
-            {outside && <p className="mt-1 text-[11px] text-slate-400">Phiếu ngoài định biên không được nhập phiếu định biên.</p>}
+            {outside && (
+              <p className="mt-1 text-[11px] text-slate-400">
+                Phiếu ngoài định biên không được nhập phiếu định biên.
+              </p>
+            )}
           </div>
           <div>
-            <label className="mb-1.5 block text-xs font-bold text-slate-600">Người lập *</label>
-            <select className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm" value={values.requested_by ?? ""} required onChange={(event) => setRequester(event.target.value)}>
+            <label className="mb-1.5 block text-xs font-bold text-slate-600">
+              Người lập *
+            </label>
+            <select
+              className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm"
+              value={values.requested_by ?? ""}
+              required
+              onChange={(event) => setRequester(event.target.value)}
+            >
               <option value="">-- Chọn hồ sơ nhân sự --</option>
-              {employees.map((employee) => <option key={String(employee.employee_id)} value={String(employee.employee_id)}>{String(employee.employee_code ?? employee.employee_id)} - {String(employee.full_name ?? "")}</option>)}
+              {employees.map((employee) => (
+                <option
+                  key={String(employee.employee_id)}
+                  value={String(employee.employee_id)}
+                >
+                  {String(employee.employee_code ?? employee.employee_id)} -{" "}
+                  {String(employee.full_name ?? "")}
+                </option>
+              ))}
             </select>
           </div>
           <div>
-            <label className="mb-1.5 block text-xs font-bold text-slate-600">Bộ phận</label>
-            <Input value={department ? `${String(department.department_code ?? department.department_id)} - ${String(department.department_name ?? "")}` : "Tự động theo người lập"} disabled className="h-10 bg-slate-100 text-slate-500" />
+            <label className="mb-1.5 block text-xs font-bold text-slate-600">
+              Bộ phận
+            </label>
+            <Input
+              value={
+                department
+                  ? `${String(department.department_code ?? department.department_id)} - ${String(department.department_name ?? "")}`
+                  : "Tự động theo người lập"
+              }
+              disabled
+              className="h-10 bg-slate-100 text-slate-500"
+            />
           </div>
-          <div className="md:col-span-2"><WorkspaceInput field={{ name: "reason", label: "Lý do", type: "textarea", required: true }} tabId="requests" value={values.reason ?? ""} onChange={(value) => set("reason", value)} /></div>
+          <div className="md:col-span-2">
+            <WorkspaceInput
+              field={{
+                name: "reason",
+                label: "Lý do",
+                type: "textarea",
+                required: true,
+              }}
+              tabId="requests"
+              value={values.reason ?? ""}
+              onChange={(value) => set("reason", value)}
+            />
+          </div>
         </div>
       ) : (
         <div className="space-y-4">
           <div className="grid gap-4 md:grid-cols-2">
             <div>
-              <label className="mb-1.5 block text-xs font-bold text-slate-600">Mã vị trí *</label>
-              <select className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm" value={values.position_id ?? ""} required onChange={(event) => set("position_id", event.target.value)}>
+              <label className="mb-1.5 block text-xs font-bold text-slate-600">
+                Mã vị trí *
+              </label>
+              <select
+                className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm"
+                value={values.position_id ?? ""}
+                required
+                onChange={(event) => set("position_id", event.target.value)}
+              >
                 <option value="">-- Chọn vị trí thuộc bộ phận --</option>
-                {positions.map((position) => <option key={String(position.position_id)} value={String(position.position_id)}>{String(position.position_code ?? position.position_id)} - {String(position.position_name ?? "")}</option>)}
+                {positions.map((position) => (
+                  <option
+                    key={String(position.position_id)}
+                    value={String(position.position_id)}
+                  >
+                    {String(position.position_code ?? position.position_id)} -{" "}
+                    {String(position.position_name ?? "")}
+                  </option>
+                ))}
               </select>
             </div>
-            <div><label className="mb-1.5 block text-xs font-bold text-slate-600">Tên vị trí</label><Input value={String(selectedPosition?.position_name ?? "Tự động theo mã vị trí")} disabled className="h-10 bg-slate-100 text-slate-500" /></div>
-            <div><label className="mb-1.5 block text-xs font-bold text-slate-600">Số lượng cần tuyển *</label><Input type="number" min={1} value={values.quantity ?? ""} required onChange={(event) => set("quantity", event.target.value)} className="h-10" /></div>
-            <WorkspaceInput field={{ name: "expected_date", label: "Ngày cần người", type: "date", required: true }} tabId="requests" value={values.expected_date ?? ""} onChange={(value) => set("expected_date", value)} />
-            <div className="md:col-span-2"><WorkspaceInput field={{ name: "note", label: "Ghi chú", type: "textarea" }} tabId="requests" value={values.note ?? ""} onChange={(value) => set("note", value)} /></div>
+            <div>
+              <label className="mb-1.5 block text-xs font-bold text-slate-600">
+                Tên vị trí
+              </label>
+              <Input
+                value={String(
+                  selectedPosition?.position_name ?? "Tự động theo mã vị trí",
+                )}
+                disabled
+                className="h-10 bg-slate-100 text-slate-500"
+              />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-xs font-bold text-slate-600">
+                Số lượng cần tuyển *
+              </label>
+              <Input
+                type="number"
+                min={1}
+                value={values.quantity ?? ""}
+                required
+                onChange={(event) => set("quantity", event.target.value)}
+                className="h-10"
+              />
+            </div>
+            <WorkspaceInput
+              field={{
+                name: "expected_date",
+                label: "Ngày cần người",
+                type: "date",
+                required: true,
+              }}
+              tabId="requests"
+              value={values.expected_date ?? ""}
+              onChange={(value) => set("expected_date", value)}
+            />
+            <div className="md:col-span-2">
+              <WorkspaceInput
+                field={{ name: "note", label: "Ghi chú", type: "textarea" }}
+                tabId="requests"
+                value={values.note ?? ""}
+                onChange={(value) => set("note", value)}
+              />
+            </div>
           </div>
-          {check && <div className={`rounded-xl border p-4 text-xs ${check.exceeds ? "border-amber-200 bg-amber-50 text-amber-800" : "border-emerald-200 bg-emerald-50 text-emerald-800"}`}><b>Kiểm tra định biên:</b> Hiện tại {check.current} + Cần tuyển {check.quantity} - Biến động {check.movement} = {check.current + check.quantity - check.movement}; Định biên {check.target}. {check.exceeds ? outside ? "Vượt định biên. Phiếu ngoài định biên vẫn được phép lưu sau khi xác nhận." : "Vượt định biên. Phiếu trong định biên không được phép lưu." : "Không vượt định biên."}</div>}
+          {check && (
+            <div
+              className={`rounded-xl border p-4 text-xs ${check.exceeds ? "border-amber-200 bg-amber-50 text-amber-800" : "border-emerald-200 bg-emerald-50 text-emerald-800"}`}
+            >
+              <b>Kiểm tra định biên:</b> Hiện tại {check.current} + Cần tuyển{" "}
+              {check.quantity} - Biến động {check.movement} ={" "}
+              {check.current + check.quantity - check.movement}; Định biên{" "}
+              {check.target}.{" "}
+              {check.exceeds
+                ? outside
+                  ? "Vượt định biên. Phiếu ngoài định biên vẫn được phép lưu sau khi xác nhận."
+                  : "Vượt định biên. Phiếu trong định biên không được phép lưu."
+                : "Không vượt định biên."}
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -1336,7 +5756,9 @@ function QuotaForm({
   lookups,
 }: {
   values: Record<string, string>;
-  setValues: (updater: (current: Record<string, string>) => Record<string, string>) => void;
+  setValues: (
+    updater: (current: Record<string, string>) => Record<string, string>,
+  ) => void;
   tab: WorkspaceTab;
   lookups: RequestLookups;
 }) {
@@ -1344,12 +5766,19 @@ function QuotaForm({
   const details = parsedDetails.items;
   const departmentId = String(values.department_id ?? "");
   const filteredPositions = lookups.positions.filter(
-    (position) => !departmentId || String(position.department_id ?? "") === departmentId,
+    (position) =>
+      !departmentId || String(position.department_id ?? "") === departmentId,
   );
-  const positionOptions = filteredPositions.length ? filteredPositions : lookups.positions;
+  const positionOptions = filteredPositions.length
+    ? filteredPositions
+    : lookups.positions;
 
   const updateDetails = (nextDetails: Row[]) => {
-    const totals = nextDetails.reduce<{ target: number; current: number; needed: number }>(
+    const totals = nextDetails.reduce<{
+      target: number;
+      current: number;
+      needed: number;
+    }>(
       (result, detail) => ({
         target: result.target + (Number(detail.target_headcount) || 0),
         current: result.current + (Number(detail.current_headcount) || 0),
@@ -1401,7 +5830,10 @@ function QuotaForm({
       const maternity = Number(nextDetail.maternity_count) || 0;
       nextDetails[index] = {
         ...nextDetail,
-        needed_headcount: Math.max(0, target - current + resignation + maternity),
+        needed_headcount: Math.max(
+          0,
+          target - current + resignation + maternity,
+        ),
       };
     }
     updateDetails(nextDetails);
@@ -1409,11 +5841,16 @@ function QuotaForm({
 
   const selectPosition = (index: number, positionCode: string) => {
     const position = lookups.positions.find(
-      (item) => String(item.position_code ?? item.position_id ?? "") === positionCode,
+      (item) =>
+        String(item.position_code ?? item.position_id ?? "") === positionCode,
     );
     if (!position) return;
     const positionId = String(position.position_id ?? "");
-    const current = quotaDetailCount(lookups.employees, positionId, departmentId);
+    const current = quotaDetailCount(
+      lookups.employees,
+      positionId,
+      departmentId,
+    );
     updateDetail(index, {
       position_id: positionId,
       position_code: String(position.position_code ?? positionId),
@@ -1434,89 +5871,183 @@ function QuotaForm({
                     Chi tiết theo vị trí *
                   </label>
                 </div>
-                <Button type="button" variant="secondary" size="sm" onClick={addDetail}>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={addDetail}
+                >
                   <Plus size={14} /> Thêm vị trí
                 </Button>
               </div>
               {parsedDetails.error && (
-                <p className="mb-2 text-xs text-rose-700">{parsedDetails.error}</p>
+                <p className="mb-2 text-xs text-rose-700">
+                  {parsedDetails.error}
+                </p>
               )}
               <div className="overflow-x-auto rounded-xl border border-slate-200">
                 <table className="w-full min-w-[1180px] text-left text-xs">
                   <thead className="bg-slate-50 text-[10px] uppercase tracking-wider text-slate-400">
                     <tr>
-                      {["STT", "Mã vị trí", "Tên vị trí", "Định biên", "Nghỉ việc dự kiến", "Thai sản dự kiến", "Hiện tại", "Cần tuyển", "Ghi chú", "Thao tác"].map((header) => (
-                        <th key={header} className="px-3 py-3 font-bold">{header}</th>
+                      {[
+                        "STT",
+                        "Mã vị trí",
+                        "Tên vị trí",
+                        "Định biên",
+                        "Nghỉ việc dự kiến",
+                        "Thai sản dự kiến",
+                        "Hiện tại",
+                        "Cần tuyển",
+                        "Ghi chú",
+                        "Thao tác",
+                      ].map((header) => (
+                        <th key={header} className="px-3 py-3 font-bold">
+                          {header}
+                        </th>
                       ))}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {details.length ? details.map((detail, index) => {
-                      const currentCode = String(
-                        detail.position_code ??
-                          lookups.positions.find((item) => String(item.position_id ?? "") === String(detail.position_id ?? ""))?.position_code ??
-                          "",
-                      );
-                      const hasCurrentOption = positionOptions.some(
-                        (position) => String(position.position_code ?? position.position_id ?? "") === currentCode,
-                      );
-                      return (
-                        <tr key={`${String(detail.position_id ?? "position")}-${index}`}>
-                          <td className="px-3 py-3 text-slate-400">{String(index + 1).padStart(2, "0")}</td>
-                          <td className="min-w-40 px-3 py-3">
-                            <select
-                              value={currentCode}
-                              onChange={(event) => selectPosition(index, event.target.value)}
-                              className="h-9 w-full rounded-lg border border-slate-200 bg-white px-2 text-xs outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-100"
-                            >
-                              <option value="">-- Chọn vị trí --</option>
-                              {!hasCurrentOption && currentCode && <option value={currentCode}>{currentCode}</option>}
-                              {positionOptions.map((position) => {
-                                const code = String(position.position_code ?? position.position_id ?? "");
-                                return <option key={String(position.position_id ?? code)} value={code}>{code}</option>;
-                              })}
-                            </select>
-                          </td>
-                          <td className="min-w-48 px-3 py-3 font-semibold text-teal-700">
-                            <Input value={String(detail.position_name ?? "")} disabled className="h-9 bg-slate-100 text-xs text-slate-500" />
-                          </td>
-                          {["target_headcount", "resignation_count", "maternity_count"].map((fieldName) => (
-                            <td key={fieldName} className="min-w-32 px-3 py-3">
+                    {details.length ? (
+                      details.map((detail, index) => {
+                        const currentCode = String(
+                          detail.position_code ??
+                            lookups.positions.find(
+                              (item) =>
+                                String(item.position_id ?? "") ===
+                                String(detail.position_id ?? ""),
+                            )?.position_code ??
+                            "",
+                        );
+                        const hasCurrentOption = positionOptions.some(
+                          (position) =>
+                            String(
+                              position.position_code ??
+                                position.position_id ??
+                                "",
+                            ) === currentCode,
+                        );
+                        return (
+                          <tr
+                            key={`${String(detail.position_id ?? "position")}-${index}`}
+                          >
+                            <td className="px-3 py-3 text-slate-400">
+                              {String(index + 1).padStart(2, "0")}
+                            </td>
+                            <td className="min-w-40 px-3 py-3">
+                              <select
+                                value={currentCode}
+                                onChange={(event) =>
+                                  selectPosition(index, event.target.value)
+                                }
+                                className="h-9 w-full rounded-lg border border-slate-200 bg-white px-2 text-xs outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-100"
+                              >
+                                <option value="">-- Chọn vị trí --</option>
+                                {!hasCurrentOption && currentCode && (
+                                  <option value={currentCode}>
+                                    {currentCode}
+                                  </option>
+                                )}
+                                {positionOptions.map((position) => {
+                                  const code = String(
+                                    position.position_code ??
+                                      position.position_id ??
+                                      "",
+                                  );
+                                  return (
+                                    <option
+                                      key={String(position.position_id ?? code)}
+                                      value={code}
+                                    >
+                                      {code}
+                                    </option>
+                                  );
+                                })}
+                              </select>
+                            </td>
+                            <td className="min-w-48 px-3 py-3 font-semibold text-teal-700">
                               <Input
-                                type="number"
-                                min={0}
-                                step={1}
-                                value={quotaDetailValue(detail, fieldName)}
-                                onChange={(event) => updateDetail(index, { [fieldName]: event.target.value === "" ? 0 : Number(event.target.value) })}
-                                className="h-9 text-center text-xs"
+                                value={String(detail.position_name ?? "")}
+                                disabled
+                                className="h-9 bg-slate-100 text-xs text-slate-500"
                               />
                             </td>
-                          ))}
-                          <td className="px-3 py-3 text-center font-semibold text-emerald-700">
-                            <span className="rounded-full bg-emerald-50 px-2.5 py-1">{quotaDetailValue(detail, "current_headcount")}</span>
-                          </td>
-                          <td className="px-3 py-3 text-center font-semibold text-blue-700">
-                            <span className="rounded-full bg-blue-50 px-2.5 py-1">{quotaDetailValue(detail, "needed_headcount")}</span>
-                          </td>
-                          <td className="min-w-44 px-3 py-3">
-                            <Input
-                              value={String(detail.note ?? "")}
-                              placeholder="Ghi chú..."
-                              onChange={(event) => updateDetail(index, { note: event.target.value })}
-                              className="h-9 text-xs"
-                            />
-                          </td>
-                          <td className="px-3 py-3 text-center">
-                            <Button type="button" variant="ghost" size="sm" onClick={() => updateDetails(details.filter((_, itemIndex) => itemIndex !== index))} aria-label={`Xóa vị trí ${index + 1}`}>
-                              <Trash2 size={14} />
-                            </Button>
-                          </td>
-                        </tr>
-                      );
-                    }) : (
+                            {[
+                              "target_headcount",
+                              "resignation_count",
+                              "maternity_count",
+                            ].map((fieldName) => (
+                              <td
+                                key={fieldName}
+                                className="min-w-32 px-3 py-3"
+                              >
+                                <Input
+                                  type="number"
+                                  min={0}
+                                  step={1}
+                                  value={quotaDetailValue(detail, fieldName)}
+                                  onChange={(event) =>
+                                    updateDetail(index, {
+                                      [fieldName]:
+                                        event.target.value === ""
+                                          ? 0
+                                          : Number(event.target.value),
+                                    })
+                                  }
+                                  className="h-9 text-center text-xs"
+                                />
+                              </td>
+                            ))}
+                            <td className="px-3 py-3 text-center font-semibold text-emerald-700">
+                              <span className="rounded-full bg-emerald-50 px-2.5 py-1">
+                                {quotaDetailValue(detail, "current_headcount")}
+                              </span>
+                            </td>
+                            <td className="px-3 py-3 text-center font-semibold text-blue-700">
+                              <span className="rounded-full bg-blue-50 px-2.5 py-1">
+                                {quotaDetailValue(detail, "needed_headcount")}
+                              </span>
+                            </td>
+                            <td className="min-w-44 px-3 py-3">
+                              <Input
+                                value={String(detail.note ?? "")}
+                                placeholder="Ghi chú..."
+                                onChange={(event) =>
+                                  updateDetail(index, {
+                                    note: event.target.value,
+                                  })
+                                }
+                                className="h-9 text-xs"
+                              />
+                            </td>
+                            <td className="px-3 py-3 text-center">
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() =>
+                                  updateDetails(
+                                    details.filter(
+                                      (_, itemIndex) => itemIndex !== index,
+                                    ),
+                                  )
+                                }
+                                aria-label={`Xóa vị trí ${index + 1}`}
+                              >
+                                <Trash2 size={14} />
+                              </Button>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    ) : (
                       <tr>
-                        <td colSpan={10} className="px-3 py-8 text-center text-slate-400">
-                          Chưa có dữ liệu vị trí chi tiết. Nhấn “Thêm vị trí” để thêm dòng mới.
+                        <td
+                          colSpan={10}
+                          className="px-3 py-8 text-center text-slate-400"
+                        >
+                          Chưa có dữ liệu vị trí chi tiết. Nhấn “Thêm vị trí” để
+                          thêm dòng mới.
                         </td>
                       </tr>
                     )}
@@ -1526,26 +6057,30 @@ function QuotaForm({
             </div>
           );
         }
-        const inputField = field.name === "department_id"
-          ? {
-              ...field,
-              type: "select" as const,
-              options: [
-                { value: "", label: "-- Chọn bộ phận --" },
-                ...lookups.departments.map((department) => ({
-                  value: String(department.department_id ?? ""),
-                  label: `${department.department_code ?? ""} ${department.department_name ?? department.department_id ?? ""}`.trim(),
-                })),
-              ],
-            }
-          : field;
+        const inputField =
+          field.name === "department_id"
+            ? {
+                ...field,
+                type: "select" as const,
+                options: [
+                  { value: "", label: "-- Chọn bộ phận --" },
+                  ...lookups.departments.map((department) => ({
+                    value: String(department.department_id ?? ""),
+                    label:
+                      `${department.department_code ?? ""} ${department.department_name ?? department.department_id ?? ""}`.trim(),
+                  })),
+                ],
+              }
+            : field;
         return (
           <WorkspaceInput
             key={field.name}
             field={inputField}
             tabId={tab.id}
             value={values[field.name] ?? ""}
-            onChange={(value) => setValues((current) => ({ ...current, [field.name]: value }))}
+            onChange={(value) =>
+              setValues((current) => ({ ...current, [field.name]: value }))
+            }
           />
         );
       })}
@@ -1626,7 +6161,7 @@ function EmployeeAvatarUploader({
     const file = event.target.files?.[0];
     event.target.value = "";
     if (!file) return;
-    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
       setUploadError("Chỉ chấp nhận ảnh JPEG, PNG hoặc WebP.");
       return;
     }
@@ -1654,7 +6189,9 @@ function EmployeeAvatarUploader({
           JPEG, PNG hoặc WebP, tối đa 5 MB. Ảnh được lưu trên Pinata/IPFS.
         </p>
         {uploadError && (
-          <p className="mt-2 text-xs font-medium text-rose-700">{uploadError}</p>
+          <p className="mt-2 text-xs font-medium text-rose-700">
+            {uploadError}
+          </p>
         )}
       </div>
       {canUpload && (
@@ -1705,13 +6242,12 @@ function LegacyReportsWorkspace() {
           <h1 className="font-display text-3xl font-bold tracking-tight text-slate-950">
             {data.title}
           </h1>
-          
         </div>
         <Button variant="secondary" onClick={() => window.print()}>
           <Download size={16} /> In / lưu PDF
         </Button>
       </section>
-      
+
       <Card>
         <CardContent className="p-0">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 p-4">
@@ -1787,7 +6323,9 @@ function LegacyReportsWorkspace() {
           {rows.length > 0 && (
             <div className="flex flex-col gap-3 border-t border-slate-100 px-5 py-4 text-xs sm:flex-row sm:items-center sm:justify-between">
               <span className="text-slate-500">
-                Hiển thị {pageOffset + 1}-{Math.min(pageOffset + pageSize, rows.length)} trên {rows.length} bản ghi
+                Hiển thị {pageOffset + 1}-
+                {Math.min(pageOffset + pageSize, rows.length)} trên{" "}
+                {rows.length} bản ghi
               </span>
               <div className="flex items-center gap-2">
                 <Button
@@ -1804,7 +6342,9 @@ function LegacyReportsWorkspace() {
                 <Button
                   variant="secondary"
                   size="sm"
-                  onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
+                  onClick={() =>
+                    setPage((current) => Math.min(totalPages, current + 1))
+                  }
                   disabled={currentPage === totalPages}
                 >
                   Sau <ChevronRight size={14} />
@@ -1853,12 +6393,15 @@ function OperationalWorkspace({
     router.replace(`${pathname}?${params.toString()}`, { scroll: false });
   };
   const requestedContractTab = searchParams.get("contractTab");
-  const initialContractTab = contractSectionIds.includes(requestedContractTab ?? "")
+  const initialContractTab = contractSectionIds.includes(
+    requestedContractTab ?? "",
+  )
     ? requestedContractTab!
     : contractSectionIds.includes(tabId ?? "")
       ? tabId
       : "contracts";
-  const isContractWorkspace = name === "people" && contractSectionIds.includes(tabId ?? "");
+  const isContractWorkspace =
+    name === "people" && contractSectionIds.includes(tabId ?? "");
   const contractSection = isContractWorkspace ? initialContractTab : tabId;
   const tab = getWorkspaceTab(name, contractSection);
   const visibleTabs = employeePeople
@@ -1979,24 +6522,24 @@ function OperationalWorkspace({
       const [
         departments,
         positions,
-         employees,
-         contractTypes,
-         requests,
+        employees,
+        contractTypes,
+        requests,
         plans,
-         candidates,
-         schedules,
-         offers,
-         evaluations,
-         quotas,
+        candidates,
+        schedules,
+        offers,
+        evaluations,
+        quotas,
         screenings,
         decisions,
         contracts,
         contractProposals,
         leaveApplications,
-         transferProposals,
-         resignationApplications,
-         criteria,
-         rewardProposals,
+        transferProposals,
+        resignationApplications,
+        criteria,
+        rewardProposals,
       ] = await Promise.all([
         api.list("/admin/departments", { resource }),
         api.list("/admin/positions", { resource }),
@@ -2005,41 +6548,41 @@ function OperationalWorkspace({
         api.list("/recruitment/requests", { resource }),
         api.list("/recruitment/plans", { resource }),
         api.list("/recruitment/candidates", { resource }),
-         api.list("/recruitment/interview-schedules", { resource }),
-         api.list("/recruitment/offers", { resource }),
-         api.list("/recruitment/interview-evaluations", { resource }),
-         api.list("/hr/quotas", { resource }),
+        api.list("/recruitment/interview-schedules", { resource }),
+        api.list("/recruitment/offers", { resource }),
+        api.list("/recruitment/interview-evaluations", { resource }),
+        api.list("/hr/quotas", { resource }),
         api.list("/recruitment/pre-screenings", { resource }),
         api.list("/recruitment/decisions", { resource }),
         api.list("/hr/contracts", { resource }),
         api.list("/hr/contract-proposals", { resource }),
         api.list("/hr/leave-applications", { resource }),
         api.list("/hr/transfer-proposals", { resource }),
-         api.list("/hr/resignation-applications", { resource }),
-         api.list("/reward-discipline/criteria", { resource }),
-         api.list("/reward-discipline/proposals", { resource }),
+        api.list("/hr/resignation-applications", { resource }),
+        api.list("/reward-discipline/criteria", { resource }),
+        api.list("/reward-discipline/proposals", { resource }),
       ]);
       return {
         departments,
         positions,
         employees,
-         contractTypes,
-         requests,
+        contractTypes,
+        requests,
         plans,
         candidates,
-         schedules,
-         offers,
-         evaluations,
-         quotas,
+        schedules,
+        offers,
+        evaluations,
+        quotas,
         screenings,
         decisions,
         contracts,
         contractProposals,
         leaveApplications,
         transferProposals,
-         resignationApplications,
-         criteria,
-         rewardProposals,
+        resignationApplications,
+        criteria,
+        rewardProposals,
       };
     },
   });
@@ -2054,23 +6597,54 @@ function OperationalWorkspace({
         action: id ? "edit" : "create",
       });
       if (tab.id === "contracts" && !id) {
-        const responseData = result && typeof result === "object" && "data" in result ? result.data : result;
-        const contractId = String((responseData as Row | null)?.id ?? (responseData as Row | null)?.contract_id ?? "");
+        const responseData =
+          result && typeof result === "object" && "data" in result
+            ? result.data
+            : result;
+        const contractId = String(
+          (responseData as Row | null)?.id ??
+            (responseData as Row | null)?.contract_id ??
+            "",
+        );
         if (contractId) {
-          await Promise.all(parseDetailList(values.appendices).map((appendix) => api.write(`/hr/contracts/${contractId}/appendices`, "POST", appendix, { resource, action: "create" })));
+          await Promise.all(
+            parseDetailList(values.appendices).map((appendix) =>
+              api.write(
+                `/hr/contracts/${contractId}/appendices`,
+                "POST",
+                appendix,
+                { resource, action: "create" },
+              ),
+            ),
+          );
         }
       }
       return result;
     },
     onSuccess: async (response) => {
       if (tab.id === "employees" && pendingAvatar) {
-        const responseData = response && typeof response === "object" && "data" in response ? response.data : response;
-        const savedId = editingRow ? rowId(tab, editingRow) : String((responseData as Row | null)?.id ?? (responseData as Row | null)?.employee_id ?? "");
+        const responseData =
+          response && typeof response === "object" && "data" in response
+            ? response.data
+            : response;
+        const savedId = editingRow
+          ? rowId(tab, editingRow)
+          : String(
+              (responseData as Row | null)?.id ??
+                (responseData as Row | null)?.employee_id ??
+                "",
+            );
         if (savedId) {
           try {
             await api.uploadEmployeeAvatar(savedId, pendingAvatar);
           } catch (error) {
-            showPopup("warning", "Đã lưu hồ sơ", error instanceof Error ? `Hồ sơ đã lưu nhưng chưa tải được ảnh: ${error.message}` : "Hồ sơ đã lưu nhưng chưa tải được ảnh.");
+            showPopup(
+              "warning",
+              "Đã lưu hồ sơ",
+              error instanceof Error
+                ? `Hồ sơ đã lưu nhưng chưa tải được ảnh: ${error.message}`
+                : "Hồ sơ đã lưu nhưng chưa tải được ảnh.",
+            );
           }
         }
       }
@@ -2242,17 +6816,26 @@ function OperationalWorkspace({
   const canManageRewardProposal =
     name === "rewards" &&
     tab.id === "proposals" &&
-    ["Administrator", "HR Staff", "Ban Giám Đốc", "Trưởng Khối", "Trưởng Phòng"].includes(session?.role ?? "");
+    [
+      "Administrator",
+      "HR Staff",
+      "Ban Giám Đốc",
+      "Trưởng Khối",
+      "Trưởng Phòng",
+    ].includes(session?.role ?? "");
   const canManage = Boolean(
     session &&
-      (catalogNeedsAdmin
-        ? session.role === "Administrator"
-        : (!restrictedRewardAction && !recruitmentHrOnly) || isHrOrAdmin),
+    (catalogNeedsAdmin
+      ? session.role === "Administrator"
+      : (!restrictedRewardAction && !recruitmentHrOnly) || isHrOrAdmin),
   );
   const workflowCreate =
     name === "people" &&
     (tab.id === "leave" ||
-      (tab.id === "transfer-proposals" && ["Administrator", "HR Staff", "Trưởng Phòng"].includes(session?.role ?? "")) ||
+      (tab.id === "transfer-proposals" &&
+        ["Administrator", "HR Staff", "Trưởng Phòng"].includes(
+          session?.role ?? "",
+        )) ||
       (tab.id === "resignation-applications" && session?.role !== "Nhân viên"));
   const workflowEdit =
     name === "people" &&
@@ -2260,13 +6843,19 @@ function OperationalWorkspace({
     ["Administrator", "HR Staff", "Trưởng Phòng"].includes(session?.role ?? "");
   const canCreate = Boolean(
     session &&
-    (workflowCreate || (name === "recruitment" && tab.id === "requests" && ["Administrator", "HR Staff", "Trưởng Phòng"].includes(session.role)) || (canManage && canAccess(session, resource, "create"))) &&
+    (workflowCreate ||
+      (name === "recruitment" &&
+        tab.id === "requests" &&
+        ["Administrator", "HR Staff", "Trưởng Phòng"].includes(session.role)) ||
+      (canManage && canAccess(session, resource, "create"))) &&
     !tab.readOnly &&
     tab.id !== "screenings",
   );
   const canEdit = Boolean(
     session &&
-    (workflowEdit || canManageRewardProposal || (canManage && canAccess(session, resource, "edit"))) &&
+    (workflowEdit ||
+      canManageRewardProposal ||
+      (canManage && canAccess(session, resource, "edit"))) &&
     editableTabs.has(tab.id) &&
     !(name === "recruitment" && tab.id === "decisions"),
   );
@@ -2295,7 +6884,9 @@ function OperationalWorkspace({
       values.is_outside_headcount = "0";
       values.quantity = "1";
       if (session?.employeeId) {
-        const employee = lookupQuery.data?.employees.find((item) => String(item.employee_id ?? "") === session.employeeId);
+        const employee = lookupQuery.data?.employees.find(
+          (item) => String(item.employee_id ?? "") === session.employeeId,
+        );
         values.requested_by = session.employeeId;
         values.department_id = String(employee?.department_id ?? "");
       }
@@ -2308,7 +6899,9 @@ function OperationalWorkspace({
       values.effective_date = new Date().toISOString().slice(0, 10);
       values.creator_name = session?.name ?? "";
       if (session?.employeeId) {
-        const employee = lookupQuery.data?.employees.find((item) => String(item.employee_id ?? "") === session.employeeId);
+        const employee = lookupQuery.data?.employees.find(
+          (item) => String(item.employee_id ?? "") === session.employeeId,
+        );
         values.department_id = String(employee?.department_id ?? "");
       }
     }
@@ -2339,11 +6932,19 @@ function OperationalWorkspace({
       values.decision_type = "Thuyên chuyển";
       values.detail_items = "[]";
       if (session?.employeeId) {
-        const employee = lookupQuery.data?.employees.find((item) => String(item.employee_id ?? "") === session.employeeId);
+        const employee = lookupQuery.data?.employees.find(
+          (item) => String(item.employee_id ?? "") === session.employeeId,
+        );
         values.proposer_id = session.employeeId;
         values.proposer_name = String(employee?.full_name ?? "");
         values.proposer_position = String(employee?.position_name ?? "");
-        values.proposer_department = String(lookupQuery.data?.departments.find((item) => String(item.department_id ?? "") === String(employee?.department_id ?? ""))?.department_name ?? "");
+        values.proposer_department = String(
+          lookupQuery.data?.departments.find(
+            (item) =>
+              String(item.department_id ?? "") ===
+              String(employee?.department_id ?? ""),
+          )?.department_name ?? "",
+        );
       }
     }
     if (tab.id === "transfer-decisions") {
@@ -2353,11 +6954,15 @@ function OperationalWorkspace({
       values.status = "EXECUTED";
       values.detail_items = "[]";
       if (session?.employeeId) {
-        const employee = lookupQuery.data?.employees.find((item) => String(item.employee_id ?? "") === session.employeeId);
+        const employee = lookupQuery.data?.employees.find(
+          (item) => String(item.employee_id ?? "") === session.employeeId,
+        );
         values.creator_id = session.employeeId;
         values.creator_name = String(employee?.full_name ?? session.name ?? "");
         values.creator_position = String(employee?.position_name ?? "");
-        values.creator_department = String(employee?.department_name ?? session.department ?? "");
+        values.creator_department = String(
+          employee?.department_name ?? session.department ?? "",
+        );
       }
     }
     if (tab.id === "interview-evaluations") {
@@ -2366,8 +6971,19 @@ function OperationalWorkspace({
       values.duration_minutes = "30";
       values.level_score = "3";
       values.overall_result = "ĐẠT";
-      values.script = JSON.stringify([{ question: "", expectation: "", answer: "" }]);
-      values.criteria = JSON.stringify([{ criteria_type: "Năng lực chuyên môn", required_from: "", candidate_value: "", candidate_description: "", is_passed: true, note: "" }]);
+      values.script = JSON.stringify([
+        { question: "", expectation: "", answer: "" },
+      ]);
+      values.criteria = JSON.stringify([
+        {
+          criteria_type: "Năng lực chuyên môn",
+          required_from: "",
+          candidate_value: "",
+          candidate_description: "",
+          is_passed: true,
+          note: "",
+        },
+      ]);
       values.offer = "{}";
     }
     if (name === "recruitment" && tab.id === "decisions") {
@@ -2379,11 +6995,24 @@ function OperationalWorkspace({
     if (tab.id === "evaluations") {
       const currentDate = new Date();
       values.evaluation_date = currentDate.toISOString().slice(0, 10);
-      values.evaluation_quarter = String(Math.floor(currentDate.getMonth() / 3) + 1);
+      values.evaluation_quarter = String(
+        Math.floor(currentDate.getMonth() / 3) + 1,
+      );
       values.year = String(currentDate.getFullYear());
       values.evaluator_id = session?.employeeId ?? "";
       const criteria = lookupQuery.data?.criteria ?? [];
-      values.details = JSON.stringify(criteria.length ? criteria.map((item) => ({ criteria_id: item.criteria_id, criteria_code: item.criteria_code, criteria_name: item.criteria_name, weight: item.weight ?? 0, score: 0, note: "" })) : []);
+      values.details = JSON.stringify(
+        criteria.length
+          ? criteria.map((item) => ({
+              criteria_id: item.criteria_id,
+              criteria_code: item.criteria_code,
+              criteria_name: item.criteria_name,
+              weight: item.weight ?? 0,
+              score: 0,
+              note: "",
+            }))
+          : [],
+      );
     }
     if (name === "rewards" && tab.id === "proposals") {
       values.proposal_date = new Date().toISOString().slice(0, 10);
@@ -2410,19 +7039,26 @@ function OperationalWorkspace({
       try {
         const [detail, appendices] = await Promise.all([
           api.list(`${tab.endpoint}/${rowId(tab, row)}`, { resource }),
-          api.list(`${tab.endpoint}/${rowId(tab, row)}/appendices`, { resource }),
+          api.list(`${tab.endpoint}/${rowId(tab, row)}/appendices`, {
+            resource,
+          }),
         ]);
         if (detail[0]) editRow = { ...detail[0], appendices };
       } catch (error) {
-        showPopup("error", "Không thể tải chi tiết", error instanceof Error ? error.message : "Không thể tải chi tiết hợp đồng.");
+        showPopup(
+          "error",
+          "Không thể tải chi tiết",
+          error instanceof Error
+            ? error.message
+            : "Không thể tải chi tiết hợp đồng.",
+        );
         return;
       }
     } else if (tab.id === "interview-evaluations" || tab.id === "screenings") {
       try {
-        const detail = await api.list(
-          `${tab.endpoint}/${rowId(tab, row)}`,
-          { resource },
-        );
+        const detail = await api.list(`${tab.endpoint}/${rowId(tab, row)}`, {
+          resource,
+        });
         if (detail[0]) editRow = detail[0];
       } catch (error) {
         showPopup(
@@ -2458,7 +7094,9 @@ function OperationalWorkspace({
       showForm
     )
       return;
-    const row = rowsQuery.data.find((item) => rowId(tab, item) === requestedEditId);
+    const row = rowsQuery.data.find(
+      (item) => rowId(tab, item) === requestedEditId,
+    );
     if (!row) return;
     startTransition(() => {
       void openEdit(row);
@@ -2466,24 +7104,46 @@ function OperationalWorkspace({
     const params = new URLSearchParams(searchParams.toString());
     params.delete("edit");
     router.replace(`${pathname}?${params.toString()}`, { scroll: false });
-  // openEdit is intentionally invoked only for the one-time edit deep link.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // openEdit is intentionally invoked only for the one-time edit deep link.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [name, pathname, router, rowsQuery.data, searchParams, showForm, tab]);
 
   const openScreeningForm = (candidate: Row) => {
     const screeningTab = getWorkspaceTab(name, "screenings");
-    const position = lookupQuery.data?.positions.find((item) => String(item.position_id ?? "") === String(candidate.position_id ?? ""));
-    const values = Object.fromEntries(screeningTab.fields.map((field) => [field.name, field.options?.[0]?.value ?? ""]));
+    const position = lookupQuery.data?.positions.find(
+      (item) =>
+        String(item.position_id ?? "") === String(candidate.position_id ?? ""),
+    );
+    const values = Object.fromEntries(
+      screeningTab.fields.map((field) => [
+        field.name,
+        field.options?.[0]?.value ?? "",
+      ]),
+    );
     Object.assign(values, {
       candidate_id: String(candidate.candidate_id ?? ""),
-      received_date: fieldValue({ name: "received_date", label: "", type: "date" }, candidate.received_date ?? candidate.created_date),
+      received_date: fieldValue(
+        { name: "received_date", label: "", type: "date" },
+        candidate.received_date ?? candidate.created_date,
+      ),
       culture_level: String(candidate.culture_level ?? ""),
       education_level: String(candidate.education_level ?? ""),
       education_school: String(candidate.education_school ?? ""),
       position_id: String(candidate.position_id ?? position?.position_id ?? ""),
-      department_id: String(candidate.department_id ?? position?.department_id ?? ""),
+      department_id: String(
+        candidate.department_id ?? position?.department_id ?? "",
+      ),
       screening_date: new Date().toISOString().slice(0, 10),
-       criteria: JSON.stringify([{ criteria_type: "Năng lực chuyên môn", required_from: "", candidate_value: "", candidate_description: "", is_passed: true, note: "" }]),
+      criteria: JSON.stringify([
+        {
+          criteria_type: "Năng lực chuyên môn",
+          required_from: "",
+          candidate_value: "",
+          candidate_description: "",
+          is_passed: true,
+          note: "",
+        },
+      ]),
     });
     setTabId("screenings");
     setEditingRow(null);
@@ -2548,7 +7208,9 @@ function OperationalWorkspace({
       if (tab.id === "contracts") {
         const [contract, appendices] = await Promise.all([
           api.list(`${tab.endpoint}/${rowId(tab, row)}`, { resource }),
-          api.list(`${tab.endpoint}/${rowId(tab, row)}/appendices`, { resource }),
+          api.list(`${tab.endpoint}/${rowId(tab, row)}/appendices`, {
+            resource,
+          }),
         ]);
         if (contract[0]) setShowDetail({ ...contract[0], appendices });
         return;
@@ -2572,128 +7234,375 @@ function OperationalWorkspace({
     event.preventDefault();
     try {
       toPayload(tab, formValues);
-      const lookups = (lookupQuery.data ?? { departments: [], positions: [], employees: [], quotas: [], requests: [], plans: [], candidates: [], screenings: [], decisions: [], evaluations: [] }) as DecisionLookups;
+      const lookups = (lookupQuery.data ?? {
+        departments: [],
+        positions: [],
+        employees: [],
+        quotas: [],
+        requests: [],
+        plans: [],
+        candidates: [],
+        screenings: [],
+        decisions: [],
+        evaluations: [],
+      }) as DecisionLookups;
       if (tab.id === "requests") {
-        const missingRequestField = ["created_date", "requested_by", "department_id", "position_id", "quantity", "expected_date", "reason"].find((field) => !String(formValues[field] ?? "").trim());
-        if (missingRequestField || (formValues.is_outside_headcount !== "1" && !formValues.quota_id)) {
-          showPopup("error", "Thiếu thông tin bắt buộc", "Vui lòng nhập đầy đủ ngày lập, người lập, bộ phận, vị trí, số lượng, ngày cần người, lý do và phiếu định biên đối với yêu cầu trong định biên.");
+        const missingRequestField = [
+          "created_date",
+          "requested_by",
+          "department_id",
+          "position_id",
+          "quantity",
+          "expected_date",
+          "reason",
+        ].find((field) => !String(formValues[field] ?? "").trim());
+        if (
+          missingRequestField ||
+          (formValues.is_outside_headcount !== "1" && !formValues.quota_id)
+        ) {
+          showPopup(
+            "error",
+            "Thiếu thông tin bắt buộc",
+            "Vui lòng nhập đầy đủ ngày lập, người lập, bộ phận, vị trí, số lượng, ngày cần người, lý do và phiếu định biên đối với yêu cầu trong định biên.",
+          );
           return;
         }
         const check = quotaCheck(formValues, lookups);
         if (formValues.is_outside_headcount !== "1" && !formValues.quota_id) {
-          showPopup("error", "Thiếu phiếu định biên", "Yêu cầu trong định biên bắt buộc phải chọn phiếu định biên.");
+          showPopup(
+            "error",
+            "Thiếu phiếu định biên",
+            "Yêu cầu trong định biên bắt buộc phải chọn phiếu định biên.",
+          );
           return;
         }
         if (check?.exceeds && formValues.is_outside_headcount !== "1") {
-          showPopup("error", "Vượt định biên", "Số lượng tuyển vượt định biên. Không thể lưu phiếu trong định biên.");
+          showPopup(
+            "error",
+            "Vượt định biên",
+            "Số lượng tuyển vượt định biên. Không thể lưu phiếu trong định biên.",
+          );
           return;
         }
         if (check?.exceeds && formValues.is_outside_headcount === "1") {
-          const confirmed = await requestConfirmation(`Cảnh báo: nhu cầu tuyển vượt định biên (${check.current} + ${check.quantity} - ${check.movement} > ${check.target}). Phiếu ngoài định biên vẫn được phép lưu. Tiếp tục?`);
+          const confirmed = await requestConfirmation(
+            `Cảnh báo: nhu cầu tuyển vượt định biên (${check.current} + ${check.quantity} - ${check.movement} > ${check.target}). Phiếu ngoài định biên vẫn được phép lưu. Tiếp tục?`,
+          );
           if (!confirmed) return;
         }
       }
       if (tab.id === "quota" || tab.id === "quotas") {
         const details = parseDetailList(formValues.details);
-        const invalidDetail = details.length === 0 || details.some((detail) => {
-          const hasPosition = ["position_id", "position_code", "position_name"].every((field) => String(detail[field] ?? "").trim());
-          const hasValidNumbers = ["target_headcount", "resignation_count", "maternity_count", "current_headcount", "needed_headcount"].every((field) => {
-            const value = Number(detail[field]);
-            return Number.isInteger(value) && value >= 0;
+        const invalidDetail =
+          details.length === 0 ||
+          details.some((detail) => {
+            const hasPosition = [
+              "position_id",
+              "position_code",
+              "position_name",
+            ].every((field) => String(detail[field] ?? "").trim());
+            const hasValidNumbers = [
+              "target_headcount",
+              "resignation_count",
+              "maternity_count",
+              "current_headcount",
+              "needed_headcount",
+            ].every((field) => {
+              const value = Number(detail[field]);
+              return Number.isInteger(value) && value >= 0;
+            });
+            return !hasPosition || !hasValidNumbers;
           });
-          return !hasPosition || !hasValidNumbers;
-        });
         if (invalidDetail) {
-          showPopup("error", "Chi tiết định biên chưa hợp lệ", "Vui lòng thêm ít nhất một vị trí, chọn mã vị trí và nhập đầy đủ các chỉ tiêu không âm trong bảng chi tiết.");
+          showPopup(
+            "error",
+            "Chi tiết định biên chưa hợp lệ",
+            "Vui lòng thêm ít nhất một vị trí, chọn mã vị trí và nhập đầy đủ các chỉ tiêu không âm trong bảng chi tiết.",
+          );
           return;
         }
       }
       if (tab.id === "candidates") {
-        const missingCandidateField = ["full_name", "phone", "email", "recruitment_request_id", "position_id", "department_id", "received_date"].find((field) => !String(formValues[field] ?? "").trim());
+        const missingCandidateField = [
+          "full_name",
+          "phone",
+          "email",
+          "recruitment_request_id",
+          "position_id",
+          "department_id",
+          "received_date",
+        ].find((field) => !String(formValues[field] ?? "").trim());
         if (missingCandidateField) {
-          showPopup("error", "Thiếu thông tin bắt buộc", "Vui lòng nhập đủ thông tin ứng viên và thông tin ứng tuyển trước khi lưu.");
+          showPopup(
+            "error",
+            "Thiếu thông tin bắt buộc",
+            "Vui lòng nhập đủ thông tin ứng viên và thông tin ứng tuyển trước khi lưu.",
+          );
           return;
         }
-        const duplicate = candidateDuplicate(formValues, lookups.candidates, editingRow ? rowId(tab, editingRow) : undefined);
+        const duplicate = candidateDuplicate(
+          formValues,
+          lookups.candidates,
+          editingRow ? rowId(tab, editingRow) : undefined,
+        );
         if (duplicate) {
-          showPopup("error", "Ứng viên bị trùng", `CCCD, số điện thoại hoặc email đã tồn tại ở hồ sơ ${String(duplicate.candidate_code ?? duplicate.full_name ?? "khác")}.`);
+          showPopup(
+            "error",
+            "Ứng viên bị trùng",
+            `CCCD, số điện thoại hoặc email đã tồn tại ở hồ sơ ${String(duplicate.candidate_code ?? duplicate.full_name ?? "khác")}.`,
+          );
           return;
         }
       }
       if (tab.id === "contracts") {
-        const missingContractField = ["contract_date", "signer_id", "employee_id", "contract_type", "start_date", "base_salary", "social_insurance_salary"].find((field) => !String(formValues[field] ?? "").trim());
+        const missingContractField = [
+          "contract_date",
+          "signer_id",
+          "employee_id",
+          "contract_type",
+          "start_date",
+          "base_salary",
+          "social_insurance_salary",
+        ].find((field) => !String(formValues[field] ?? "").trim());
         const hasProbation = formValues.has_probation === "1";
-        const invalidSalary = ![formValues.base_salary, formValues.social_insurance_salary].every((value) => Number.isInteger(Number(value)) && Number(value) >= 0);
-        if (missingContractField || (hasProbation && (!String(formValues.probation_from_date ?? "").trim() || !String(formValues.probation_to_date ?? "").trim() || !Number(formValues.probation_salary_rate))) || invalidSalary) {
-          showPopup("error", "Thiếu thông tin bắt buộc", "Vui lòng nhập đủ thông tin HĐLĐ, lương không có số lẻ và thông tin thử việc nếu đã tích Có thử việc.");
+        const invalidSalary = ![
+          formValues.base_salary,
+          formValues.social_insurance_salary,
+        ].every(
+          (value) => Number.isInteger(Number(value)) && Number(value) >= 0,
+        );
+        if (
+          missingContractField ||
+          (hasProbation &&
+            (!String(formValues.probation_from_date ?? "").trim() ||
+              !String(formValues.probation_to_date ?? "").trim() ||
+              !Number(formValues.probation_salary_rate))) ||
+          invalidSalary
+        ) {
+          showPopup(
+            "error",
+            "Thiếu thông tin bắt buộc",
+            "Vui lòng nhập đủ thông tin HĐLĐ, lương không có số lẻ và thông tin thử việc nếu đã tích Có thử việc.",
+          );
           return;
         }
       }
       if (tab.id === "transfer-proposals") {
         const detail = parseDetailList(formValues.detail_items)[0] ?? {};
-        if (!String(formValues.proposal_date ?? "").trim() || !String(formValues.effective_date ?? "").trim() || !String(formValues.decision_type ?? "").trim() || !String(formValues.proposer_id ?? "").trim() || !String(detail.employee_id ?? "").trim()) {
-          showPopup("error", "Thiếu thông tin bắt buộc", "Vui lòng nhập ngày đề xuất, ngày hiệu lực, loại quyết định, người đề xuất và nhân viên cần điều chuyển.");
+        if (
+          !String(formValues.proposal_date ?? "").trim() ||
+          !String(formValues.effective_date ?? "").trim() ||
+          !String(formValues.decision_type ?? "").trim() ||
+          !String(formValues.proposer_id ?? "").trim() ||
+          !String(detail.employee_id ?? "").trim()
+        ) {
+          showPopup(
+            "error",
+            "Thiếu thông tin bắt buộc",
+            "Vui lòng nhập ngày đề xuất, ngày hiệu lực, loại quyết định, người đề xuất và nhân viên cần điều chuyển.",
+          );
           return;
         }
       }
       if (tab.id === "transfer-decisions") {
         const detail = parseDetailList(formValues.detail_items)[0] ?? {};
-        const requiresTarget = !["Miễn nhiệm"].includes(String(formValues.decision_type ?? ""));
-        if (!String(formValues.decision_date ?? "").trim() || !String(formValues.effective_date ?? "").trim() || !String(formValues.decision_type ?? "").trim() || !String(formValues.creator_id ?? "").trim() || !String(formValues.employee_id ?? detail.employee_id ?? "").trim() || (requiresTarget && (!String(formValues.target_department_id ?? detail.target_department_id ?? "").trim() || !String(formValues.target_position_id ?? detail.target_position_id ?? "").trim()))) {
-          showPopup("error", "Thiếu thông tin bắt buộc", "Vui lòng nhập ngày, số quyết định, loại quyết định, người lập, nhân viên và thông tin đích phù hợp với loại quyết định.");
+        const requiresTarget = !["Miễn nhiệm"].includes(
+          String(formValues.decision_type ?? ""),
+        );
+        if (
+          !String(formValues.decision_date ?? "").trim() ||
+          !String(formValues.effective_date ?? "").trim() ||
+          !String(formValues.decision_type ?? "").trim() ||
+          !String(formValues.creator_id ?? "").trim() ||
+          !String(formValues.employee_id ?? detail.employee_id ?? "").trim() ||
+          (requiresTarget &&
+            (!String(
+              formValues.target_department_id ??
+                detail.target_department_id ??
+                "",
+            ).trim() ||
+              !String(
+                formValues.target_position_id ??
+                  detail.target_position_id ??
+                  "",
+              ).trim()))
+        ) {
+          showPopup(
+            "error",
+            "Thiếu thông tin bắt buộc",
+            "Vui lòng nhập ngày, số quyết định, loại quyết định, người lập, nhân viên và thông tin đích phù hợp với loại quyết định.",
+          );
           return;
         }
       }
       if (tab.id === "evaluations") {
         const details = parseDetailList(formValues.details);
-        const missingEvaluationField = ["evaluation_date", "evaluation_quarter", "year", "evaluator_id", "employee_id"].find((field) => !String(formValues[field] ?? "").trim());
-        const invalidDetail = details.length === 0 || details.some((detail) => !String(detail.criteria_id ?? "").trim() || Number(detail.weight) <= 0 || !Number.isFinite(Number(detail.score)) || Number(detail.score) < 0 || Number(detail.score) > 10);
+        const missingEvaluationField = [
+          "evaluation_date",
+          "evaluation_quarter",
+          "year",
+          "evaluator_id",
+          "employee_id",
+        ].find((field) => !String(formValues[field] ?? "").trim());
+        const invalidDetail =
+          details.length === 0 ||
+          details.some(
+            (detail) =>
+              !String(detail.criteria_id ?? "").trim() ||
+              Number(detail.weight) <= 0 ||
+              !Number.isFinite(Number(detail.score)) ||
+              Number(detail.score) < 0 ||
+              Number(detail.score) > 10,
+          );
         if (missingEvaluationField || invalidDetail) {
-          showPopup("error", "Thiếu thông tin bắt buộc", "Vui lòng nhập đủ kỳ đánh giá, người đánh giá, nhân viên, ít nhất một tiêu chí, trọng số hợp lệ và điểm từ 0 đến 10.");
+          showPopup(
+            "error",
+            "Thiếu thông tin bắt buộc",
+            "Vui lòng nhập đủ kỳ đánh giá, người đánh giá, nhân viên, ít nhất một tiêu chí, trọng số hợp lệ và điểm từ 0 đến 10.",
+          );
           return;
         }
       }
       if (name === "rewards" && tab.id === "proposals") {
-        const missingProposalField = ["record_type", "employee_id", "proposal_date", "proposed_by", "reason"].find((field) => !String(formValues[field] ?? "").trim());
-        if (missingProposalField || Number(formValues.proposed_amount ?? 0) < 0) {
-          showPopup("error", "Thiếu thông tin bắt buộc", "Vui lòng chọn loại đề xuất, nhân viên, người đề xuất, ngày đề xuất, số tiền hợp lệ và lý do.");
+        const missingProposalField = [
+          "record_type",
+          "employee_id",
+          "proposal_date",
+          "proposed_by",
+          "reason",
+        ].find((field) => !String(formValues[field] ?? "").trim());
+        if (
+          missingProposalField ||
+          Number(formValues.proposed_amount ?? 0) < 0
+        ) {
+          showPopup(
+            "error",
+            "Thiếu thông tin bắt buộc",
+            "Vui lòng chọn loại đề xuất, nhân viên, người đề xuất, ngày đề xuất, số tiền hợp lệ và lý do.",
+          );
           return;
         }
       }
       if (name === "rewards" && tab.id === "decisions") {
-        const missingDecisionField = ["proposal_id", "employee_id", "decision_type", "decision_date", "reason"].find((field) => !String(formValues[field] ?? "").trim());
-        const proposal = lookups.rewardProposals.find((item) => String(item.proposal_id ?? "") === String(formValues.proposal_id ?? ""));
-        if (missingDecisionField || !proposal || String(proposal.status ?? "").toUpperCase() !== "APPROVED" || String(proposal.employee_id ?? "") !== String(formValues.employee_id ?? "") || String(proposal.record_type ?? "") !== String(formValues.decision_type ?? "") || Number(formValues.amount ?? 0) < 0) {
-          showPopup("error", "Không thể ban hành quyết định", "Quyết định phải liên kết với đề xuất đã được duyệt, đúng nhân viên, đúng loại và có số tiền hợp lệ.");
+        const missingDecisionField = [
+          "proposal_id",
+          "employee_id",
+          "decision_type",
+          "decision_date",
+          "reason",
+        ].find((field) => !String(formValues[field] ?? "").trim());
+        const proposal = lookups.rewardProposals.find(
+          (item) =>
+            String(item.proposal_id ?? "") ===
+            String(formValues.proposal_id ?? ""),
+        );
+        if (
+          missingDecisionField ||
+          !proposal ||
+          String(proposal.status ?? "").toUpperCase() !== "APPROVED" ||
+          String(proposal.employee_id ?? "") !==
+            String(formValues.employee_id ?? "") ||
+          String(proposal.record_type ?? "") !==
+            String(formValues.decision_type ?? "") ||
+          Number(formValues.amount ?? 0) < 0
+        ) {
+          showPopup(
+            "error",
+            "Không thể ban hành quyết định",
+            "Quyết định phải liên kết với đề xuất đã được duyệt, đúng nhân viên, đúng loại và có số tiền hợp lệ.",
+          );
           return;
         }
       }
       if (tab.id === "interview-evaluations") {
-        const missingEvaluationField = ["evaluation_date", "schedule_id", "candidate_id", "evaluator_id", "overall_result"].find((field) => !String(formValues[field] ?? "").trim());
+        const missingEvaluationField = [
+          "evaluation_date",
+          "schedule_id",
+          "candidate_id",
+          "evaluator_id",
+          "overall_result",
+        ].find((field) => !String(formValues[field] ?? "").trim());
         const score = Number(formValues.level_score);
-        if (missingEvaluationField || !Number.isFinite(score) || score < 1 || score > 5) {
-          showPopup("error", "Thiếu thông tin bắt buộc", "Vui lòng nhập ngày đánh giá, lịch, ứng viên, người đánh giá và mức độ từ Rất kém đến Tốt.");
+        if (
+          missingEvaluationField ||
+          !Number.isFinite(score) ||
+          score < 1 ||
+          score > 5
+        ) {
+          showPopup(
+            "error",
+            "Thiếu thông tin bắt buộc",
+            "Vui lòng nhập ngày đánh giá, lịch, ứng viên, người đánh giá và mức độ từ Rất kém đến Tốt.",
+          );
           return;
         }
       }
       if (tab.id === "decisions") {
-        const missingDecisionField = ["candidate_id", "interview_eval_id", "decision_date", "result", "overall_comment"].find((field) => !String(formValues[field] ?? "").trim());
-        if (missingDecisionField || (formValues.result === "KHÔNG ĐẠT" && !String(formValues.rejection_reason ?? "").trim())) {
-          showPopup("error", "Thiếu thông tin bắt buộc", "Vui lòng chọn ứng viên có đánh giá phỏng vấn, ngày quyết định, kết quả, đánh giá chung và lý do bị loại khi kết quả Không đạt.");
+        const missingDecisionField = [
+          "candidate_id",
+          "interview_eval_id",
+          "decision_date",
+          "result",
+          "overall_comment",
+        ].find((field) => !String(formValues[field] ?? "").trim());
+        if (
+          missingDecisionField ||
+          (formValues.result === "KHÔNG ĐẠT" &&
+            !String(formValues.rejection_reason ?? "").trim())
+        ) {
+          showPopup(
+            "error",
+            "Thiếu thông tin bắt buộc",
+            "Vui lòng chọn ứng viên có đánh giá phỏng vấn, ngày quyết định, kết quả, đánh giá chung và lý do bị loại khi kết quả Không đạt.",
+          );
           return;
         }
-        const evaluation = lookups.evaluations.find((item) => String(item.interview_eval_id ?? "") === formValues.interview_eval_id && String(item.candidate_id ?? "") === formValues.candidate_id);
-        const evaluationPassed = ["ĐẠT", "PASSED"].includes(String(evaluation?.overall_result ?? "").trim().toUpperCase());
-        if (!evaluation || evaluationPassed !== (String(formValues.result ?? "").trim().toUpperCase() === "ĐẠT")) {
-          showPopup("error", "Kết quả không hợp lệ", "Kết quả quyết định phải khớp với Đánh giá chung của Phiếu Đánh giá phỏng vấn.");
+        const evaluation = lookups.evaluations.find(
+          (item) =>
+            String(item.interview_eval_id ?? "") ===
+              formValues.interview_eval_id &&
+            String(item.candidate_id ?? "") === formValues.candidate_id,
+        );
+        const evaluationPassed = ["ĐẠT", "PASSED"].includes(
+          String(evaluation?.overall_result ?? "")
+            .trim()
+            .toUpperCase(),
+        );
+        if (
+          !evaluation ||
+          evaluationPassed !==
+            (String(formValues.result ?? "")
+              .trim()
+              .toUpperCase() ===
+              "ĐẠT")
+        ) {
+          showPopup(
+            "error",
+            "Kết quả không hợp lệ",
+            "Kết quả quyết định phải khớp với Đánh giá chung của Phiếu Đánh giá phỏng vấn.",
+          );
           return;
         }
       }
       if (tab.id === "screenings") {
-        const missingScreeningField = ["candidate_id", "screening_date", "level_score", "screening_result"].find((field) => !String(formValues[field] ?? "").trim());
+        const missingScreeningField = [
+          "candidate_id",
+          "screening_date",
+          "level_score",
+          "screening_result",
+        ].find((field) => !String(formValues[field] ?? "").trim());
         const score = Number(formValues.level_score);
-        if (missingScreeningField || !Number.isFinite(score) || score < 0 || score > 10) {
-          showPopup("error", "Thiếu thông tin bắt buộc", "Vui lòng chọn ứng viên, nhập ngày sơ loại, mức độ phù hợp từ 0 đến 10 và kết quả.");
+        if (
+          missingScreeningField ||
+          !Number.isFinite(score) ||
+          score < 0 ||
+          score > 10
+        ) {
+          showPopup(
+            "error",
+            "Thiếu thông tin bắt buộc",
+            "Vui lòng chọn ứng viên, nhập ngày sơ loại, mức độ phù hợp từ 0 đến 10 và kết quả.",
+          );
           return;
         }
       }
@@ -2898,15 +7807,22 @@ function OperationalWorkspace({
     if (
       name === "rewards" &&
       ["evaluations", "proposals", "decisions"].includes(tab.id) &&
-      ["employee_id", "evaluator_id", "proposed_by_employee_id"].includes(field.name)
+      ["employee_id", "evaluator_id", "proposed_by_employee_id"].includes(
+        field.name,
+      )
     )
       return employeeOptions;
-    if (name === "rewards" && tab.id === "decisions" && field.name === "proposal_id")
+    if (
+      name === "rewards" &&
+      tab.id === "decisions" &&
+      field.name === "proposal_id"
+    )
       return lookup.rewardProposals
         .filter((item) => item.status === "APPROVED")
         .map((item) => ({
           value: String(item.proposal_id ?? ""),
-          label: `${item.proposal_code ?? ""} ${item.employee_name ?? ""}`.trim(),
+          label:
+            `${item.proposal_code ?? ""} ${item.employee_name ?? ""}`.trim(),
         }));
     return field.options;
   };
@@ -2929,7 +7845,6 @@ function OperationalWorkspace({
           </h1>
         </div>
         <div className="flex flex-wrap gap-2">
-          
           {canCreate && (
             <Button onClick={openCreate}>
               <Plus size={16} /> Tạo {tab.label.toLowerCase()}
@@ -2953,10 +7868,7 @@ function OperationalWorkspace({
         </div>
       )}
 
-      
-
       <Card>
-        
         <CardContent className="p-0">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 p-4">
             <div>
@@ -3164,7 +8076,11 @@ function OperationalWorkspace({
                           )}
                           {tab.id === "candidates" &&
                             canManage &&
-                            !(lookupQuery.data?.screenings ?? []).some((screening) => String(screening.candidate_id ?? "") === String(row.candidate_id ?? "")) && (
+                            !(lookupQuery.data?.screenings ?? []).some(
+                              (screening) =>
+                                String(screening.candidate_id ?? "") ===
+                                String(row.candidate_id ?? ""),
+                            ) && (
                               <Button
                                 variant="soft"
                                 size="sm"
@@ -3174,12 +8090,23 @@ function OperationalWorkspace({
                                 Sơ loại
                               </Button>
                             )}
-                          {(tab.id === "candidates" || tab.id === "decisions") &&
+                          {(tab.id === "candidates" ||
+                            tab.id === "decisions") &&
                             canManage &&
                             canAccess(session, resource, "create") &&
                             String(row.status) !== "HIRED" &&
-                            String(row.candidate_status ?? "").toUpperCase() !== "HIRED" &&
-                            (lookupQuery.data?.decisions ?? []).some((decision) => String(decision.candidate_id ?? "") === String(row.candidate_id ?? "") && String(decision.result ?? "").trim().toUpperCase() === "ĐẠT" && String(decision.status ?? "COMPLETED") === "COMPLETED") && (
+                            String(row.candidate_status ?? "").toUpperCase() !==
+                              "HIRED" &&
+                            (lookupQuery.data?.decisions ?? []).some(
+                              (decision) =>
+                                String(decision.candidate_id ?? "") ===
+                                  String(row.candidate_id ?? "") &&
+                                String(decision.result ?? "")
+                                  .trim()
+                                  .toUpperCase() === "ĐẠT" &&
+                                String(decision.status ?? "COMPLETED") ===
+                                  "COMPLETED",
+                            ) && (
                               <Button
                                 variant="soft"
                                 size="sm"
@@ -3202,15 +8129,15 @@ function OperationalWorkspace({
                             )}
                           {canDelete && (
                             <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() =>
-                                  requestConfirmation(
-                                    "Bạn có chắc chắn muốn xóa bản ghi này?",
-                                  ).then((confirmed) => {
-                                    if (confirmed) removeMutation.mutate(row);
-                                  })
-                                }
+                              variant="ghost"
+                              size="sm"
+                              onClick={() =>
+                                requestConfirmation(
+                                  "Bạn có chắc chắn muốn xóa bản ghi này?",
+                                ).then((confirmed) => {
+                                  if (confirmed) removeMutation.mutate(row);
+                                })
+                              }
                               title="Xóa"
                             >
                               <Trash2 size={15} />
@@ -3227,7 +8154,9 @@ function OperationalWorkspace({
           {rows.length > 0 && (
             <div className="flex flex-col gap-3 border-t border-slate-100 px-5 py-4 text-xs sm:flex-row sm:items-center sm:justify-between">
               <span className="text-slate-500">
-                Hiển thị {pageOffset + 1}-{Math.min(pageOffset + pageSize, rows.length)} trên {rows.length} bản ghi
+                Hiển thị {pageOffset + 1}-
+                {Math.min(pageOffset + pageSize, rows.length)} trên{" "}
+                {rows.length} bản ghi
               </span>
               <div className="flex items-center gap-2">
                 <Button
@@ -3245,7 +8174,9 @@ function OperationalWorkspace({
                 <Button
                   variant="secondary"
                   size="sm"
-                  onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
+                  onClick={() =>
+                    setPage((current) => Math.min(totalPages, current + 1))
+                  }
                   disabled={currentPage === totalPages}
                   aria-label="Trang sau"
                 >
@@ -3287,49 +8218,107 @@ function OperationalWorkspace({
                 <ContractForm
                   values={formValues}
                   setValues={setFormValues}
-                  lookups={(lookupQuery.data ?? { departments: [], positions: [], employees: [], quotas: [], contractTypes: [] }) as ContractLookups}
+                  lookups={
+                    (lookupQuery.data ?? {
+                      departments: [],
+                      positions: [],
+                      employees: [],
+                      quotas: [],
+                      contractTypes: [],
+                    }) as ContractLookups
+                  }
                 />
               ) : tab.id === "transfer-proposals" ? (
                 <TransferProposalForm
                   values={formValues}
                   setValues={setFormValues}
-                  lookups={(lookupQuery.data ?? { departments: [], positions: [], employees: [], quotas: [] }) as RequestLookups}
+                  lookups={
+                    (lookupQuery.data ?? {
+                      departments: [],
+                      positions: [],
+                      employees: [],
+                      quotas: [],
+                    }) as RequestLookups
+                  }
                   session={session}
                 />
               ) : tab.id === "transfer-decisions" ? (
                 <TransferDecisionForm
                   values={formValues}
                   setValues={setFormValues}
-                  lookups={(lookupQuery.data ?? { departments: [], positions: [], employees: [], quotas: [], transferProposals: [] }) as TransferDecisionLookups}
+                  lookups={
+                    (lookupQuery.data ?? {
+                      departments: [],
+                      positions: [],
+                      employees: [],
+                      quotas: [],
+                      transferProposals: [],
+                    }) as TransferDecisionLookups
+                  }
                   session={session}
                 />
               ) : tab.id === "evaluations" ? (
                 <EvaluationForm
                   values={formValues}
                   setValues={setFormValues}
-                  lookups={(lookupQuery.data ?? { departments: [], positions: [], employees: [], quotas: [], criteria: [] }) as EvaluationFormLookups}
+                  lookups={
+                    (lookupQuery.data ?? {
+                      departments: [],
+                      positions: [],
+                      employees: [],
+                      quotas: [],
+                      criteria: [],
+                    }) as EvaluationFormLookups
+                  }
                   session={session}
                 />
               ) : tab.id === "proposals" && name === "rewards" ? (
                 <RewardProposalForm
                   values={formValues}
                   setValues={setFormValues}
-                  lookups={(lookupQuery.data ?? { departments: [], positions: [], employees: [], quotas: [] }) as RequestLookups}
+                  lookups={
+                    (lookupQuery.data ?? {
+                      departments: [],
+                      positions: [],
+                      employees: [],
+                      quotas: [],
+                    }) as RequestLookups
+                  }
                   session={session}
                 />
               ) : tab.id === "decisions" && name === "rewards" ? (
                 <RewardDecisionForm
                   values={formValues}
                   setValues={setFormValues}
-                  lookups={(lookupQuery.data ?? { departments: [], positions: [], employees: [], quotas: [], rewardProposals: [] }) as RewardDecisionLookups}
+                  lookups={
+                    (lookupQuery.data ?? {
+                      departments: [],
+                      positions: [],
+                      employees: [],
+                      quotas: [],
+                      rewardProposals: [],
+                    }) as RewardDecisionLookups
+                  }
                   session={session}
                 />
               ) : tab.id === "employees" ? (
                 <EmployeeForm
                   values={formValues}
                   setValues={setFormValues}
-                  lookups={(lookupQuery.data ?? { departments: [], positions: [], employees: [], quotas: [], candidates: [] }) as EmployeeLookups}
-                  avatarUrl={typeof editingRow?.avatar_url === "string" ? editingRow.avatar_url : undefined}
+                  lookups={
+                    (lookupQuery.data ?? {
+                      departments: [],
+                      positions: [],
+                      employees: [],
+                      quotas: [],
+                      candidates: [],
+                    }) as EmployeeLookups
+                  }
+                  avatarUrl={
+                    typeof editingRow?.avatar_url === "string"
+                      ? editingRow.avatar_url
+                      : undefined
+                  }
                   avatarFile={pendingAvatar}
                   onAvatarChange={setPendingAvatar}
                 />
@@ -3337,32 +8326,84 @@ function OperationalWorkspace({
                 <RecruitmentRequestForm
                   values={formValues}
                   setValues={setFormValues}
-                  lookups={(lookupQuery.data ?? { departments: [], positions: [], employees: [], quotas: [] }) as RequestLookups}
+                  lookups={
+                    (lookupQuery.data ?? {
+                      departments: [],
+                      positions: [],
+                      employees: [],
+                      quotas: [],
+                    }) as RequestLookups
+                  }
                 />
               ) : tab.id === "quota" || tab.id === "quotas" ? (
                 <QuotaForm
                   values={formValues}
                   setValues={setFormValues}
                   tab={tab}
-                  lookups={(lookupQuery.data ?? { departments: [], positions: [], employees: [], quotas: [] }) as RequestLookups}
+                  lookups={
+                    (lookupQuery.data ?? {
+                      departments: [],
+                      positions: [],
+                      employees: [],
+                      quotas: [],
+                    }) as RequestLookups
+                  }
                 />
               ) : tab.id === "candidates" ? (
                 <CandidateForm
                   values={formValues}
                   setValues={setFormValues}
-                  lookups={(lookupQuery.data ?? { departments: [], positions: [], employees: [], quotas: [], requests: [], plans: [], candidates: [], screenings: [], decisions: [] }) as CandidateLookups}
+                  lookups={
+                    (lookupQuery.data ?? {
+                      departments: [],
+                      positions: [],
+                      employees: [],
+                      quotas: [],
+                      requests: [],
+                      plans: [],
+                      candidates: [],
+                      screenings: [],
+                      decisions: [],
+                    }) as CandidateLookups
+                  }
                 />
               ) : tab.id === "screenings" ? (
                 <ScreeningForm
                   values={formValues}
                   setValues={setFormValues}
-                  lookups={(lookupQuery.data ?? { departments: [], positions: [], employees: [], quotas: [], requests: [], plans: [], candidates: [], screenings: [], decisions: [] }) as CandidateLookups}
+                  lookups={
+                    (lookupQuery.data ?? {
+                      departments: [],
+                      positions: [],
+                      employees: [],
+                      quotas: [],
+                      requests: [],
+                      plans: [],
+                      candidates: [],
+                      screenings: [],
+                      decisions: [],
+                    }) as CandidateLookups
+                  }
                 />
               ) : tab.id === "interview-evaluations" ? (
                 <InterviewEvaluationForm
                   values={formValues}
                   setValues={setFormValues}
-                  lookups={(lookupQuery.data ?? { departments: [], positions: [], employees: [], quotas: [], requests: [], plans: [], candidates: [], screenings: [], decisions: [], schedules: [], offers: [] }) as EvaluationLookups}
+                  lookups={
+                    (lookupQuery.data ?? {
+                      departments: [],
+                      positions: [],
+                      employees: [],
+                      quotas: [],
+                      requests: [],
+                      plans: [],
+                      candidates: [],
+                      screenings: [],
+                      decisions: [],
+                      schedules: [],
+                      offers: [],
+                    }) as EvaluationLookups
+                  }
                   session={session}
                   onViewCandidate={(candidate) => {
                     setShowForm(false);
@@ -3374,7 +8415,20 @@ function OperationalWorkspace({
                 <RecruitmentDecisionForm
                   values={formValues}
                   setValues={setFormValues}
-                  lookups={(lookupQuery.data ?? { departments: [], positions: [], employees: [], quotas: [], requests: [], plans: [], candidates: [], screenings: [], decisions: [], evaluations: [] }) as DecisionLookups}
+                  lookups={
+                    (lookupQuery.data ?? {
+                      departments: [],
+                      positions: [],
+                      employees: [],
+                      quotas: [],
+                      requests: [],
+                      plans: [],
+                      candidates: [],
+                      screenings: [],
+                      decisions: [],
+                      evaluations: [],
+                    }) as DecisionLookups
+                  }
                   onViewCandidate={(candidate) => {
                     setShowForm(false);
                     setTabId("candidates");
@@ -3382,65 +8436,65 @@ function OperationalWorkspace({
                   }}
                 />
               ) : (
-              <div className="grid gap-4 md:grid-cols-2">
-                {tab.fields.map((field) => {
-                  const options = fieldOptions(field);
-                  const inputField =
-                    options &&
-                    options.length > 0 &&
-                    [
-                       "department_id",
-                       "parent_department_id",
-                      "position_id",
-                      "requested_by",
-                      "recruitment_request_id",
-                      "recruitment_plan_id",
-                      "candidate_id",
-                      "schedule_id",
-                      "manager_id",
-                      "signer_id",
-                      "approver_id",
-                      "related_person_id",
-                      "proposer_id",
-                      "evaluator_id",
-                      "employee_id",
-                      "contract_id",
-                      "proposal_id",
-                      "application_id",
-                      "target_department_id",
-                      "target_position_id",
-                    ].includes(field.name)
-                      ? {
-                          ...field,
-                          type: "select" as const,
-                          options: [
-                            { value: "", label: "-- Chọn --" },
-                            ...options,
-                          ],
+                <div className="grid gap-4 md:grid-cols-2">
+                  {tab.fields.map((field) => {
+                    const options = fieldOptions(field);
+                    const inputField =
+                      options &&
+                      options.length > 0 &&
+                      [
+                        "department_id",
+                        "parent_department_id",
+                        "position_id",
+                        "requested_by",
+                        "recruitment_request_id",
+                        "recruitment_plan_id",
+                        "candidate_id",
+                        "schedule_id",
+                        "manager_id",
+                        "signer_id",
+                        "approver_id",
+                        "related_person_id",
+                        "proposer_id",
+                        "evaluator_id",
+                        "employee_id",
+                        "contract_id",
+                        "proposal_id",
+                        "application_id",
+                        "target_department_id",
+                        "target_position_id",
+                      ].includes(field.name)
+                        ? {
+                            ...field,
+                            type: "select" as const,
+                            options: [
+                              { value: "", label: "-- Chọn --" },
+                              ...options,
+                            ],
+                          }
+                        : field;
+                    const scopedInputField =
+                      tab.id === "leave" &&
+                      field.name === "employee_id" &&
+                      session?.role === "Nhân viên"
+                        ? { ...inputField, disabled: true }
+                        : inputField;
+                    return (
+                      <WorkspaceInput
+                        key={field.name}
+                        field={scopedInputField}
+                        tabId={tab.id}
+                        value={formValues[field.name] ?? ""}
+                        onChange={(value) =>
+                          setFormValues((current) => ({
+                            ...current,
+                            [field.name]: value,
+                          }))
                         }
-                      : field;
-                  const scopedInputField =
-                    tab.id === "leave" &&
-                    field.name === "employee_id" &&
-                    session?.role === "Nhân viên"
-                      ? { ...inputField, disabled: true }
-                      : inputField;
-                  return (
-                    <WorkspaceInput
-                      key={field.name}
-                      field={scopedInputField}
-                      tabId={tab.id}
-                      value={formValues[field.name] ?? ""}
-                      onChange={(value) =>
-                        setFormValues((current) => ({
-                          ...current,
-                          [field.name]: value,
-                        }))
-                      }
-                    />
-                  );
-                })}
-              </div>
+                      />
+                    );
+                  })}
+                </div>
               )}
               <div className="mt-5 flex justify-end gap-2 border-t border-slate-100 pt-4">
                 <Button
@@ -3492,9 +8546,15 @@ function OperationalWorkspace({
                     canUpload={canEdit}
                     onUploaded={(avatarUrl) => {
                       setShowDetail((current) =>
-                        current ? { ...current, avatar_url: avatarUrl } : current,
+                        current
+                          ? { ...current, avatar_url: avatarUrl }
+                          : current,
                       );
-                      showPopup("success", "Thành công", "Đã cập nhật ảnh hồ sơ trên Pinata.");
+                      showPopup(
+                        "success",
+                        "Thành công",
+                        "Đã cập nhật ảnh hồ sơ trên Pinata.",
+                      );
                       queryClient.invalidateQueries({
                         queryKey: ["workspace", name],
                       });
@@ -3504,7 +8564,23 @@ function OperationalWorkspace({
               )}
               {tab.id === "quota" || tab.id === "quotas" ? (
                 <QuotaDetail row={showDetail} />
-              ) : ["employees", "contracts", "transfer-proposals", "transfer-decisions"].includes(tab.id) || (name === "rewards" && ["criteria", "evaluations", "proposals", "decisions"].includes(tab.id)) || (name === "recruitment" && ["screenings", "interview-evaluations", "decisions"].includes(tab.id)) ? (
+              ) : [
+                  "employees",
+                  "contracts",
+                  "transfer-proposals",
+                  "transfer-decisions",
+                ].includes(tab.id) ||
+                (name === "rewards" &&
+                  [
+                    "criteria",
+                    "evaluations",
+                    "proposals",
+                    "decisions",
+                  ].includes(tab.id)) ||
+                (name === "recruitment" &&
+                  ["screenings", "interview-evaluations", "decisions"].includes(
+                    tab.id,
+                  )) ? (
                 <StructuredDetail name={name} tab={tab} row={showDetail} />
               ) : (
                 <div className="grid gap-3 sm:grid-cols-2">
@@ -3548,7 +8624,11 @@ function OperationalWorkspace({
         <Popup
           variant="error"
           title="Không thể tải dữ liệu"
-          message={rowsQuery.error instanceof ApiError ? rowsQuery.error.message : "Không thể tải dữ liệu. Kiểm tra kết nối backend."}
+          message={
+            rowsQuery.error instanceof ApiError
+              ? rowsQuery.error.message
+              : "Không thể tải dữ liệu. Kiểm tra kết nối backend."
+          }
           onClose={() => setDismissedQueryError(rowsQuery.error)}
         />
       )}
@@ -3573,8 +8653,16 @@ const jsonListSchemas: Record<string, JsonListSchema> = {
     fields: [
       { key: "position_id", label: "Mã vị trí" },
       { key: "target_headcount", label: "Định biên", type: "number" },
-      { key: "resignation_count", label: "Số lao động nghỉ việc", type: "number" },
-      { key: "maternity_count", label: "Số lao động nghỉ thai sản", type: "number" },
+      {
+        key: "resignation_count",
+        label: "Số lao động nghỉ việc",
+        type: "number",
+      },
+      {
+        key: "maternity_count",
+        label: "Số lao động nghỉ thai sản",
+        type: "number",
+      },
       { key: "note", label: "Ghi chú" },
     ],
   },
@@ -3591,8 +8679,16 @@ const jsonListSchemas: Record<string, JsonListSchema> = {
     fields: [
       { key: "position_id", label: "Mã vị trí" },
       { key: "target_headcount", label: "Định biên", type: "number" },
-      { key: "resignation_count", label: "Số lao động nghỉ việc", type: "number" },
-      { key: "maternity_count", label: "Số lao động nghỉ thai sản", type: "number" },
+      {
+        key: "resignation_count",
+        label: "Số lao động nghỉ việc",
+        type: "number",
+      },
+      {
+        key: "maternity_count",
+        label: "Số lao động nghỉ thai sản",
+        type: "number",
+      },
       { key: "note", label: "Ghi chú" },
     ],
   },
@@ -3742,7 +8838,8 @@ function parseJsonList(value: string) {
   } catch {
     return {
       items: [] as Array<Record<string, unknown>>,
-      error: "Dữ liệu chi tiết cũ không hợp lệ. Vui lòng nhập lại các dòng bên dưới.",
+      error:
+        "Dữ liệu chi tiết cũ không hợp lệ. Vui lòng nhập lại các dòng bên dưới.",
     };
   }
 }
@@ -3767,7 +8864,11 @@ function JsonListInput({
       Object.fromEntries(
         schema.fields.map((itemField) => [
           itemField.key,
-          itemField.type === "number" ? 0 : itemField.type === "checkbox" ? false : "",
+          itemField.type === "number"
+            ? 0
+            : itemField.type === "checkbox"
+              ? false
+              : "",
         ]),
       ),
     ]);
@@ -3786,23 +8887,35 @@ function JsonListInput({
       {error && <p className="mb-2 text-xs text-rose-700">{error}</p>}
       <div className="space-y-3">
         {items.map((item, index) => (
-          <div key={index} className="rounded-xl border border-slate-200 bg-slate-50/70 p-3">
+          <div
+            key={index}
+            className="rounded-xl border border-slate-200 bg-slate-50/70 p-3"
+          >
             <div className="mb-3 flex items-center justify-between">
               <span className="text-xs font-bold text-slate-500">
-                {schema.itemLabel.charAt(0).toUpperCase() + schema.itemLabel.slice(1)} {index + 1}
+                {schema.itemLabel.charAt(0).toUpperCase() +
+                  schema.itemLabel.slice(1)}{" "}
+                {index + 1}
               </span>
               <Button
                 type="button"
                 variant="ghost"
                 size="sm"
-                onClick={() => updateItems(items.filter((_, itemIndex) => itemIndex !== index))}
+                onClick={() =>
+                  updateItems(
+                    items.filter((_, itemIndex) => itemIndex !== index),
+                  )
+                }
               >
                 <Trash2 size={14} /> Xóa
               </Button>
             </div>
             <div className="grid gap-3 md:grid-cols-2">
               {schema.fields.map((itemField) => (
-                <label key={itemField.key} className="block text-xs font-bold text-slate-600">
+                <label
+                  key={itemField.key}
+                  className="block text-xs font-bold text-slate-600"
+                >
                   {itemField.type === "checkbox" ? (
                     <span className="flex h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 font-medium">
                       <input
@@ -3810,7 +8923,10 @@ function JsonListInput({
                         checked={Boolean(item[itemField.key])}
                         onChange={(event) => {
                           const nextItems = [...items];
-                          nextItems[index] = { ...item, [itemField.key]: event.target.checked };
+                          nextItems[index] = {
+                            ...item,
+                            [itemField.key]: event.target.checked,
+                          };
                           updateItems(nextItems);
                         }}
                       />
@@ -3824,11 +8940,15 @@ function JsonListInput({
                         value={String(item[itemField.key] ?? "")}
                         onChange={(event) => {
                           const nextValue =
-                            itemField.type === "number" && event.target.value !== ""
+                            itemField.type === "number" &&
+                            event.target.value !== ""
                               ? Number(event.target.value)
                               : event.target.value;
                           const nextItems = [...items];
-                          nextItems[index] = { ...item, [itemField.key]: nextValue };
+                          nextItems[index] = {
+                            ...item,
+                            [itemField.key]: nextValue,
+                          };
                           updateItems(nextItems);
                         }}
                         className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-normal outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-100"
@@ -3843,7 +8963,8 @@ function JsonListInput({
       </div>
       {items.length === 0 && (
         <div className="rounded-xl border border-dashed border-slate-200 px-3 py-4 text-center text-xs text-slate-400">
-          Chưa có {schema.itemLabel}. Chọn “Thêm {schema.itemLabel}” để khai báo.
+          Chưa có {schema.itemLabel}. Chọn “Thêm {schema.itemLabel}” để khai
+          báo.
         </div>
       )}
     </div>

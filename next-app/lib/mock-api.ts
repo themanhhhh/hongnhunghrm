@@ -298,7 +298,7 @@ function loadStore(): MockStore {
     const saved = window.localStorage.getItem(MOCK_STORE_KEY);
     if (!saved) return cloneInitialStore();
     const store = JSON.parse(saved) as MockStore;
-    for (const route of ["/admin/users", "/admin/roles", "/hr/employees", "/hr/contracts", "/hr/work-history", "/recruitment/requests", "/recruitment/candidates", "/hr/leave-applications", "/hr/transfer-proposals", "/reward-discipline", "/reward-discipline/criteria", "/reward-discipline/evaluations", "/reward-discipline/proposals"]) {
+    for (const route of ["/admin/users", "/admin/roles", "/admin/positions", "/hr/employees", "/hr/contracts", "/hr/work-history", "/recruitment/requests", "/recruitment/candidates", "/hr/leave-applications", "/hr/transfer-proposals", "/reward-discipline", "/reward-discipline/criteria", "/reward-discipline/evaluations", "/reward-discipline/proposals"]) {
       const idField = idFields[route];
       const storedRows = store[route] ?? [];
       const seedIds = new Set((initialStore[route] ?? []).map((row) => String(row[idField] ?? "")));
