@@ -24,7 +24,6 @@ export type WorkspaceTab = {
   readOnly?: boolean;
   query?: "history";
   approve?: boolean;
-  convert?: boolean;
 };
 
 const select = (name: string, label: string, options: FieldOption[], required = false): WorkspaceField => ({ name, label, type: "select", options, required });
@@ -120,7 +119,7 @@ const recruitmentTabs: WorkspaceTab[] = [
   {
     id: "interview-evaluations", label: "Đánh giá phỏng vấn", endpoint: "/recruitment/interview-evaluations", idField: "interview_eval_id",
     columns: [{ key: "eval_code", label: "Mã phiếu" }, { key: "candidate_name", label: "Ứng viên" }, { key: "schedule_code", label: "Lịch" }, { key: "level_score", label: "Điểm" }, { key: "overall_result", label: "Kết quả" }, { key: "overall_comment", label: "Nhận xét" }],
-    fields: [text("eval_code", "Số phiếu"), date("evaluation_date", "Ngày đánh giá", true), text("schedule_id", "Số lịch", undefined, true), text("candidate_id", "Mã ứng viên", undefined, true), text("evaluator_id", "Người đánh giá"), number("duration_minutes", "Thời lượng (phút)"), number("level_score", "Điểm phỏng vấn (0-10)", true), select("overall_result", "Kết quả", [{ value: "ĐẠT", label: "Đạt" }, { value: "KHÔNG ĐẠT", label: "Không đạt" }]), area("overall_comment", "Nhận xét chung", undefined, 2), json("script", "Kịch bản hỏi đáp (JSON)", '[{"question":"","expectation":"","answer":""}]'), json("criteria", "Tiêu chí đánh giá (JSON)", '[{"criteria_type":"Năng lực chuyên môn","required_from":"","candidate_value":"","candidate_description":"","is_passed":true,"note":""}]'), json("offer", "Thông tin offer (JSON)", '{}')],
+     fields: [text("eval_code", "Số phiếu"), date("evaluation_date", "Ngày đánh giá", true), text("schedule_id", "Số lịch", undefined, true), text("candidate_id", "Mã ứng viên", undefined, true), text("evaluator_id", "Người đánh giá"), number("duration_minutes", "Thời lượng (phút)"), number("level_score", "Điểm phỏng vấn (1-5)", true), select("overall_result", "Kết quả", [{ value: "ĐẠT", label: "Đạt" }, { value: "KHÔNG ĐẠT", label: "Không đạt" }]), area("overall_comment", "Nhận xét chung", undefined, 2), json("script", "Kịch bản hỏi đáp (JSON)", '[{"question":"","expectation":"","answer":""}]'), json("criteria", "Tiêu chí đánh giá (JSON)", '[{"criteria_type":"Năng lực chuyên môn","required_from":"","candidate_value":"","candidate_description":"","is_passed":true,"note":""}]'), json("offer", "Thông tin offer (JSON)", '{}')],
   },
   {
     id: "offers", label: "Offer", endpoint: "/recruitment/offers", idField: "offer_id",
@@ -131,11 +130,6 @@ const recruitmentTabs: WorkspaceTab[] = [
     id: "decisions", label: "Quyết định trúng tuyển", endpoint: "/recruitment/decisions", idField: "decision_id",
     columns: [{ key: "decision_number", label: "Số phiếu" }, { key: "candidate_name", label: "Ứng viên" }, { key: "decision_date", label: "Ngày quyết định" }, { key: "result", label: "Kết quả" }, { key: "overall_comment", label: "Đánh giá chung" }],
     fields: [text("decision_number", "Số phiếu"), date("decision_date", "Ngày quyết định", true), text("candidate_id", "Ứng viên", undefined, true), text("interview_eval_id", "Phiếu đánh giá phỏng vấn", undefined, true), select("result", "Kết quả", [{ value: "ĐẠT", label: "Đạt" }, { value: "KHÔNG ĐẠT", label: "Không đạt" }], true), area("rejection_reason", "Lý do bị loại"), area("overall_comment", "Đánh giá chung", undefined, 2)],
-  },
-  {
-    id: "conversion", label: "Chuyển thành nhân viên", endpoint: "/recruitment/candidates", idField: "candidate_id", convert: true,
-    columns: [{ key: "candidate_code", label: "Mã ứng viên" }, { key: "full_name", label: "Họ tên" }, { key: "apply_position_name", label: "Vị trí" }, { key: "status", label: "Trạng thái" }, { key: "expected_start_date", label: "Ngày đi làm" }],
-    fields: [],
   },
 ];
 

@@ -16,8 +16,7 @@ import {
 export const Login = () => {
     const { login } = useAuth();
 
-    // View states: 'LOGIN' | 'FORGOT_PASSWORD'
-    const [viewMode, setViewMode] = useState('LOGIN');
+    const [viewMode] = useState('LOGIN');
 
     // Form states
     const [username, setUsername] = useState('');
@@ -77,7 +76,7 @@ export const Login = () => {
             height: '100vh',
             minHeight: '650px',
             display: 'flex',
-            fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+            fontFamily: '"Segoe UI", Tahoma, Arial, sans-serif',
             backgroundColor: '#F4F8F7',
             color: '#0F172A',
             overflow: 'hidden'
@@ -383,25 +382,7 @@ export const Login = () => {
                                     <span>Ghi nhớ đăng nhập</span>
                                 </label>
 
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        setViewMode('FORGOT_PASSWORD');
-                                        setErrorMessage('');
-                                        setForgotSuccess(false);
-                                    }}
-                                    style={{
-                                        background: 'none',
-                                        border: 'none',
-                                        color: '#2D6F62',
-                                        fontWeight: 600,
-                                        cursor: 'pointer',
-                                        padding: 0
-                                    }}
-                                >
-                                    Quên mật khẩu?
-                                </button>
-                            </div>
+                             </div>
 
                             {/* Submit Button */}
                             <button

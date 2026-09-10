@@ -54,8 +54,8 @@ const navItems: NavItem[] = [
       { id: "screenings", label: "Phiếu sơ loại" },
       { id: "schedules", label: "Lập lịch" },
       { id: "interview-evaluations", label: "Đánh giá phỏng vấn" },
-      { id: "offers", label: "Quyết định trúng tuyển" },
-      { id: "conversion", label: "Chức năng chuyển ứng viên thành nhân viên" },
+      { id: "offers", label: "Offer" },
+      { id: "decisions", label: "Quyết định trúng tuyển" },
     ],
   },
   {

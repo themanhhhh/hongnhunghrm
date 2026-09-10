@@ -173,6 +173,13 @@ const getLastWeekFilters = () => {
     };
 };
 
+const csvEscape = (value) => `"${String(value ?? '').replaceAll('"', '""')}"`;
+const htmlEscape = (value) => String(value ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;');
+
 export const ReportsModule = ({ activeSubTab }) => {
     // State Management
     const [expandedGroups, setExpandedGroups] = useState({
@@ -249,16 +256,16 @@ export const ReportsModule = ({ activeSubTab }) => {
         if (!reportData || !reportData.data) return;
 
         const rowsHtml = reportData.data.map((row, idx) => {
-            const values = Object.values(row);
+            const values = Object.values(row).slice(0, selectedReport.columns.length);
             const cells = values.slice(0, selectedReport.columns.length).map(val => {
                 const display = typeof val === 'number' && val > 1000 ? val.toLocaleString('vi-VN') : (val ?? '');
-                return `<td style="border:1px solid #94A3B8;padding:6px 8px;font-size:13px;">${display}</td>`;
+                return `<td style="border:1px solid #94A3B8;padding:6px 8px;font-size:13px;">${htmlEscape(display)}</td>`;
             }).join('');
             return `<tr><td style="border:1px solid #94A3B8;padding:6px 8px;text-align:center;font-size:13px;">${idx + 1}</td>${cells}</tr>`;
         }).join('');
 
         const headerCells = selectedReport.columns.map(col =>
-            `<th style="border:1px solid #94A3B8;padding:6px 8px;background:#F1F5F9;font-size:13px;">${col}</th>`
+            `<th style="border:1px solid #94A3B8;padding:6px 8px;background:#F1F5F9;font-size:13px;">${htmlEscape(col)}</th>`
         ).join('');
 
         const html = `
@@ -266,10 +273,10 @@ export const ReportsModule = ({ activeSubTab }) => {
       <head><meta charset="utf-8" /></head>
       <body style="font-family: Arial, sans-serif;">
         <table style="border-collapse:collapse;width:100%;">
-          <tr><td colspan="${selectedReport.columns.length + 1}" style="font-weight:bold;font-size:13px;">ĐƠN VỊ: VĂN PHÒNG CÔNG TY CỔ PHẦN BRAVO</td></tr>
+           <tr><td colspan="${selectedReport.columns.length + 1}" style="font-weight:bold;font-size:13px;">ĐƠN VỊ: VĂN PHÒNG CÔNG TY CỔ PHẦN BRAVO</td></tr>
           <tr><td colspan="${selectedReport.columns.length + 1}" style="font-size:12px;color:#475569;">Địa chỉ: Hà Nội — Hệ thống Quản trị BRAVO 10 ERP — Mẫu số: BC-HRM/2026</td></tr>
           <tr><td colspan="${selectedReport.columns.length + 1}">&nbsp;</td></tr>
-          <tr><td colspan="${selectedReport.columns.length + 1}" style="text-align:center;font-weight:bold;font-size:16px;">${selectedReport.title.toUpperCase()}</td></tr>
+           <tr><td colspan="${selectedReport.columns.length + 1}" style="text-align:center;font-weight:bold;font-size:16px;">${htmlEscape(selectedReport.title.toUpperCase())}</td></tr>
           <tr><td colspan="${selectedReport.columns.length + 1}" style="font-size:12px;color:#475569;">Từ ngày: ${filterCriteria.startDate} — Đến ngày: ${filterCriteria.endDate} — Phòng ban: ${filterCriteria.department === 'ALL' ? 'Toàn công ty' : filterCriteria.department} — Số bản ghi: ${reportData.data.length}</td></tr>
           <tr><td colspan="${selectedReport.columns.length + 1}">&nbsp;</td></tr>
           <tr><th style="border:1px solid #94A3B8;padding:6px 8px;background:#F1F5F9;font-size:13px;">Stt</th>${headerCells}</tr>
@@ -292,8 +299,8 @@ export const ReportsModule = ({ activeSubTab }) => {
     // Export to Excel CSV helper
     const handleExportCSV = () => {
         if (!reportData || !reportData.data) return;
-        const headers = selectedReport.columns.join(',');
-        const rows = reportData.data.map(r => Object.values(r).join(',')).join('\n');
+        const headers = selectedReport.columns.map(csvEscape).join(',');
+        const rows = reportData.data.map(r => Object.values(r).slice(0, selectedReport.columns.length).map(csvEscape).join(',')).join('\n');
         const blob = new Blob([`\uFEFF${headers}\n${rows}`], { type: 'text/csv;charset=utf-8;' });
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');

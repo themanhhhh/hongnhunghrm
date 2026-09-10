@@ -59,8 +59,7 @@ export const Sidebar = ({ currentTab, setCurrentTab, activeSubTab, setActiveSubT
                         'Phiếu sơ loại',
                         'Lập lịch',
                         'Đánh giá phỏng vấn',
-                        'Quyết định trúng tuyển',
-                        'Chức năng chuyển ứng viên thành nhân viên'
+                        'Quyết định trúng tuyển'
                     ]
                 },
                 {

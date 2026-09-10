@@ -106,12 +106,6 @@ export function LoginForm() {
           />{" "}
           Ghi nhớ đăng nhập
         </label>
-        <button
-          type="button"
-          className="font-semibold text-teal-700 hover:text-teal-900"
-        >
-          Quên mật khẩu?
-        </button>
       </div>
       <Button
         type="submit"

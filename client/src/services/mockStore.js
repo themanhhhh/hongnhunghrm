@@ -335,6 +335,44 @@ const INITIAL_INTERVIEWS = [
     }
 ];
 
+const INITIAL_INTERVIEW_EVALUATIONS = [
+    {
+        id: 'iev-001',
+        interview_eval_id: 'iev-001',
+        eval_code: 'PDGPV/26-001',
+        evaluation_date: '2026-08-28',
+        schedule_id: 'sch-01',
+        schedule_code: 'PVTT/26-001',
+        candidate_id: 'cand-uv08',
+        candidate_code: 'UV08',
+        candidate_name: 'Nguyễn Thu Hà',
+        evaluator_id: 'emp-hr-01',
+        evaluator_name: 'Trần Thị Thu Hà',
+        duration_minutes: 60,
+        level_score: 4,
+        overall_result: 'ĐẠT',
+        overall_comment: 'Ứng viên giao tiếp tốt và phù hợp với vị trí tuyển dụng.',
+        script: [{ question: 'Hãy giới thiệu kinh nghiệm gần đây nhất.', expectation: 'Trình bày rõ vai trò và kết quả.', answer: 'Ứng viên trình bày mạch lạc.' }],
+        criteria: [{ criteria_type: 'Năng lực chuyên môn', required_from: 'Tư vấn ERP', required_description: 'Hiểu quy trình tư vấn', candidate_value: 'Tốt', candidate_description: 'Có ví dụ thực tế', is_passed: true, note: '' }],
+        offer: {}
+    }
+];
+
+const INITIAL_RECRUITMENT_DECISIONS = [
+    {
+        id: 'decision-001',
+        decision_id: 'decision-001',
+        decision_number: 'QDTD/26-0001',
+        candidate_id: 'cand-uv10',
+        candidate_code: 'UV10',
+        candidate_name: 'Đỗ Quốc Hưng',
+        decision_date: '2026-08-12',
+        result: 'ĐẠT',
+        overall_comment: 'Đủ điều kiện tiếp nhận thử việc.',
+        status: 'COMPLETED'
+    }
+];
+
 const INITIAL_OFFERS = [
     {
         id: 'off-001', offer_id: 'off-001', candidate_id: 'cand-uv10', candidate_code: 'UV10', candidate_name: 'Đỗ Quốc Hưng',
@@ -748,7 +786,8 @@ export const getMockResponse = (method, endpoint, body) => {
             if (endpoint.includes('/hr/employees/')) {
                 const id = endpoint.split('/hr/employees/')[1];
                 const emp = emps.find(e => e.id === id || e.employee_id === id);
-                return { success: true, data: emp || emps[0] };
+                const contracts = getStorageItem('employee_contracts', []);
+                return { success: true, data: emp ? { ...emp, contracts: contracts.filter(c => c.employee_id === emp.employee_id) } : emps[0] };
             }
             return { success: true, data: emps };
         }
@@ -800,6 +839,33 @@ export const getMockResponse = (method, endpoint, body) => {
             const updated = emps.filter(e => e.id !== id && e.employee_id !== id);
             setStorageItem('employees', updated);
             return { success: true, message: 'Đã xóa hồ sơ nhân sự thành công.' };
+        }
+    }
+
+    if (endpoint === '/hr/contracts' || endpoint.startsWith('/hr/contracts/')) {
+        const contracts = getStorageItem('employee_contracts', []);
+        if (method === 'GET') {
+            if (endpoint.startsWith('/hr/contracts/')) {
+                const id = endpoint.split('/hr/contracts/')[1];
+                return { success: true, data: contracts.find(c => c.contract_id === id || c.id === id) || null };
+            }
+            return { success: true, data: contracts };
+        }
+        if (method === 'POST') {
+            const id = `contract-${Date.now()}`;
+            const next = { id, contract_id: id, status: 'ACTIVE', ...body };
+            setStorageItem('employee_contracts', [next, ...contracts]);
+            return { success: true, message: 'Lập hợp đồng lao động mới thành công!', data: next };
+        }
+        if (method === 'PUT') {
+            const id = endpoint.split('/hr/contracts/')[1];
+            setStorageItem('employee_contracts', contracts.map(c => (c.id === id || c.contract_id === id) ? { ...c, ...body } : c));
+            return { success: true, message: 'Cập nhật hợp đồng lao động thành công!' };
+        }
+        if (method === 'DELETE') {
+            const id = endpoint.split('/hr/contracts/')[1];
+            setStorageItem('employee_contracts', contracts.filter(c => c.id !== id && c.contract_id !== id));
+            return { success: true, message: 'Đã xóa hợp đồng lao động thành công!' };
         }
     }
 
@@ -859,6 +925,21 @@ export const getMockResponse = (method, endpoint, body) => {
         }
     }
 
+    if (endpoint === '/recruitment/decisions') {
+        if (method === 'GET') {
+            const decisions = getStorageItem('recruitment_decisions', INITIAL_RECRUITMENT_DECISIONS);
+            const candidates = getStorageItem('candidates', INITIAL_CANDIDATES);
+            return {
+                success: true,
+                data: decisions.map(decision => ({
+                    ...decision,
+                    candidate_name: decision.candidate_name || candidates.find(c => c.candidate_id === decision.candidate_id)?.full_name,
+                    candidate_status: candidates.find(c => c.candidate_id === decision.candidate_id)?.status
+                }))
+            };
+        }
+    }
+
     // 8. Interview Schedules
     if (endpoint === '/hr/leave-applications') {
         if (method === 'GET') return { success: true, data: getStorageItem('leave_applications', INITIAL_LEAVE_APPLICATIONS) };
@@ -909,6 +990,78 @@ export const getMockResponse = (method, endpoint, body) => {
         }
     }
 
+    // 8A. Interview evaluations
+    if (endpoint === '/recruitment/interview-evaluations' || endpoint.startsWith('/recruitment/interview-evaluations/')) {
+        const evaluationId = endpoint.split('/recruitment/interview-evaluations/')[1];
+        const evaluations = getStorageItem('interview_evaluations', INITIAL_INTERVIEW_EVALUATIONS);
+        if (method === 'GET') {
+            if (evaluationId) {
+                const detail = evaluations.find(e => e.id === evaluationId || e.interview_eval_id === evaluationId);
+                return detail ? { success: true, data: detail } : { success: false, message: 'Không tìm thấy Phiếu Đánh giá phỏng vấn.' };
+            }
+            return { success: true, data: evaluations };
+        }
+
+        const candidates = getStorageItem('candidates', INITIAL_CANDIDATES);
+        const schedules = getStorageItem('interview_schedules', INITIAL_INTERVIEW_SCHEDULES);
+        const candidate = candidates.find(c => c.id === body?.candidate_id || c.candidate_id === body?.candidate_id);
+        const schedule = schedules.find(s => s.id === body?.schedule_id || s.schedule_id === body?.schedule_id);
+        if (!candidate || !schedule) return { success: false, message: 'Lịch phỏng vấn hoặc ứng viên không tồn tại.' };
+
+        let scheduleCandidates = [];
+        let council = [];
+        try { scheduleCandidates = typeof schedule.candidates_json === 'string' ? JSON.parse(schedule.candidates_json) : (schedule.candidates_json || []); } catch (e) { }
+        try { council = typeof schedule.council_json === 'string' ? JSON.parse(schedule.council_json) : (schedule.council_json || []); } catch (e) { }
+        if (!scheduleCandidates.some(item => (item.candidate_id || item.id) === body.candidate_id)) return { success: false, message: 'Ứng viên không thuộc lịch phỏng vấn đã chọn.' };
+        if (!council.some(item => (item.employee_id || item.id) === body.evaluator_id)) return { success: false, message: 'Người đánh giá phải thuộc Hội đồng của lịch phỏng vấn.' };
+
+        if (method === 'DELETE') {
+            const updated = evaluations.filter(e => e.id !== evaluationId && e.interview_eval_id !== evaluationId);
+            setStorageItem('interview_evaluations', updated);
+            const remaining = updated.some(e => e.candidate_id === candidate.candidate_id);
+            if (!remaining) {
+                const updatedCandidates = candidates.map(c => (c.id === candidate.candidate_id || c.candidate_id === candidate.candidate_id) ? { ...c, status: 'Đã sơ loại, Đạt' } : c);
+                setStorageItem('candidates', updatedCandidates);
+            }
+            return { success: true, message: 'Đã xóa Phiếu Đánh giá phỏng vấn thành công!' };
+        }
+
+        const existing = method === 'PUT' ? evaluations.find(e => e.id === evaluationId || e.interview_eval_id === evaluationId) : null;
+        if (method === 'PUT' && !existing) return { success: false, message: 'Không tìm thấy Phiếu Đánh giá phỏng vấn.' };
+        const score = Number(body.level_score);
+        const normalizedResult = ['ĐẠT', 'PASSED'].includes(String(body.overall_result || '').trim().toUpperCase()) ? 'ĐẠT' : 'KHÔNG ĐẠT';
+        if (!Number.isInteger(score) || score < 1 || score > 5) return { success: false, message: 'Mức độ đánh giá phải từ 1 đến 5.' };
+        const nextId = existing?.interview_eval_id || body.interview_eval_id || `iev-${Date.now()}`;
+        const evaluator = getStorageItem('employees', INITIAL_EMPLOYEES).find(e => e.employee_id === body.evaluator_id || e.id === body.evaluator_id);
+        const next = {
+            ...(existing || {}),
+            ...body,
+            id: nextId,
+            interview_eval_id: nextId,
+            eval_code: existing?.eval_code || `PDGPV/${String(new Date().getFullYear()).slice(-2)}-${String(evaluations.length + 1).padStart(3, '0')}`,
+            candidate_name: candidate.full_name,
+            candidate_code: candidate.candidate_code,
+            schedule_code: schedule.schedule_code,
+            evaluator_name: evaluator?.full_name,
+            level_score: score,
+            overall_result: normalizedResult,
+            script: Array.isArray(body.script) ? body.script : [],
+            criteria: Array.isArray(body.criteria) ? body.criteria : [],
+            offer: body.offer && typeof body.offer === 'object' ? body.offer : {}
+        };
+        const updated = method === 'PUT' ? evaluations.map(e => (e.id === evaluationId || e.interview_eval_id === evaluationId) ? next : e) : [next, ...evaluations];
+        setStorageItem('interview_evaluations', updated);
+        if (next.offer && Object.keys(next.offer).length > 0) {
+            const offers = getStorageItem('offers', INITIAL_OFFERS);
+            const existingOffer = offers.find(o => o.candidate_id === candidate.candidate_id);
+            const nextOffer = { ...(existingOffer || {}), ...next.offer, candidate_id: candidate.candidate_id, candidate_code: candidate.candidate_code, candidate_name: candidate.full_name };
+            setStorageItem('offers', existingOffer ? offers.map(o => o.candidate_id === candidate.candidate_id ? nextOffer : o) : [nextOffer, ...offers]);
+        }
+        const updatedCandidates = candidates.map(c => (c.id === candidate.candidate_id || c.candidate_id === candidate.candidate_id) ? { ...c, status: normalizedResult === 'ĐẠT' ? 'Đã phỏng vấn, Đạt' : 'Đã phỏng vấn, Không đạt' } : c);
+        setStorageItem('candidates', updatedCandidates);
+        return { success: true, message: method === 'PUT' ? 'Cập nhật Phiếu Đánh giá phỏng vấn thành công!' : 'Tạo Phiếu Đánh giá phỏng vấn thành công!', data: next };
+    }
+
     // 8B. Interviews
     if (endpoint === '/recruitment/interviews') {
         if (method === 'GET') return { success: true, data: getStorageItem('interviews', INITIAL_INTERVIEWS) };
@@ -954,12 +1107,24 @@ export const getMockResponse = (method, endpoint, body) => {
             return { success: false, message: 'Không tìm thấy ứng viên.' };
         }
 
+        const decisions = getStorageItem('recruitment_decisions', INITIAL_RECRUITMENT_DECISIONS);
+        const hiringDecision = decisions.find(d => d.candidate_id === candidate_id && String(d.result || '').trim().toUpperCase() === 'ĐẠT' && String(d.status || 'COMPLETED').trim().toUpperCase() === 'COMPLETED');
+        if (!hiringDecision) {
+            return { success: false, message: 'Chỉ ứng viên có quyết định trúng tuyển kết quả Đạt mới được chuyển thành nhân viên.' };
+        }
+
         const emps = getStorageItem('employees', INITIAL_EMPLOYEES);
+        const existingEmployee = emps.find(e => e.candidate_id === candidate_id);
+        if (candidate.status === 'HIRED' || existingEmployee) {
+            return { success: false, message: 'Ứng viên này đã được chuyển thành nhân viên.' };
+        }
         const newEmpCode = `NV-${new Date().getFullYear()}-${Math.floor(100 + Math.random() * 900)}`;
+        const employeeId = `emp-${Date.now()}`;
         const newEmp = {
-            id: `emp-${Date.now()}`,
-            employee_id: `emp-${Date.now()}`,
+            id: employeeId,
+            employee_id: employeeId,
             employee_code: newEmpCode,
+            candidate_id,
             full_name: candidate.full_name,
             gender: candidate.gender || 'Nam',
             phone: candidate.phone,
@@ -972,6 +1137,38 @@ export const getMockResponse = (method, endpoint, body) => {
 
         setStorageItem('employees', [newEmp, ...emps]);
 
+        const offers = getStorageItem('offers', INITIAL_OFFERS);
+        const offer = offers.find(item => item.candidate_id === candidate_id);
+        const startDate = offer?.expected_start_date || offer?.start_date || new Date().toISOString().split('T')[0];
+        const probationTo = new Date(startDate);
+        probationTo.setMonth(probationTo.getMonth() + 2);
+        const officialSalary = Number(offer?.official_salary || offer?.salary_offer || 0);
+        const probationSalary = Number(offer?.probation_salary || officialSalary || 15000000);
+        const contractId = `contract-${Date.now()}`;
+        const newContract = {
+            id: contractId,
+            contract_id: contractId,
+            contract_no: `HDTV/${new Date().getFullYear()}/${String(Date.now()).slice(-6)}`,
+            employee_id: employeeId,
+            employee_name: candidate.full_name,
+            employee_position: candidate.position_name || 'Nhân viên',
+            contract_type: 'Hợp đồng thử việc',
+            contract_date: startDate,
+            sign_date: new Date().toISOString().split('T')[0],
+            start_date: startDate,
+            end_date: probationTo.toISOString().split('T')[0],
+            has_probation: 1,
+            probation_from_date: startDate,
+            probation_to_date: probationTo.toISOString().split('T')[0],
+            probation_salary_rate: officialSalary > 0 ? Number(((probationSalary / officialSalary) * 100).toFixed(2)) : 100,
+            salary: probationSalary,
+            base_salary: probationSalary,
+            status: 'ACTIVE',
+            note: 'Tự động tạo khi chuyển từ ứng viên có quyết định tuyển dụng Đạt.'
+        };
+        const contracts = getStorageItem('employee_contracts', []);
+        setStorageItem('employee_contracts', [newContract, ...contracts]);
+
         // Update candidate status to HIRED
         const updatedCands = cands.map(c => (c.id === candidate_id || c.candidate_id === candidate_id) ? { ...c, status: 'HIRED' } : c);
         setStorageItem('candidates', updatedCands);
@@ -979,7 +1176,7 @@ export const getMockResponse = (method, endpoint, body) => {
         return {
             success: true,
             message: `Chuyển ứng viên ${candidate.full_name} thành Nhân viên thành công! Mã NV mới: ${newEmpCode}`,
-            data: newEmp
+            data: { ...newEmp, contract_id: contractId }
         };
     }
 

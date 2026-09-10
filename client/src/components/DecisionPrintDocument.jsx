@@ -37,10 +37,69 @@ const getDecisionType = (document) => {
     return 'Thuyên chuyển';
 };
 
+const EmployeeCvDocument = ({ document }) => {
+    const fullName = valueOf(document, 'full_name', 'employee_name') || 'Chưa cập nhật';
+    const contracts = Array.isArray(document.contracts) ? document.contracts : [];
+    const workHistory = Array.isArray(document.workHistory) ? document.workHistory : [];
+    const rewards = Array.isArray(document.rewards) ? document.rewards : [];
+    const info = [
+        ['Mã nhân viên', valueOf(document, 'employee_code')],
+        ['Giới tính', valueOf(document, 'gender')],
+        ['Ngày sinh', formatDate(valueOf(document, 'date_of_birth'))],
+        ['Số CCCD', valueOf(document, 'citizen_id')],
+        ['Điện thoại', valueOf(document, 'phone')],
+        ['Email công ty', valueOf(document, 'company_email', 'email')],
+        ['Địa chỉ hiện tại', valueOf(document, 'address')],
+        ['Địa chỉ thường trú', valueOf(document, 'permanent_address')],
+        ['Ngày vào làm', formatDate(valueOf(document, 'join_date'))],
+        ['Ngày chính thức', formatDate(valueOf(document, 'official_date'))],
+        ['Trạng thái', valueOf(document, 'employment_status') === 'WORKING' ? 'Đang làm việc' : valueOf(document, 'employment_status')],
+        ['Quản lý trực tiếp', valueOf(document, 'manager_name')]
+    ];
+    return (
+        <div className="decision-print-root employee-cv-print-root" aria-hidden="true">
+            <article className="employee-cv-print-page">
+                <header className="employee-cv-header">
+                    <div>
+                        <strong>VĂN PHÒNG CÔNG TY CỔ PHẦN BRAVO</strong>
+                        <div>HỒ SƠ NHÂN SỰ</div>
+                    </div>
+                    <div className="employee-cv-date">Ngày in: {formatDate(Date.now())}</div>
+                </header>
+                <section className="employee-cv-title">
+                    <h1>THÔNG TIN HỒ SƠ NHÂN SỰ</h1>
+                    <h2>{fullName}</h2>
+                    <div>{valueOf(document, 'position_name')} - {valueOf(document, 'department_name')}</div>
+                </section>
+                <section className="employee-cv-section">
+                    <h3>1. Thông tin cá nhân và công việc</h3>
+                    <div className="employee-cv-grid">
+                        {info.map(([label, value]) => <div key={label}><b>{label}</b><span>{value || '................................'}</span></div>)}
+                    </div>
+                </section>
+                <section className="employee-cv-section">
+                    <h3>2. Hợp đồng lao động</h3>
+                    {contracts.length ? <table><thead><tr><th>Số hợp đồng</th><th>Loại hợp đồng</th><th>Ngày ký</th><th>Ngày bắt đầu</th><th>Ngày kết thúc</th><th>Trạng thái</th></tr></thead><tbody>{contracts.map((contract, index) => <tr key={contract.contract_id || index}><td>{valueOf(contract, 'contract_no')}</td><td>{valueOf(contract, 'contract_type')}</td><td>{formatDate(contract.sign_date)}</td><td>{formatDate(contract.start_date)}</td><td>{formatDate(contract.end_date)}</td><td>{valueOf(contract, 'status')}</td></tr>)}</tbody></table> : <p className="employee-cv-empty">Chưa có dữ liệu hợp đồng.</p>}
+                </section>
+                <section className="employee-cv-section">
+                    <h3>3. Quá trình công tác</h3>
+                    {workHistory.length ? <table><thead><tr><th>Ngày hiệu lực</th><th>Loại biến động</th><th>Bộ phận</th><th>Vị trí</th><th>Lý do</th></tr></thead><tbody>{workHistory.map((item, index) => <tr key={item.work_history_id || index}><td>{formatDate(item.effective_date)}</td><td>{valueOf(item, 'decision_type')}</td><td>{valueOf(item, 'department_name')}</td><td>{valueOf(item, 'position_name')}</td><td>{valueOf(item, 'reason')}</td></tr>)}</tbody></table> : <p className="employee-cv-empty">Chưa có dữ liệu quá trình công tác.</p>}
+                </section>
+                <section className="employee-cv-section">
+                    <h3>4. Khen thưởng / kỷ luật</h3>
+                    {rewards.length ? <table><thead><tr><th>Số quyết định</th><th>Loại</th><th>Ngày</th><th>Lý do</th><th>Người ký</th></tr></thead><tbody>{rewards.map((item, index) => <tr key={item.reward_discipline_id || index}><td>{valueOf(item, 'decision_no', 'decision_number')}</td><td>{valueOf(item, 'decision_type')}</td><td>{formatDate(item.decision_date)}</td><td>{valueOf(item, 'reason')}</td><td>{valueOf(item, 'decision_by')}</td></tr>)}</tbody></table> : <p className="employee-cv-empty">Chưa có dữ liệu khen thưởng hoặc kỷ luật.</p>}
+                </section>
+                <footer className="employee-cv-signature">Người lập hồ sơ<br /><strong>Phòng Hành chính Nhân sự</strong></footer>
+            </article>
+        </div>
+    );
+};
+
 const DecisionPrintDocument = ({ document }) => {
     if (!document) return null;
 
     const kind = document.kind || 'transfer';
+    if (kind === 'employee') return <EmployeeCvDocument document={document} />;
     const employeeName = valueOf(document, 'employee_name', 'full_name') || 'Ông/Bà ................................';
     const employeeCode = valueOf(document, 'employee_code');
     const currentDepartment = valueOf(document, 'current_dept_name', 'current_department', 'department_name') || '................................';

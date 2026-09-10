@@ -32,7 +32,7 @@ export const moduleData = {
     title: "Quản lý tuyển dụng",
     eyebrow: "TALENT ACQUISITION",
     description: "Điều phối nhu cầu nhân sự từ định biên đến ngày đầu tiên đi làm.",
-    tabs: ["Định biên nhân sự", "Yêu cầu tuyển dụng", "Hồ sơ ứng viên", "Sơ loại", "Lịch phỏng vấn", "Đánh giá phỏng vấn", "Offer", "Chuyển thành nhân viên"],
+    tabs: ["Định biên nhân sự", "Yêu cầu tuyển dụng", "Hồ sơ ứng viên", "Sơ loại", "Lịch phỏng vấn", "Đánh giá phỏng vấn", "Offer", "Quyết định trúng tuyển"],
     stats: [{ label: "Yêu cầu tuyển dụng", value: "24", meta: "6 chờ duyệt" }, { label: "Ứng viên", value: "184", meta: "64 đang xử lý" }, { label: "Lịch phỏng vấn", value: "12", meta: "7 lịch tuần này" }, { label: "Tỷ lệ nhận việc", value: "82%", meta: "+6% so với Q1" }],
     rows: [
       ["YCTD/26-018", "Chuyên viên Cloud & Security", "Phòng Cloud", "3", "Ngoài định biên", "Chờ duyệt"],

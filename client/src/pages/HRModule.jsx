@@ -1569,7 +1569,7 @@ export const HRModule = ({ activeSubTab }) => {
                                                 <>
                                                     <button
                                                         className="btn btn-secondary"
-                                                        onClick={() => handlePrintDocument({ kind: 'employee', ...selectedEmp })}
+                                                         onClick={() => handlePrintDocument({ kind: 'employee', ...selectedEmp, contracts: profileContracts, workHistory: profileWorkHistory, rewards: profileRewards })}
                                                         style={{ padding: '0.5rem 1.1rem', display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.85rem' }}
                                                     >
                                                         <Printer size={16} />
@@ -2119,7 +2119,8 @@ export const HRModule = ({ activeSubTab }) => {
                                 ) : profileContracts.length === 0 ? (
                                     <p style={{ color: '#64748B', fontSize: '0.875rem' }}>Chưa có hợp đồng lao động nào được ghi nhận.</p>
                                 ) : (
-                                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
+                                    <div className="detail-table-scroll">
+                                    <table style={{ width: '100%', minWidth: '760px', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
                                         <thead>
                                             <tr style={{ backgroundColor: '#F8FAFC', textAlign: 'left' }}>
                                                 <th style={{ padding: '0.6rem 0.75rem', borderBottom: '2px solid #E2E8F0' }}>Số HĐ</th>
@@ -2147,6 +2148,7 @@ export const HRModule = ({ activeSubTab }) => {
                                             ))}
                                         </tbody>
                                     </table>
+                                    </div>
                                 )}
                             </div>
                         )}

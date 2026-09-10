@@ -587,6 +587,9 @@ export async function mockApiRequest<T>(path: string, init: RequestInit = {}, se
     const decision = (store["/recruitment/decisions"] ?? []).find((row) => row.candidate_id === payload.candidate_id && String(row.result ?? "").trim().toUpperCase() === "ĐẠT" && row.status === "COMPLETED");
     if (!decision)
       return failure("Chỉ ứng viên có quyết định trúng tuyển kết quả Đạt mới được chuyển thành nhân viên.") as T;
+    const existingEmployee = store["/hr/employees"].find((row) => String(row.candidate_id ?? "") === String(payload.candidate_id));
+    if (candidate.status === "HIRED" || existingEmployee)
+      return failure("Ứng viên này đã được chuyển thành nhân viên.") as T;
 
     const now = new Date();
     const timestamp = now.getTime();
@@ -604,6 +607,12 @@ export async function mockApiRequest<T>(path: string, init: RequestInit = {}, se
     );
     const employeeId = `emp-${timestamp}`;
     const contractId = `contract-${timestamp}`;
+    const officialSalary = Number(offer?.official_salary ?? offer?.salary_offer ?? 0);
+    const probationSalary = Number(offer?.probation_salary ?? (officialSalary || 15000000));
+    const probationFrom = new Date(joinDate);
+    const probationTo = new Date(probationFrom);
+    probationTo.setMonth(probationTo.getMonth() + 2);
+    const probationRate = officialSalary > 0 ? Number(((probationSalary / officialSalary) * 100).toFixed(2)) : 100;
 
     candidate.status = "HIRED";
     store["/hr/employees"].unshift({
@@ -617,6 +626,7 @@ export async function mockApiRequest<T>(path: string, init: RequestInit = {}, se
       department_name: department?.department_name,
       position_id: candidate.position_id,
       position_name: candidate.apply_position_name ?? position?.position_name,
+      candidate_id: candidate.candidate_id,
       level: "Nhân viên",
       employment_status: "WORKING",
       join_date: joinDate,
@@ -626,14 +636,18 @@ export async function mockApiRequest<T>(path: string, init: RequestInit = {}, se
       contract_no: `HDTV/${now.getFullYear()}/${String(timestamp).slice(-6)}`,
       employee_id: employeeId,
       employee_name: candidate.full_name,
-      contract_type: "Hợp đồng thử việc (2 tháng)",
+      employee_position: candidate.apply_position_name ?? position?.position_name,
+      contract_type: "Hợp đồng thử việc",
+      contract_date: joinDate,
+      sign_date: now.toISOString().slice(0, 10),
       start_date: joinDate,
-      end_date: new Date(
-        new Date(joinDate).setMonth(new Date(joinDate).getMonth() + 2),
-      )
-        .toISOString()
-        .slice(0, 10),
-      base_salary: offer?.official_salary ?? offer?.salary_offer ?? 15000000,
+      end_date: probationTo.toISOString().slice(0, 10),
+      has_probation: 1,
+      probation_from_date: probationFrom.toISOString().slice(0, 10),
+      probation_to_date: probationTo.toISOString().slice(0, 10),
+      probation_salary_rate: probationRate,
+      base_salary: probationSalary,
+      salary: probationSalary,
       status: "ACTIVE",
       note: "Tự động tạo khi chuyển từ ứng viên.",
     });
@@ -680,9 +694,11 @@ export async function mockApiRequest<T>(path: string, init: RequestInit = {}, se
     const candidate = store["/recruitment/candidates"].find((item) => String(item.candidate_id) === String(payload.candidate_id));
     const schedule = store["/recruitment/interview-schedules"].find((item) => String(item.schedule_id) === String(payload.schedule_id));
     if (!candidate || !schedule) return failure("Lịch phỏng vấn hoặc ứng viên không tồn tại.") as T;
-    const scheduleCandidates = parseDetailList(schedule.candidates ?? schedule.candidates_json);
-    if (!scheduleCandidates.some((item) => String(item.candidate_id ?? item.id ?? "") === String(payload.candidate_id))) return failure("Ứng viên không thuộc lịch phỏng vấn đã chọn.") as T;
-    const evaluation = method === "PUT" ? rows.find((item) => String(item[idField]) === id) : undefined;
+     const scheduleCandidates = parseDetailList(schedule.candidates ?? schedule.candidates_json);
+     if (!scheduleCandidates.some((item) => String(item.candidate_id ?? item.id ?? "") === String(payload.candidate_id))) return failure("Ứng viên không thuộc lịch phỏng vấn đã chọn.") as T;
+     const panel = parseDetailList(schedule.council ?? schedule.council_json);
+     if (!panel.some((item) => String(item.employee_id ?? item.id ?? "") === String(payload.evaluator_id ?? ""))) return failure("Người đánh giá phải thuộc Hội đồng của lịch phỏng vấn.") as T;
+     const evaluation = method === "PUT" ? rows.find((item) => String(item[idField]) === id) : undefined;
     if (method === "PUT" && !evaluation) return failure("Không tìm thấy Phiếu Đánh giá phỏng vấn.") as T;
     const nextRow = {
       ...(evaluation ?? {}),

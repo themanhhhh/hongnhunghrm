@@ -43,15 +43,18 @@ export const RecruitmentModule = ({ activeSubTab }) => {
     const [interviewEvaluations, setInterviewEvaluations] = useState([]);
     const [ievScriptRows, setIevScriptRows] = useState([]);
     const [ievCriteriaRows, setIevCriteriaRows] = useState([]);
+    const [ievOfferData, setIevOfferData] = useState({ expected_start_date: '', probation_salary: '', official_salary: '', note: '' });
     const [interviews, setInterviews] = useState([]);
     const [offers, setOffers] = useState([]);
+    const [recruitmentDecisions, setRecruitmentDecisions] = useState([]);
     const [departments, setDepartments] = useState([]);
     const [positions, setPositions] = useState([]);
     const [employees, setEmployees] = useState([]);
     const [loading, setLoading] = useState(false);
 
     // Modals
-    const [modalType, setModalType] = useState(null); // 'req' | 'plan' | 'cand' | 'cand_detail' | 'interview' | 'offer'
+    const [modalType, setModalType] = useState(null); // 'req' | 'plan' | 'cand' | 'cand_detail' | 'interview' | 'offer' | 'interview_eval'
+    const [activeIevTab, setActiveIevTab] = useState('general');
     const [selectedCandidate, setSelectedCandidate] = useState(null);
     const [formData, setFormData] = useState({});
 
@@ -249,6 +252,11 @@ export const RecruitmentModule = ({ activeSubTab }) => {
             if (resEmp.success && Array.isArray(resEmp.data)) setEmployees(resEmp.data);
             if (resQuota.success && Array.isArray(resQuota.data)) setQuotas(resQuota.data);
 
+            if (['Hồ sơ ứng viên', 'Quyết định trúng tuyển'].includes(activeSubTab)) {
+                const resDecision = await api.get('/recruitment/decisions');
+                if (resDecision.success && Array.isArray(resDecision.data)) setRecruitmentDecisions(resDecision.data);
+            }
+
             if (!activeSubTab || activeSubTab === 'Định biên nhân sự') {
                 const res = await api.get('/hr/quotas');
                 if (res.success && Array.isArray(res.data)) setQuotas(res.data);
@@ -258,11 +266,14 @@ export const RecruitmentModule = ({ activeSubTab }) => {
             } else if (activeSubTab === 'Kế hoạch tuyển dụng') {
                 const res = await api.get('/recruitment/plans');
                 if (res.success) setPlans(res.data);
-            } else if (activeSubTab === 'Hồ sơ ứng viên' || activeSubTab === 'Chuyển thành nhân viên') {
+            } else if (activeSubTab === 'Hồ sơ ứng viên') {
                 const res = await api.get('/recruitment/candidates');
                 const resPlan = await api.get('/recruitment/plans');
                 if (res.success) setCandidates(res.data);
                 if (resPlan.success) setPlans(resPlan.data);
+            } else if (activeSubTab === 'Quyết định trúng tuyển') {
+                const res = await api.get('/recruitment/candidates');
+                if (res.success && Array.isArray(res.data)) setCandidates(res.data);
             } else if (activeSubTab === 'Sơ loại') {
                 const res = await api.get('/recruitment/pre-screenings');
                 const resCand = await api.get('/recruitment/candidates');
@@ -279,9 +290,11 @@ export const RecruitmentModule = ({ activeSubTab }) => {
                 const res = await api.get('/recruitment/interview-evaluations');
                 const resSch = await api.get('/recruitment/interview-schedules');
                 const resCand = await api.get('/recruitment/candidates');
+                const resOffer = await api.get('/recruitment/offers');
                 if (res.success && Array.isArray(res.data)) setInterviewEvaluations(res.data);
                 if (resSch.success && Array.isArray(resSch.data)) setInterviewSchedules(resSch.data);
                 if (resCand.success && Array.isArray(resCand.data)) setCandidates(resCand.data);
+                if (resOffer.success && Array.isArray(resOffer.data)) setOffers(resOffer.data);
             } else if (activeSubTab === 'Offer') {
                 const res = await api.get('/recruitment/offers');
                 if (res.success) setOffers(res.data);
@@ -1564,15 +1577,46 @@ export const RecruitmentModule = ({ activeSubTab }) => {
         return candsArr;
     };
 
+    const getCouncilInSchedule = (scheduleId) => {
+        const sch = interviewSchedules.find(s => (s.schedule_id || s.id) === scheduleId);
+        if (!sch) return [];
+        try {
+            const council = typeof sch.council_json === 'string' ? JSON.parse(sch.council_json || '[]') : (sch.council_json || []);
+            return Array.isArray(council) ? council : [];
+        } catch (e) {
+            return [];
+        }
+    };
+
+    const getCandidateForEvaluation = (candidateId) => candidates.find(c => (c.candidate_id || c.id) === candidateId);
+
+    const getOfferForEvaluation = (candidateId) => {
+        const offer = offers.find(o => (o.candidate_id || o.id) === candidateId);
+        return {
+            expected_start_date: offer?.expected_start_date ? formatDateForInput(offer.expected_start_date) : '',
+            probation_salary: offer?.probation_salary || '',
+            official_salary: offer?.official_salary || offer?.salary_offer || '',
+            note: offer?.note || ''
+        };
+    };
+
     const handleOpenCreateInterviewEvalModal = () => {
         const defaultSch = interviewSchedules[0] || {};
-        const schCands = getCandidatesInSchedule(defaultSch.schedule_id || defaultSch.id);
+        const defaultScheduleId = defaultSch.schedule_id || defaultSch.id || '';
+        const schCands = getCandidatesInSchedule(defaultScheduleId);
+        const council = getCouncilInSchedule(defaultScheduleId);
+        const currentEmployeeId = user?.employeeId || user?.employee_id || '';
+        const defaultEvaluator = council.find(m => Number(m.is_decision_maker) === 1)
+            || council.find(m => (m.employee_id || m.id) === currentEmployeeId)
+            || council[0];
+        const defaultCandidateId = schCands[0]?.candidate_id || schCands[0]?.id || '';
         setFormData({
             isEdit: false,
             interview_eval_id: null,
             evaluation_date: new Date().toISOString().split('T')[0],
-            schedule_id: defaultSch.schedule_id || defaultSch.id || '',
-            candidate_id: schCands[0]?.candidate_id || '',
+            schedule_id: defaultScheduleId,
+            candidate_id: defaultCandidateId,
+            evaluator_id: defaultEvaluator?.employee_id || defaultEvaluator?.id || '',
             duration_minutes: 30,
             level_score: 5,
             overall_result: 'ĐẠT',
@@ -1580,12 +1624,41 @@ export const RecruitmentModule = ({ activeSubTab }) => {
         });
         setIevScriptRows([{ question: '', expectation: '', answer: '' }]);
         setIevCriteriaRows(buildDefaultPsCriteriaRows());
+        setIevOfferData(getOfferForEvaluation(defaultCandidateId));
+        setActiveIevTab('general');
         setModalType('interview_eval');
     };
 
     const handleSelectScheduleForEval = (scheduleId) => {
         const schCands = getCandidatesInSchedule(scheduleId);
-        setFormData({ ...formData, schedule_id: scheduleId, candidate_id: schCands[0]?.candidate_id || '' });
+        const council = getCouncilInSchedule(scheduleId);
+        const currentEmployeeId = user?.employeeId || user?.employee_id || '';
+        const defaultEvaluator = council.find(m => Number(m.is_decision_maker) === 1)
+            || council.find(m => (m.employee_id || m.id) === currentEmployeeId)
+            || council[0];
+        const candidateId = schCands[0]?.candidate_id || schCands[0]?.id || '';
+        setFormData({
+            ...formData,
+            schedule_id: scheduleId,
+            candidate_id: candidateId,
+            evaluator_id: defaultEvaluator?.employee_id || defaultEvaluator?.id || ''
+        });
+        setIevOfferData(getOfferForEvaluation(candidateId));
+    };
+
+    const handleSelectCandidateForEval = (candidateId) => {
+        setFormData({ ...formData, candidate_id: candidateId });
+        setIevOfferData(getOfferForEvaluation(candidateId));
+    };
+
+    const handleViewEvaluationCandidate = (candidateId) => {
+        const candidate = getCandidateForEvaluation(candidateId);
+        if (!candidate) {
+            addToast('Không tìm thấy hồ sơ ứng viên.', 'error');
+            return;
+        }
+        setSelectedCandidate(candidate);
+        setModalType('candidate_eval_detail');
     };
 
     const handleAddScriptRow = () => setIevScriptRows([...ievScriptRows, { question: '', expectation: '', answer: '' }]);
@@ -1608,11 +1681,11 @@ export const RecruitmentModule = ({ activeSubTab }) => {
 
     const handleSubmitInterviewEvaluation = async (e) => {
         e.preventDefault();
-        if (!formData.candidate_id) {
-            addToast('Vui lòng chọn Lịch phỏng vấn và Ứng viên!', 'error');
+        if (!formData.schedule_id || !formData.candidate_id || !formData.evaluator_id) {
+            addToast('Vui lòng chọn Lịch phỏng vấn, Ứng viên và Người đánh giá thuộc Hội đồng!', 'error');
             return;
         }
-        const payload = { ...formData, script: ievScriptRows, criteria: ievCriteriaRows };
+        const payload = { ...formData, script: ievScriptRows, criteria: ievCriteriaRows, offer: ievOfferData };
         const res = formData.isEdit
             ? await api.put(`/recruitment/interview-evaluations/${formData.interview_eval_id}`, payload)
             : await api.post('/recruitment/interview-evaluations', payload);
@@ -1635,16 +1708,25 @@ export const RecruitmentModule = ({ activeSubTab }) => {
         setFormData({
             isEdit: true,
             interview_eval_id: d.interview_eval_id,
+            eval_code: d.eval_code || '',
             evaluation_date: d.evaluation_date ? new Date(d.evaluation_date).toISOString().split('T')[0] : '',
             schedule_id: d.schedule_id || '',
             candidate_id: d.candidate_id,
+            evaluator_id: d.evaluator_id || '',
             duration_minutes: d.duration_minutes || 30,
-            level_score: d.level_score || 5,
+            level_score: d.level_score || 3,
             overall_result: d.overall_result || 'ĐẠT',
             overall_comment: d.overall_comment || ''
         });
         setIevScriptRows(Array.isArray(d.script) && d.script.length > 0 ? d.script : [{ question: '', expectation: '', answer: '' }]);
         setIevCriteriaRows(Array.isArray(d.criteria) && d.criteria.length > 0 ? d.criteria.map(c => ({ ...c, is_passed: !!c.is_passed })) : buildDefaultPsCriteriaRows());
+        setIevOfferData({
+            expected_start_date: d.offer?.expected_start_date ? formatDateForInput(d.offer.expected_start_date) : '',
+            probation_salary: d.offer?.probation_salary || '',
+            official_salary: d.offer?.official_salary || d.offer?.salary_offer || '',
+            note: d.offer?.note || ''
+        });
+        setActiveIevTab('general');
         setModalType('interview_eval');
     };
 
@@ -1810,14 +1892,30 @@ export const RecruitmentModule = ({ activeSubTab }) => {
     };
 
     // 6. Convert Candidate to Employee
+    const hasPassedRecruitmentDecision = (candidateOrDecision) => {
+        const candidateId = candidateOrDecision?.candidate_id || candidateOrDecision?.id;
+        return recruitmentDecisions.some((decision) =>
+            String(decision.candidate_id || '') === String(candidateId || '')
+            && String(decision.result || '').trim().toUpperCase() === 'ĐẠT'
+            && String(decision.status || 'COMPLETED').trim().toUpperCase() === 'COMPLETED'
+        );
+    };
+
     const handleConvertToEmployee = async (candId) => {
         if (!hasPermission('CREATE', 'EMPLOYEE')) {
             addToast('Tài khoản của bạn không có quyền chuyển ứng viên thành nhân viên chính thức!', 'error');
             return;
         }
+        const candidate = candidates.find((item) => String(item.candidate_id || item.id) === String(candId));
+        if (!hasPassedRecruitmentDecision(candidate)) {
+            addToast('Chỉ ứng viên có quyết định tuyển dụng kết quả Đạt mới được chuyển thành nhân viên.', 'error');
+            return;
+        }
+        if (!window.confirm(`Bạn có chắc chắn muốn chuyển ứng viên ${candidate?.full_name || ''} thành nhân viên và tạo hợp đồng thử việc không?`)) return;
         const res = await api.post('/recruitment/convert-to-employee', { candidate_id: candId });
         if (res.success) {
             addToast(res.message, 'success', '🎉 Tuyển dụng thành công!');
+            setModalType(null);
             fetchData();
         } else {
             addToast(res.message, 'error');
@@ -2599,6 +2697,17 @@ export const RecruitmentModule = ({ activeSubTab }) => {
                                             <Edit3 size={14} />
                                             <span>Sửa</span>
                                         </button>
+                                        {r.status !== 'HIRED' && hasPassedRecruitmentDecision(r) && (
+                                            <button
+                                                className="btn btn-primary"
+                                                style={{ padding: '0.25rem 0.55rem', fontSize: '0.75rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.3rem', whiteSpace: 'nowrap' }}
+                                                onClick={() => handleConvertToEmployee(r.candidate_id || r.id)}
+                                                title="Chuyển thành nhân viên và tạo hợp đồng thử việc"
+                                            >
+                                                <UserPlus size={14} />
+                                                <span>Chuyển thành NV</span>
+                                            </button>
+                                        )}
                                         {r.status !== 'HIRED' && (
                                             <button
                                                 className="btn btn-secondary"
@@ -2633,7 +2742,7 @@ export const RecruitmentModule = ({ activeSubTab }) => {
                         { header: 'Vị trí dự tuyển', accessor: 'position_name', render: (r) => <span style={{ whiteSpace: 'nowrap' }}>{r.position_name || '—'}</span> },
                         { header: 'Bộ phận', accessor: 'department_name', render: (r) => <span style={{ whiteSpace: 'nowrap' }}>{r.department_name || '—'}</span> },
                         { header: 'Ngày sơ loại', render: (r) => <span style={{ whiteSpace: 'nowrap' }}>{r.screening_date ? new Date(r.screening_date).toLocaleDateString('vi-VN') : '—'}</span> },
-                        { header: 'Mức độ', render: (r) => <b style={{ color: '#0284C7' }}>{r.level_score}/10</b> },
+                         { header: 'Mức độ', render: (r) => <b style={{ color: '#0284C7' }}>{r.level_score}/10</b> },
                         {
                             header: 'Đánh giá sơ loại',
                             render: (r) => (
@@ -2685,7 +2794,7 @@ export const RecruitmentModule = ({ activeSubTab }) => {
                         { header: 'Lịch số', accessor: 'schedule_code', render: (r) => <span style={{ whiteSpace: 'nowrap' }}>{r.schedule_code || '—'}</span> },
                         { header: 'Ứng viên', accessor: 'candidate_name', render: (r) => <span style={{ fontWeight: 700, whiteSpace: 'nowrap' }}>{r.candidate_name} ({r.candidate_code})</span> },
                         { header: 'Thời lượng', render: (r) => <span style={{ whiteSpace: 'nowrap' }}>{r.duration_minutes} phút</span> },
-                        { header: 'Mức độ', render: (r) => <b style={{ color: '#0284C7' }}>{r.level_score}/10</b> },
+                         { header: 'Mức độ', render: (r) => <b style={{ color: '#0284C7' }}>{r.level_score}/5</b> },
                         {
                             header: 'Đánh giá chung',
                             render: (r) => (
@@ -2894,48 +3003,50 @@ export const RecruitmentModule = ({ activeSubTab }) => {
                 />
             )}
 
-            {/* 6. WORKFLOW: CHUYỂN ỨNG VIÊN THÀNH NHÂN VIÊN */}
-            {activeSubTab === 'Chuyển thành nhân viên' && (
+            {/* 6. QUYẾT ĐỊNH TRÚNG TUYỂN */}
+            {activeSubTab === 'Quyết định trúng tuyển' && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                     <div className="card" style={{ borderLeft: '5px solid var(--bravo-teal)', backgroundColor: '#F0F8F6' }}>
                         <h3 style={{ fontSize: '1rem', color: 'var(--bravo-teal-dark)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                            <Sparkles size={18} />
-                            <span>Chuyển Ứng viên Đã Đạt thành Nhân viên Chính thức BRAVO Software</span>
+                            <FileText size={18} />
+                            <span>Quyết định tuyển dụng</span>
                         </h3>
                         <p style={{ fontSize: '0.85rem', color: '#475569', marginTop: '0.25rem' }}>
-                            Khi ứng viên chấp nhận Offer, nhấn nút <b>"Chuyển thành Nhân viên"</b> bên dưới để tự động tạo Hồ sơ Nhân sự (`Employee`) và Hợp đồng Lao động (`EmployeeContract`).
+                            Chỉ quyết định có kết quả <b>Đạt</b> mới có thao tác chuyển ứng viên thành nhân viên. Hệ thống sẽ tự động tạo hồ sơ nhân sự và hợp đồng thử việc.
                         </p>
                     </div>
 
                     <DataTable
                         loading={loading}
-                        searchPlaceholder="Tìm ứng viên..."
+                        searchPlaceholder="Tìm số quyết định, ứng viên..."
                         columns={[
-                            { header: 'Mã Ứng viên', accessor: 'candidate_code', render: (r) => <b>{r.candidate_code}</b> },
-                            { header: 'Họ và tên ứng viên', accessor: 'full_name', render: (r) => <span style={{ fontWeight: 700, fontSize: '0.95rem' }}>{r.full_name}</span> },
-                            { header: 'Vị trí dự tuyển', accessor: 'apply_position_name', render: (r) => <span style={{ color: 'var(--bravo-teal-dark)', fontWeight: 600 }}>{r.apply_position_name}</span> },
-                            { header: 'Bộ phận dự tuyển', accessor: 'department_name', render: (r) => <span style={{ color: '#475569' }}>{r.department_name}</span> },
-                            { header: 'Email & Số điện thoại', render: (r) => `${r.email} • ${r.phone}` },
-                            { header: 'Trạng thái ứng viên', accessor: 'status', render: (r) => <StatusChip status={r.status} /> },
+                            { header: 'Số quyết định', accessor: 'decision_number', render: (r) => <b style={{ color: 'var(--bravo-teal-dark)', whiteSpace: 'nowrap' }}>{r.decision_number}</b> },
+                            { header: 'Mã ứng viên', accessor: 'candidate_code', render: (r) => <b>{r.candidate_code}</b> },
+                            { header: 'Họ và tên ứng viên', accessor: 'candidate_name', render: (r) => <span style={{ fontWeight: 700, fontSize: '0.95rem' }}>{r.candidate_name}</span> },
+                            { header: 'Ngày quyết định', render: (r) => formatDate(r.decision_date) },
+                            { header: 'Kết quả', accessor: 'result', render: (r) => <span className={`badge ${String(r.result || '').trim().toUpperCase() === 'ĐẠT' ? 'badge-green' : 'badge-red'}`}>{r.result}</span> },
+                            { header: 'Trạng thái', accessor: 'status', render: (r) => <StatusChip status={r.status} /> },
                             {
-                                header: 'Thao tác chuyển đổi',
+                                header: 'Thao tác',
                                 render: (r) => (
-                                    r.status === 'HIRED' ? (
+                                    r.candidate_status === 'HIRED' ? (
                                         <span className="badge badge-green">✓ Đã thành Nhân viên</span>
-                                    ) : (
+                                    ) : String(r.result || '').trim().toUpperCase() === 'ĐẠT' && String(r.status || '').trim().toUpperCase() === 'COMPLETED' ? (
                                         <button
                                             className="btn btn-primary"
                                             style={{ padding: '0.35rem 0.75rem', fontSize: '0.8rem' }}
                                             onClick={() => handleConvertToEmployee(r.candidate_id)}
                                         >
                                             <UserPlus size={16} />
-                                            <span>Chuyển thành Nhân viên</span>
+                                            <span>Chuyển thành NV</span>
                                         </button>
+                                    ) : (
+                                        <span style={{ color: '#64748B', fontSize: '0.8rem' }}>Chưa đủ điều kiện</span>
                                     )
                                 )
                             }
                         ]}
-                        data={candidates.filter((c) => ['OFFERED', 'INTERVIEWING', 'HIRED', 'S5: Trúng tuyển'].includes(c.status))}
+                        data={recruitmentDecisions}
                     />
                 </div>
             )}
@@ -3099,6 +3210,11 @@ export const RecruitmentModule = ({ activeSubTab }) => {
                     footer={
                         <>
                             <button className="btn btn-secondary" onClick={() => setModalType(null)}>Hủy bỏ</button>
+                            {candidateFormData.isEdit && candidateFormData.status !== 'HIRED' && hasPassedRecruitmentDecision(candidateFormData) && (
+                                <button className="btn btn-primary" onClick={() => handleConvertToEmployee(candidateFormData.candidate_id)}>
+                                    <UserPlus size={15} /> Chuyển thành nhân viên
+                                </button>
+                            )}
                             <button className="btn btn-primary" onClick={handleSaveCandidateSubmit} style={{ backgroundColor: 'var(--bravo-teal)' }}>
                                 {candidateFormData.isEdit ? "Cập nhật Hồ sơ" : "Lưu Hồ sơ Ứng viên"}
                             </button>
@@ -5085,7 +5201,7 @@ export const RecruitmentModule = ({ activeSubTab }) => {
                 isOpen={modalType === 'interview_eval'}
                 onClose={() => setModalType(null)}
                 title={formData.isEdit ? 'Cập nhật Phiếu Đánh giá phỏng vấn' : 'Lập Phiếu Đánh giá phỏng vấn'}
-                maxWidth="900px"
+                maxWidth="1000px"
                 footer={
                     <>
                         <button className="btn btn-secondary" onClick={() => setModalType(null)}>Hủy</button>
@@ -5095,175 +5211,186 @@ export const RecruitmentModule = ({ activeSubTab }) => {
             >
                 <form onSubmit={handleSubmitInterviewEvaluation}>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-
-                        {/* Thông tin chung */}
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                            <div className="form-group">
-                                <label className="form-label">Ngày đánh giá</label>
-                                <input type="date" className="form-input" value={formData.evaluation_date || ''} onChange={(e) => setFormData({ ...formData, evaluation_date: e.target.value })} />
-                            </div>
-                            <div className="form-group">
-                                <label className="form-label">Thời lượng (phút)</label>
-                                <input type="number" className="form-input" min="1" value={formData.duration_minutes || 30} onChange={(e) => setFormData({ ...formData, duration_minutes: e.target.value })} />
-                            </div>
-                            <div className="form-group">
-                                <label className="form-label">Lịch số (*)</label>
-                                <select
-                                    className="form-select"
-                                    value={formData.schedule_id || ''}
-                                    onChange={(e) => handleSelectScheduleForEval(e.target.value)}
-                                    disabled={formData.isEdit}
+                        <div style={{ display: 'flex', gap: '0.4rem', overflowX: 'auto', borderBottom: '2px solid #CBD5E1', paddingBottom: '0.35rem' }}>
+                            {[
+                                ['general', '1. Thông tin chung'],
+                                ['script', '2. Câu hỏi phỏng vấn'],
+                                ['criteria', '3. Chi tiết đánh giá'],
+                                ['offer', '4. Thông tin offer'],
+                                ['assessment', '5. Đánh giá chung']
+                            ].map(([key, label]) => (
+                                <button
+                                    key={key}
+                                    type="button"
+                                    className="btn btn-secondary"
+                                    onClick={() => setActiveIevTab(key)}
+                                    style={{
+                                        whiteSpace: 'nowrap',
+                                        padding: '0.45rem 0.75rem',
+                                        fontSize: '0.78rem',
+                                        fontWeight: 700,
+                                        color: activeIevTab === key ? '#FFFFFF' : '#475569',
+                                        backgroundColor: activeIevTab === key ? 'var(--bravo-teal)' : '#FFFFFF'
+                                    }}
                                 >
-                                    <option value="">-- Chọn lịch phỏng vấn --</option>
-                                    {interviewSchedules.map((s) => (
-                                        <option key={s.schedule_id || s.id} value={s.schedule_id || s.id}>{s.schedule_code} - {s.location}</option>
-                                    ))}
-                                </select>
-                            </div>
-                            <div className="form-group">
-                                <label className="form-label">Ứng viên (*) - trong lịch đã chọn</label>
-                                <select
-                                    className="form-select"
-                                    value={formData.candidate_id || ''}
-                                    onChange={(e) => setFormData({ ...formData, candidate_id: e.target.value })}
-                                    disabled={formData.isEdit}
-                                >
-                                    <option value="">-- Chọn ứng viên --</option>
-                                    {getCandidatesInSchedule(formData.schedule_id).map((c) => (
-                                        <option key={c.candidate_id} value={c.candidate_id}>{c.candidate_code} - {c.full_name}</option>
-                                    ))}
-                                </select>
-                            </div>
-                        </div>
-
-                        {/* TAB KỊCH BẢN PHỎNG VẤN */}
-                        <div style={{ background: '#F8FAFC', padding: '1rem', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
-                                <h4 style={{ fontSize: '0.875rem', fontWeight: 700, color: '#0F172A' }}>
-                                    🎤 Kịch bản phỏng vấn ({ievScriptRows.length} câu)
-                                </h4>
-                                <button type="button" className="btn btn-secondary" style={{ padding: '0.2rem 0.5rem', fontSize: '0.75rem' }} onClick={handleAddScriptRow}>
-                                    <Plus size={14} />
-                                    <span>Thêm câu hỏi</span>
+                                    {label}
                                 </button>
-                            </div>
-                            <table className="erp-table">
-                                <thead>
-                                    <tr>
-                                        <th>Câu hỏi</th>
-                                        <th>Kỳ vọng</th>
-                                        <th>Câu trả lời</th>
-                                        <th style={{ width: '40px' }}></th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {ievScriptRows.map((row, idx) => (
-                                        <tr key={idx}>
-                                            <td><input type="text" className="form-input" style={{ fontSize: '0.8rem' }} value={row.question} onChange={(e) => handleScriptChange(idx, 'question', e.target.value)} /></td>
-                                            <td><input type="text" className="form-input" style={{ fontSize: '0.8rem' }} value={row.expectation} onChange={(e) => handleScriptChange(idx, 'expectation', e.target.value)} /></td>
-                                            <td><input type="text" className="form-input" style={{ fontSize: '0.8rem' }} value={row.answer} onChange={(e) => handleScriptChange(idx, 'answer', e.target.value)} /></td>
-                                            <td>
-                                                <button type="button" className="btn btn-secondary" style={{ padding: '0.2rem 0.4rem', color: '#EF4444', borderColor: '#FCA5A5' }} onClick={() => handleRemoveScriptRow(idx)}>
-                                                    <Trash2 size={14} />
-                                                </button>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
+                            ))}
                         </div>
 
-                        {/* TAB CHI TIẾT ĐIỀU KIỆN ĐÁNH GIÁ */}
-                        <div style={{ background: '#F8FAFC', padding: '1rem', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
-                                <h4 style={{ fontSize: '0.875rem', fontWeight: 700, color: '#0F172A' }}>
-                                    📝 Chi tiết Điều kiện Đánh giá ({ievCriteriaRows.length} điều kiện)
-                                </h4>
-                                <button type="button" className="btn btn-secondary" style={{ padding: '0.2rem 0.5rem', fontSize: '0.75rem' }} onClick={handleAddIevCriteriaRow}>
-                                    <Plus size={14} />
-                                    <span>Thêm điều kiện</span>
-                                </button>
+                        {activeIevTab === 'general' && (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '1rem' }}>
+                                    <div className="form-group">
+                                        <label className="form-label">Ngày đánh giá (*)</label>
+                                        <input type="date" className="form-input" required value={formData.evaluation_date || ''} onChange={(e) => setFormData({ ...formData, evaluation_date: e.target.value })} />
+                                    </div>
+                                    <div className="form-group">
+                                        <label className="form-label">Số phiếu</label>
+                                        <input type="text" className="form-input" value={formData.eval_code || 'Tự động cấp khi lưu'} disabled readOnly style={{ backgroundColor: '#F1F5F9' }} />
+                                    </div>
+                                    <div className="form-group">
+                                        <label className="form-label">Số lịch (*)</label>
+                                        <select className="form-select" value={formData.schedule_id || ''} onChange={(e) => handleSelectScheduleForEval(e.target.value)} disabled={formData.isEdit} required>
+                                            <option value="">-- Chọn lịch phỏng vấn --</option>
+                                            {interviewSchedules.map((s) => <option key={s.schedule_id || s.id} value={s.schedule_id || s.id}>{s.schedule_code} - {s.location || 'Chưa có địa điểm'}</option>)}
+                                        </select>
+                                    </div>
+                                    <div className="form-group">
+                                        <label className="form-label">Ứng viên trong lịch (*)</label>
+                                        <select className="form-select" value={formData.candidate_id || ''} onChange={(e) => handleSelectCandidateForEval(e.target.value)} disabled={formData.isEdit} required>
+                                            <option value="">-- Chọn ứng viên --</option>
+                                            {getCandidatesInSchedule(formData.schedule_id).map((c) => {
+                                                const id = c.candidate_id || c.id;
+                                                return <option key={id} value={id}>{c.candidate_code || id} - {c.full_name || 'Ứng viên'}</option>;
+                                            })}
+                                        </select>
+                                    </div>
+                                    <div className="form-group">
+                                        <label className="form-label">Người đánh giá thuộc Hội đồng (*)</label>
+                                        <select className="form-select" value={formData.evaluator_id || ''} onChange={(e) => setFormData({ ...formData, evaluator_id: e.target.value })} required>
+                                            <option value="">-- Chọn người đánh giá --</option>
+                                            {getCouncilInSchedule(formData.schedule_id).map((member, idx) => {
+                                                const id = member.employee_id || member.id;
+                                                const employee = employees.find(e => (e.employee_id || e.id) === id);
+                                                const label = employee?.full_name || member.full_name || id;
+                                                const code = employee?.employee_code || member.employee_code || '';
+                                                const isDecisionMaker = Number(member.is_decision_maker) === 1;
+                                                return <option key={id || idx} value={id}>{code ? `${code} - ` : ''}{label}{isDecisionMaker ? ' (Người quyết định)' : ''}</option>;
+                                            })}
+                                        </select>
+                                        {!getCouncilInSchedule(formData.schedule_id).length && <span style={{ fontSize: '0.75rem', color: '#B45309' }}>Lịch chưa khai báo Hội đồng tuyển dụng.</span>}
+                                    </div>
+                                    <div className="form-group">
+                                        <label className="form-label">Thời lượng (phút)</label>
+                                        <input type="number" className="form-input" min="1" value={formData.duration_minutes || 30} onChange={(e) => setFormData({ ...formData, duration_minutes: e.target.value })} />
+                                    </div>
+                                </div>
+                                {getCandidateForEvaluation(formData.candidate_id) && (
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', padding: '0.85rem 1rem', border: '1px solid #99F6E4', borderRadius: '8px', backgroundColor: '#F0FDFA' }}>
+                                        <div>
+                                            <div style={{ fontSize: '0.7rem', color: '#0F766E', fontWeight: 800, textTransform: 'uppercase' }}>Hồ sơ ứng viên đang đánh giá</div>
+                                            <div style={{ marginTop: '0.2rem', fontWeight: 800, color: '#0F172A' }}>{getCandidateForEvaluation(formData.candidate_id).full_name} <span style={{ fontWeight: 500, color: '#64748B' }}>({getCandidateForEvaluation(formData.candidate_id).candidate_code})</span></div>
+                                            <div style={{ marginTop: '0.2rem', fontSize: '0.8rem', color: '#475569' }}>{getCandidateForEvaluation(formData.candidate_id).phone || '—'} · {getCandidateForEvaluation(formData.candidate_id).email || '—'} · {getCandidateForEvaluation(formData.candidate_id).apply_position_name || '—'}</div>
+                                        </div>
+                                        <button type="button" className="btn btn-secondary" onClick={() => handleViewEvaluationCandidate(formData.candidate_id)} style={{ whiteSpace: 'nowrap' }}><Eye size={14} /> Xem chi tiết</button>
+                                    </div>
+                                )}
                             </div>
-                            <table className="erp-table">
-                                <thead>
-                                    <tr>
-                                        <th style={{ width: '160px' }}>Điều kiện</th>
-                                        <th colSpan={2} style={{ textAlign: 'center' }}>Điều kiện cần đạt</th>
-                                        <th colSpan={2} style={{ textAlign: 'center' }}>Thông tin ứng viên</th>
-                                        <th style={{ width: '70px', textAlign: 'center' }}>Đạt</th>
-                                        <th>Ghi chú</th>
-                                        <th style={{ width: '40px' }}></th>
-                                    </tr>
-                                    <tr>
-                                        <th></th>
-                                        <th style={{ fontWeight: 400, fontSize: '0.75rem' }}>Từ</th>
-                                        <th style={{ fontWeight: 400, fontSize: '0.75rem' }}>Mô tả</th>
-                                        <th style={{ fontWeight: 400, fontSize: '0.75rem' }}>Giá trị</th>
-                                        <th style={{ fontWeight: 400, fontSize: '0.75rem' }}>Mô tả</th>
-                                        <th></th>
-                                        <th></th>
-                                        <th></th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {ievCriteriaRows.map((row, idx) => (
-                                        <tr key={idx}>
-                                            <td>
-                                                <select className="form-select" style={{ fontSize: '0.8rem' }} value={row.criteria_type} onChange={(e) => handleIevCriteriaChange(idx, 'criteria_type', e.target.value)}>
-                                                    {PRE_SCREENING_CRITERIA_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                                                </select>
-                                            </td>
-                                            <td><input type="text" className="form-input" style={{ fontSize: '0.8rem' }} value={row.required_from} onChange={(e) => handleIevCriteriaChange(idx, 'required_from', e.target.value)} /></td>
-                                            <td><input type="text" className="form-input" style={{ fontSize: '0.8rem' }} value={row.required_description} onChange={(e) => handleIevCriteriaChange(idx, 'required_description', e.target.value)} /></td>
-                                            <td><input type="text" className="form-input" style={{ fontSize: '0.8rem' }} value={row.candidate_value} onChange={(e) => handleIevCriteriaChange(idx, 'candidate_value', e.target.value)} /></td>
-                                            <td><input type="text" className="form-input" style={{ fontSize: '0.8rem' }} value={row.candidate_description} onChange={(e) => handleIevCriteriaChange(idx, 'candidate_description', e.target.value)} /></td>
-                                            <td style={{ textAlign: 'center' }}>
-                                                <input type="checkbox" checked={!!row.is_passed} onChange={(e) => handleIevCriteriaChange(idx, 'is_passed', e.target.checked)} style={{ width: '18px', height: '18px' }} />
-                                            </td>
-                                            <td><input type="text" className="form-input" style={{ fontSize: '0.8rem' }} value={row.note} onChange={(e) => handleIevCriteriaChange(idx, 'note', e.target.value)} /></td>
-                                            <td>
-                                                <button type="button" className="btn btn-secondary" style={{ padding: '0.2rem 0.4rem', color: '#EF4444', borderColor: '#FCA5A5' }} onClick={() => handleRemoveIevCriteriaRow(idx)}>
-                                                    <Trash2 size={14} />
-                                                </button>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
+                        )}
 
-                        {/* ĐÁNH GIÁ CUỐI CÙNG */}
-                        <div style={{ background: '#F0FDF4', padding: '1rem', borderRadius: '8px', border: '1px solid #A7F3D0' }}>
-                            <h4 style={{ fontSize: '0.875rem', fontWeight: 700, color: '#0F172A', marginBottom: '0.75rem' }}>✅ Đánh giá cuối cùng</h4>
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                                <div className="form-group">
-                                    <label className="form-label">Đánh giá chung</label>
-                                    <select className="form-select" value={formData.overall_result || 'ĐẠT'} onChange={(e) => setFormData({ ...formData, overall_result: e.target.value })}>
-                                        <option value="ĐẠT">Đạt</option>
-                                        <option value="KHÔNG ĐẠT">Không đạt</option>
-                                    </select>
+                        {activeIevTab === 'script' && (
+                            <div style={{ background: '#F8FAFC', padding: '1rem', borderRadius: '8px', border: '1px solid #E2E8F0', overflowX: 'auto' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem', minWidth: '760px' }}>
+                                    <div><h4 style={{ fontSize: '0.875rem', fontWeight: 700, color: '#0F172A', margin: 0 }}>🎤 Câu hỏi phỏng vấn</h4><span style={{ fontSize: '0.75rem', color: '#64748B' }}>Ghi câu hỏi, kết quả kỳ vọng và câu trả lời/đánh giá.</span></div>
+                                    <button type="button" className="btn btn-secondary" style={{ padding: '0.2rem 0.5rem', fontSize: '0.75rem' }} onClick={handleAddScriptRow}><Plus size={14} /><span>Thêm câu hỏi</span></button>
                                 </div>
-                                <div className="form-group">
-                                    <label className="form-label">Mức độ: <b style={{ color: 'var(--bravo-teal-dark)', fontSize: '1rem' }}>{formData.level_score || 5}/10</b></label>
-                                    <input
-                                        type="range"
-                                        min="1"
-                                        max="10"
-                                        step="1"
-                                        value={formData.level_score || 5}
-                                        onChange={(e) => setFormData({ ...formData, level_score: parseInt(e.target.value) })}
-                                        style={{ width: '100%' }}
-                                    />
+                                <table className="erp-table" style={{ minWidth: '760px' }}>
+                                    <thead><tr><th>Câu hỏi</th><th>Kỳ vọng</th><th>Câu trả lời / Đánh giá</th><th style={{ width: '40px' }}></th></tr></thead>
+                                    <tbody>{ievScriptRows.map((row, idx) => <tr key={idx}>
+                                        <td><input type="text" className="form-input" value={row.question || ''} onChange={(e) => handleScriptChange(idx, 'question', e.target.value)} /></td>
+                                        <td><input type="text" className="form-input" value={row.expectation || ''} onChange={(e) => handleScriptChange(idx, 'expectation', e.target.value)} /></td>
+                                        <td><input type="text" className="form-input" value={row.answer || ''} onChange={(e) => handleScriptChange(idx, 'answer', e.target.value)} /></td>
+                                        <td><button type="button" className="btn btn-secondary" style={{ padding: '0.2rem 0.4rem', color: '#EF4444', borderColor: '#FCA5A5' }} onClick={() => handleRemoveScriptRow(idx)}><Trash2 size={14} /></button></td>
+                                    </tr>)}</tbody>
+                                </table>
+                            </div>
+                        )}
+
+                        {activeIevTab === 'criteria' && (
+                            <div style={{ background: '#F8FAFC', padding: '1rem', borderRadius: '8px', border: '1px solid #E2E8F0', overflowX: 'auto' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem', minWidth: '980px' }}>
+                                    <div><h4 style={{ fontSize: '0.875rem', fontWeight: 700, color: '#0F172A', margin: 0 }}>📝 Chi tiết đánh giá</h4><span style={{ fontSize: '0.75rem', color: '#64748B' }}>Đánh giá đích danh theo ứng viên đang chọn.</span></div>
+                                    <button type="button" className="btn btn-secondary" style={{ padding: '0.2rem 0.5rem', fontSize: '0.75rem' }} onClick={handleAddIevCriteriaRow}><Plus size={14} /><span>Thêm điều kiện</span></button>
                                 </div>
-                                <div className="form-group" style={{ gridColumn: 'span 2' }}>
-                                    <label className="form-label">Nhận xét chung</label>
-                                    <textarea className="form-textarea" rows={2} value={formData.overall_comment || ''} onChange={(e) => setFormData({ ...formData, overall_comment: e.target.value })} placeholder="Nhận xét tổng quan về buổi phỏng vấn..." />
+                                <table className="erp-table" style={{ minWidth: '980px' }}>
+                                    <thead><tr><th style={{ width: '160px' }}>Điều kiện</th><th colSpan={2} style={{ textAlign: 'center' }}>Điều kiện cần đạt</th><th colSpan={2} style={{ textAlign: 'center' }}>Thông tin ứng viên</th><th style={{ width: '70px', textAlign: 'center' }}>Đạt</th><th>Ghi chú</th><th style={{ width: '40px' }}></th></tr><tr><th></th><th style={{ fontWeight: 400, fontSize: '0.75rem' }}>Từ</th><th style={{ fontWeight: 400, fontSize: '0.75rem' }}>Mô tả</th><th style={{ fontWeight: 400, fontSize: '0.75rem' }}>Giá trị / Điểm</th><th style={{ fontWeight: 400, fontSize: '0.75rem' }}>Mô tả</th><th></th><th></th><th></th></tr></thead>
+                                    <tbody>{ievCriteriaRows.map((row, idx) => <tr key={idx}>
+                                        <td><select className="form-select" value={row.criteria_type || ''} onChange={(e) => handleIevCriteriaChange(idx, 'criteria_type', e.target.value)}>{PRE_SCREENING_CRITERIA_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}</select></td>
+                                        <td><input type="text" className="form-input" value={row.required_from || ''} onChange={(e) => handleIevCriteriaChange(idx, 'required_from', e.target.value)} /></td>
+                                        <td><input type="text" className="form-input" value={row.required_description || ''} onChange={(e) => handleIevCriteriaChange(idx, 'required_description', e.target.value)} /></td>
+                                        <td><input type="text" className="form-input" value={row.candidate_value || ''} onChange={(e) => handleIevCriteriaChange(idx, 'candidate_value', e.target.value)} /></td>
+                                        <td><input type="text" className="form-input" value={row.candidate_description || ''} onChange={(e) => handleIevCriteriaChange(idx, 'candidate_description', e.target.value)} /></td>
+                                        <td style={{ textAlign: 'center' }}><input type="checkbox" checked={!!row.is_passed} onChange={(e) => handleIevCriteriaChange(idx, 'is_passed', e.target.checked)} style={{ width: '18px', height: '18px' }} /></td>
+                                        <td><input type="text" className="form-input" value={row.note || ''} onChange={(e) => handleIevCriteriaChange(idx, 'note', e.target.value)} /></td>
+                                        <td><button type="button" className="btn btn-secondary" style={{ padding: '0.2rem 0.4rem', color: '#EF4444', borderColor: '#FCA5A5' }} onClick={() => handleRemoveIevCriteriaRow(idx)}><Trash2 size={14} /></button></td>
+                                    </tr>)}</tbody>
+                                </table>
+                            </div>
+                        )}
+
+                        {activeIevTab === 'offer' && (
+                            <div style={{ background: '#F8FAFC', padding: '1rem', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
+                                <div style={{ padding: '0.7rem 0.85rem', marginBottom: '1rem', borderRadius: '6px', background: '#FFFBEB', border: '1px solid #FDE68A', color: '#92400E', fontSize: '0.8rem' }}>Thông tin offer là tùy chọn. Nếu nhập, hệ thống sẽ tạo hoặc cập nhật offer cho ứng viên khi lưu phiếu.</div>
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                                    <div className="form-group"><label className="form-label">Ngày bắt đầu đi làm</label><input type="date" className="form-input" value={ievOfferData.expected_start_date || ''} onChange={(e) => setIevOfferData({ ...ievOfferData, expected_start_date: e.target.value })} /></div>
+                                    <div className="form-group"><label className="form-label">Lương chính thức (VNĐ/tháng)</label><input type="number" min="0" className="form-input" value={ievOfferData.official_salary || ''} onChange={(e) => setIevOfferData({ ...ievOfferData, official_salary: e.target.value })} /></div>
+                                    <div className="form-group"><label className="form-label">Lương thử việc (VNĐ/tháng)</label><input type="number" min="0" className="form-input" value={ievOfferData.probation_salary || ''} onChange={(e) => setIevOfferData({ ...ievOfferData, probation_salary: e.target.value })} /></div>
+                                    <div className="form-group" style={{ gridColumn: 'span 2' }}><label className="form-label">Ghi chú offer</label><textarea className="form-textarea" rows={3} value={ievOfferData.note || ''} onChange={(e) => setIevOfferData({ ...ievOfferData, note: e.target.value })} /></div>
                                 </div>
                             </div>
-                        </div>
+                        )}
+
+                        {activeIevTab === 'assessment' && (
+                            <div style={{ background: '#F0FDF4', padding: '1rem', borderRadius: '8px', border: '1px solid #A7F3D0' }}>
+                                <h4 style={{ fontSize: '0.875rem', fontWeight: 700, color: '#0F172A', marginBottom: '0.75rem' }}>✅ Đánh giá chung</h4>
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                                    <div className="form-group"><label className="form-label">Mức độ (*)</label><select className="form-select" value={formData.level_score || 3} onChange={(e) => setFormData({ ...formData, level_score: Number(e.target.value) })} required><option value={1}>Rất kém</option><option value={2}>Kém</option><option value={3}>Trung bình</option><option value={4}>Khá</option><option value={5}>Tốt</option></select></div>
+                                    <div className="form-group"><label className="form-label">Đánh giá chung (*)</label><select className="form-select" value={formData.overall_result || 'ĐẠT'} onChange={(e) => setFormData({ ...formData, overall_result: e.target.value })} required><option value="ĐẠT">Đạt</option><option value="KHÔNG ĐẠT">Không đạt</option></select></div>
+                                    <div className="form-group" style={{ gridColumn: 'span 2' }}><label className="form-label">Nhận xét chung</label><textarea className="form-textarea" rows={4} value={formData.overall_comment || ''} onChange={(e) => setFormData({ ...formData, overall_comment: e.target.value })} placeholder="Nhận xét tổng quan về buổi phỏng vấn..." /></div>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </form>
             </Modal>
+
+            {modalType === 'candidate_eval_detail' && selectedCandidate && (
+                <Modal
+                    isOpen={true}
+                    onClose={() => setModalType('interview_eval')}
+                    title={`Chi tiết ứng viên: ${selectedCandidate.full_name || '—'}`}
+                    maxWidth="720px"
+                >
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.85rem', fontSize: '0.85rem' }}>
+                        {[
+                            ['Mã ứng viên', selectedCandidate.candidate_code],
+                            ['Họ và tên', selectedCandidate.full_name],
+                            ['Ngày sinh', formatDate(selectedCandidate.date_of_birth)],
+                            ['Giới tính', selectedCandidate.gender],
+                            ['Điện thoại', selectedCandidate.phone],
+                            ['Email', selectedCandidate.email],
+                            ['Vị trí dự tuyển', selectedCandidate.apply_position_name],
+                            ['Bộ phận dự tuyển', selectedCandidate.department_name],
+                            ['Trình độ', selectedCandidate.education_level],
+                            ['Đơn vị đào tạo', selectedCandidate.education_school],
+                            ['Kinh nghiệm', selectedCandidate.experience],
+                            ['Trạng thái', selectedCandidate.status]
+                        ].map(([label, value]) => <div key={label} style={{ padding: '0.65rem 0.75rem', borderRadius: '6px', backgroundColor: '#F8FAFC', border: '1px solid #E2E8F0' }}><div style={{ color: '#64748B', fontSize: '0.72rem', fontWeight: 700 }}>{label}</div><div style={{ marginTop: '0.2rem', color: '#0F172A', fontWeight: 600, wordBreak: 'break-word' }}>{value || '—'}</div></div>)}
+                        <div style={{ gridColumn: 'span 2', padding: '0.65rem 0.75rem', borderRadius: '6px', backgroundColor: '#F8FAFC', border: '1px solid #E2E8F0' }}><div style={{ color: '#64748B', fontSize: '0.72rem', fontWeight: 700 }}>Địa chỉ</div><div style={{ marginTop: '0.2rem', color: '#0F172A', fontWeight: 600 }}>{selectedCandidate.address || '—'}</div></div>
+                    </div>
+                </Modal>
+            )}
 
             {/* MODAL XÁC NHẬN XÓA PHIẾU ĐỊNH BIÊN */}
             <Modal

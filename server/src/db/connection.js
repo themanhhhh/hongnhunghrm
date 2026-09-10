@@ -100,6 +100,47 @@ async function run(sqlText, params = []) {
     return { changes: result.rowsAffected[0] || 0 };
 }
 
+async function withTransaction(callback) {
+    const pool = await getPool();
+    const transaction = new sql.Transaction(pool);
+    await transaction.begin();
+
+    const executeInTransaction = async (sqlText, params = []) => {
+        const request = transaction.request();
+        const statement = bindParameters(request, sqlText, params);
+        return request.query(statement);
+    };
+    const transactionQuery = async (sqlText, params = []) => {
+        const result = await executeInTransaction(sqlText, params);
+        return result.recordset;
+    };
+    const transactionQueryOne = async (sqlText, params = []) => {
+        const rows = await transactionQuery(sqlText, params);
+        return rows[0];
+    };
+    const transactionRun = async (sqlText, params = []) => {
+        const result = await executeInTransaction(sqlText, params);
+        return { changes: result.rowsAffected[0] || 0 };
+    };
+
+    try {
+        const result = await callback({
+            query: transactionQuery,
+            queryOne: transactionQueryOne,
+            run: transactionRun,
+        });
+        await transaction.commit();
+        return result;
+    } catch (error) {
+        try {
+            await transaction.rollback();
+        } catch {
+            // Preserve the original database error if rollback also fails.
+        }
+        throw error;
+    }
+}
+
 async function exec(sqlText) {
     await execute(sqlText);
 }
@@ -121,6 +162,7 @@ module.exports = {
     query,
     queryOne,
     run,
+    withTransaction,
     exec,
     closeDb
 };

@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const crypto = require('crypto');
-const { query, queryOne, run } = require('../db/connection');
+const { query, queryOne, run, withTransaction } = require('../db/connection');
 const { authenticateToken, authorizeRole } = require('../middleware/auth');
 
 router.use(authenticateToken);
@@ -586,23 +586,53 @@ router.delete('/pre-screenings/:id', authorizeRole('Administrator', 'HR Staff'),
 
 // --- 3C. ĐÁNH GIÁ PHỎNG VẤN (INTERVIEW EVALUATION) ---
 
+function parseJsonArray(value) {
+    try {
+        const parsed = JSON.parse(value || '[]');
+        return Array.isArray(parsed) ? parsed : [];
+    } catch {
+        return [];
+    }
+}
+
 // Chỉ thành viên Hội đồng của đúng lịch được lập đánh giá (Administrator được quản trị ngoại lệ).
 async function checkInterviewPanelAccess(req, candidate_id, schedule_id, evaluator_id) {
+    const candidateId = String(candidate_id || '').trim();
+    const scheduleId = String(schedule_id || '').trim();
+    if (!candidateId) return 'Phiếu đánh giá phải chọn ứng viên.';
+    if (!scheduleId) return 'Phiếu đánh giá phải gắn với một lịch phỏng vấn cụ thể.';
+
+    const [candidate, schedule] = await Promise.all([
+        queryOne(`SELECT candidate_id FROM Candidate WHERE candidate_id = ?`, [candidateId]),
+        queryOne(`SELECT council_json, candidates_json FROM InterviewSchedule WHERE schedule_id = ?`, [scheduleId])
+    ]);
+    if (!candidate) return 'Ứng viên không tồn tại.';
+    if (!schedule) return 'Lịch phỏng vấn không tồn tại.';
+
+    const candidatesArr = parseJsonArray(schedule.candidates_json);
+    const council = parseJsonArray(schedule.council_json);
+    const candidateInSchedule = candidatesArr.some(c => String(c?.candidate_id || c?.id || '') === candidateId);
+    if (!candidateInSchedule) return 'Ứng viên không thuộc lịch phỏng vấn đã chọn.';
+
     if (req.user.roleName === 'Administrator') return null;
     if (req.user.roleName !== 'HR Staff') return 'Chỉ nhân sự thuộc Hội đồng tuyển dụng mới được lập Phiếu Đánh giá phỏng vấn.';
     if (!req.user.employeeId) {
         return 'Tài khoản chưa liên kết với hồ sơ nhân viên, không thể thực hiện đánh giá phỏng vấn.';
     }
-    if (!schedule_id) return 'Phiếu đánh giá phải gắn với một lịch phỏng vấn cụ thể.';
-    const schedule = await queryOne(`SELECT council_json, candidates_json FROM InterviewSchedule WHERE schedule_id = ?`, [schedule_id]);
-    if (!schedule) return 'Lịch phỏng vấn không tồn tại.';
-    let candidatesArr = [], council = [];
-    try { candidatesArr = JSON.parse(schedule.candidates_json || '[]'); } catch (e) { }
-    try { council = JSON.parse(schedule.council_json || '[]'); } catch (e) { }
-    if (!candidatesArr.some(c => c.candidate_id === candidate_id) || !council.some(m => m.employee_id === req.user.employeeId)) {
+
+    const currentEmployeeId = String(req.user.employeeId);
+    const evaluatorId = String(evaluator_id || currentEmployeeId);
+    if (!council.some(m => String(m?.employee_id || m?.id || '') === currentEmployeeId)) {
         return 'Bạn không thuộc Hội đồng phỏng vấn của ứng viên này, không có quyền đánh giá.';
     }
-    if (evaluator_id && !council.some(m => m.employee_id === evaluator_id)) return 'Người đánh giá phải thuộc Hội đồng của lịch phỏng vấn.';
+    if (!council.some(m => String(m?.employee_id || m?.id || '') === evaluatorId)) return 'Người đánh giá phải thuộc Hội đồng của lịch phỏng vấn.';
+    return null;
+}
+
+function normalizeInterviewResult(value) {
+    const result = String(value || '').trim().toUpperCase();
+    if (['ĐẠT', 'PASSED'].includes(result)) return 'ĐẠT';
+    if (['KHÔNG ĐẠT', 'FAILED'].includes(result)) return 'KHÔNG ĐẠT';
     return null;
 }
 
@@ -666,6 +696,15 @@ router.post('/interview-evaluations', async (req, res) => {
             level_score, overall_result, overall_comment, script, criteria, offer
         } = req.body;
 
+        const normalizedResult = normalizeInterviewResult(overall_result);
+        const score = Number(level_score);
+        if (!normalizedResult) {
+            return res.status(400).json({ success: false, message: 'Đánh giá chung phải là Đạt hoặc Không đạt.' });
+        }
+        if (!Number.isInteger(score) || score < 1 || score > 5) {
+            return res.status(400).json({ success: false, message: 'Mức độ đánh giá phải từ 1 đến 5.' });
+        }
+
         const accessError = await checkInterviewPanelAccess(req, candidate_id, schedule_id, evaluator_id || req.user.employeeId);
         if (accessError) {
             return res.status(403).json({ success: false, message: accessError });
@@ -683,8 +722,8 @@ router.post('/interview-evaluations', async (req, res) => {
         interview_eval_id, eval_code, evaluation_date, schedule_id, candidate_id, evaluator_id, duration_minutes,
         level_score, overall_result, overall_comment, created_date, last_modified_date
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [id, code, parseDate(evaluation_date) || now, schedule_id || null, candidate_id, evaluator_id || req.user.employeeId || null, Number(duration_minutes) || 30,
-                Number(level_score) || 5, overall_result || 'ĐẠT', overall_comment || '', now, now]
+            [id, code, parseDate(evaluation_date) || now, schedule_id, candidate_id, evaluator_id || req.user.employeeId || null, Number(duration_minutes) || 30,
+                score, normalizedResult, overall_comment || '', now, now]
         );
 
         if (Array.isArray(script)) {
@@ -710,7 +749,7 @@ router.post('/interview-evaluations', async (req, res) => {
         }
 
         await saveEvaluationOffer(candidate_id, offer, now);
-        await run(`UPDATE Candidate SET status = ?, last_modified_date = ? WHERE candidate_id = ?`, [String(overall_result || '').trim().toUpperCase() === 'ĐẠT' ? 'Đã phỏng vấn, Đạt' : 'Đã phỏng vấn, Không đạt', now, candidate_id]);
+        await run(`UPDATE Candidate SET status = ?, last_modified_date = ? WHERE candidate_id = ?`, [normalizedResult === 'ĐẠT' ? 'Đã phỏng vấn, Đạt' : 'Đã phỏng vấn, Không đạt', now, candidate_id]);
         res.json({ success: true, message: 'Tạo Phiếu Đánh giá phỏng vấn thành công!' });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
@@ -723,6 +762,20 @@ router.put('/interview-evaluations/:id', async (req, res) => {
             evaluation_date, schedule_id, candidate_id, evaluator_id, duration_minutes,
             level_score, overall_result, overall_comment, script, criteria, offer
         } = req.body;
+
+        const normalizedResult = normalizeInterviewResult(overall_result);
+        const score = Number(level_score);
+        if (!normalizedResult) {
+            return res.status(400).json({ success: false, message: 'Đánh giá chung phải là Đạt hoặc Không đạt.' });
+        }
+        if (!Number.isInteger(score) || score < 1 || score > 5) {
+            return res.status(400).json({ success: false, message: 'Mức độ đánh giá phải từ 1 đến 5.' });
+        }
+
+        const existingEvaluation = await queryOne(`SELECT interview_eval_id FROM InterviewEvaluation WHERE interview_eval_id = ?`, [req.params.id]);
+        if (!existingEvaluation) {
+            return res.status(404).json({ success: false, message: 'Không tìm thấy Phiếu Đánh giá phỏng vấn.' });
+        }
 
         const accessError = await checkInterviewPanelAccess(req, candidate_id, schedule_id, evaluator_id || req.user.employeeId);
         if (accessError) {
@@ -737,8 +790,8 @@ router.put('/interview-evaluations/:id', async (req, res) => {
          evaluation_date = ?, schedule_id = ?, candidate_id = ?, evaluator_id = COALESCE(?, evaluator_id), duration_minutes = ?,
         level_score = ?, overall_result = ?, overall_comment = ?, last_modified_date = ?
        WHERE interview_eval_id = ?`,
-            [parseDate(evaluation_date), schedule_id || null, candidate_id, evaluator_id || null, Number(duration_minutes) || 30,
-            Number(level_score) || 5, overall_result || 'ĐẠT', overall_comment || '', now, req.params.id]
+             [parseDate(evaluation_date), schedule_id, candidate_id, evaluator_id || null, Number(duration_minutes) || 30,
+             score, normalizedResult, overall_comment || '', now, req.params.id]
         );
 
         if (Array.isArray(script)) {
@@ -766,7 +819,7 @@ router.put('/interview-evaluations/:id', async (req, res) => {
         }
 
         await saveEvaluationOffer(candidate_id, offer, now);
-        await run(`UPDATE Candidate SET status = ?, last_modified_date = ? WHERE candidate_id = ?`, [String(overall_result || '').trim().toUpperCase() === 'ĐẠT' ? 'Đã phỏng vấn, Đạt' : 'Đã phỏng vấn, Không đạt', now, candidate_id]);
+        await run(`UPDATE Candidate SET status = ?, last_modified_date = ? WHERE candidate_id = ?`, [normalizedResult === 'ĐẠT' ? 'Đã phỏng vấn, Đạt' : 'Đã phỏng vấn, Không đạt', now, candidate_id]);
         res.json({ success: true, message: 'Cập nhật Phiếu Đánh giá phỏng vấn thành công!' });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
@@ -1125,82 +1178,110 @@ router.post('/decisions', authorizeRole('Administrator', 'HR Staff'), async (req
 // --- 7. WORKFLOW: CHUYỂN ỨNG VIÊN THÀNH NHÂN VIÊN ---
 router.post('/convert-to-employee', authorizeRole('Administrator', 'HR Staff'), async (req, res) => {
     try {
-        const { candidate_id } = req.body;
-        const now = Date.now();
-
-        const candidate = await queryOne(`SELECT c.*, COALESCE(req_plan.department_id, req_direct.department_id) AS department_id, COALESCE(req_plan.position_id, req_direct.position_id) AS position_id
-             FROM Candidate c
-             LEFT JOIN RecruitmentPlan pl ON c.recruitment_plan_id = pl.recruitment_plan_id
-             LEFT JOIN RecruitmentRequest req_plan ON pl.recruitment_request_id = req_plan.recruitment_request_id
-             LEFT JOIN RecruitmentRequest req_direct ON c.recruitment_request_id = req_direct.recruitment_request_id
-             WHERE c.candidate_id = ?`, [candidate_id]);
-        if (!candidate) {
-            return res.status(404).json({ success: false, message: 'Không tìm thấy thông tin ứng viên.' });
-        }
-        if (candidate.status === 'HIRED') {
-            return res.status(400).json({ success: false, message: 'Ứng viên này đã được chuyển thành nhân viên.' });
-        }
-        const hiringDecision = await queryOne(
-            `SELECT TOP 1 decision_id FROM RecruitmentDecision
-             WHERE candidate_id = ? AND result = N'ĐẠT' AND status = 'COMPLETED'
-             ORDER BY decision_date DESC, created_date DESC`,
-            [candidate_id]
-        );
-        if (!hiringDecision) {
-            return res.status(400).json({
-                success: false,
-                message: 'Chỉ ứng viên có quyết định trúng tuyển kết quả Đạt mới được chuyển thành nhân viên.'
-            });
+        const candidateId = String(req.body?.candidate_id || '').trim();
+        if (!candidateId) {
+            return res.status(400).json({ success: false, message: 'Phải chọn ứng viên cần chuyển đổi.' });
         }
 
-        const offer = await queryOne(`SELECT * FROM Offer WHERE candidate_id = ?`, [candidate_id]);
+        const conversion = await withTransaction(async ({ queryOne: txQueryOne, run: txRun }) => {
+            const now = Date.now();
+            const candidate = await txQueryOne(`SELECT c.*, COALESCE(req_plan.department_id, req_direct.department_id) AS department_id, COALESCE(req_plan.position_id, req_direct.position_id) AS position_id
+                    , COALESCE(pos_direct.position_name, pos_request.position_name) AS position_name
+                    , COALESCE(dept_direct.department_name, dept_request.department_name) AS department_name
+                 FROM Candidate c WITH (UPDLOCK, HOLDLOCK)
+                 LEFT JOIN RecruitmentPlan pl ON c.recruitment_plan_id = pl.recruitment_plan_id
+                 LEFT JOIN RecruitmentRequest req_plan ON pl.recruitment_request_id = req_plan.recruitment_request_id
+                 LEFT JOIN RecruitmentRequest req_direct ON c.recruitment_request_id = req_direct.recruitment_request_id
+                 LEFT JOIN Position pos_request ON pos_request.position_id = COALESCE(req_plan.position_id, req_direct.position_id)
+                 LEFT JOIN Position pos_direct ON pos_direct.position_id = c.position_id
+                 LEFT JOIN Department dept_request ON dept_request.department_id = COALESCE(req_plan.department_id, req_direct.department_id)
+                 LEFT JOIN Department dept_direct ON dept_direct.department_id = pos_direct.department_id
+                 WHERE c.candidate_id = ?`, [candidateId]);
+            if (!candidate) {
+                return { errorStatus: 404, errorMessage: 'Không tìm thấy thông tin ứng viên.' };
+            }
+            const existingEmployee = await txQueryOne(
+                `SELECT employee_id, employee_code FROM Employee WHERE candidate_id = ?`,
+                [candidateId]
+            );
+            if (candidate.status === 'HIRED' || existingEmployee) {
+                return { errorStatus: 400, errorMessage: 'Ứng viên này đã được chuyển thành nhân viên.' };
+            }
+            const hiringDecision = await txQueryOne(
+                `SELECT TOP 1 decision_id FROM RecruitmentDecision
+                  WHERE candidate_id = ?
+                    AND UPPER(LTRIM(RTRIM(result))) = N'ĐẠT'
+                    AND UPPER(LTRIM(RTRIM(status))) = 'COMPLETED'
+                  ORDER BY decision_date DESC, created_date DESC`,
+                [candidateId]
+            );
+            if (!hiringDecision) {
+                return {
+                    errorStatus: 400,
+                    errorMessage: 'Chỉ ứng viên có quyết định trúng tuyển kết quả Đạt mới được chuyển thành nhân viên.'
+                };
+            }
 
-        const empId = crypto.randomUUID();
-        const empCode = 'NV-' + new Date().getFullYear() + '-' + Math.floor(100 + Math.random() * 900);
+            const offer = await txQueryOne(`SELECT TOP 1 * FROM Offer WHERE candidate_id = ? ORDER BY created_date DESC`, [candidateId]);
+            const empId = crypto.randomUUID();
+            const empCode = 'NV-' + new Date().getFullYear() + '-' + Math.floor(100 + Math.random() * 900);
+            const joinDate = offer?.expected_start_date || now;
 
-        const joinDate = offer ? offer.expected_start_date : now;
+            await txRun(
+                `INSERT INTO Employee (employee_id, created_date, last_modified_date, employee_code, full_name, gender, date_of_birth, citizen_id, phone, email, address, candidate_id, department_id, position_id, join_date, initial_contract_date, employment_status, is_active)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'WORKING', 1)`,
+                [
+                    empId,
+                    now,
+                    now,
+                    empCode,
+                    candidate.full_name,
+                    candidate.gender || 'Nam',
+                    candidate.date_of_birth,
+                    candidate.citizen_id || null,
+                    candidate.phone,
+                    candidate.email,
+                    candidate.address || '',
+                    candidateId,
+                    candidate.department_id,
+                    candidate.position_id,
+                    joinDate,
+                    joinDate
+                ]
+            );
 
-        await run(
-            `INSERT INTO Employee (employee_id, created_date, last_modified_date, employee_code, full_name, gender, date_of_birth, citizen_id, phone, email, address, candidate_id, department_id, position_id, join_date, initial_contract_date, employment_status, is_active)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'WORKING', 1)`,
-            [
-                empId,
-                now,
-                now,
-                empCode,
-                candidate.full_name,
-                candidate.gender || 'Nam',
-                candidate.date_of_birth,
-                candidate.citizen_id || '001099' + Math.floor(100000 + Math.random() * 900000),
-                candidate.phone,
-                candidate.email,
-                candidate.address || 'Hà Nội',
-                candidate_id,
-                candidate.department_id,
-                candidate.position_id,
-                joinDate,
-                joinDate
-            ]
-        );
+            const contractId = crypto.randomUUID();
+            const contractNum = 'HDTV/BRAVO/' + new Date().getFullYear() + '/' + Math.floor(100 + Math.random() * 900);
+            const officialSalary = Number(offer?.official_salary || offer?.salary_offer || 0);
+            const probationSalary = Number(offer?.probation_salary || officialSalary || 15000000);
+            const probationEnd = new Date(Number(joinDate));
+            probationEnd.setMonth(probationEnd.getMonth() + 2);
+            const probationRate = officialSalary > 0 ? Number(((probationSalary / officialSalary) * 100).toFixed(2)) : 100;
 
-        await run(`UPDATE Candidate SET status = 'HIRED', last_modified_date = ? WHERE candidate_id = ?`, [now, candidate_id]);
+            await txRun(
+                `INSERT INTO EmployeeContract (contract_id, created_date, last_modified_date, contract_no, contract_date, sign_date, employee_id, employee_position, contract_type, start_date, end_date, has_probation, probation_from_date, probation_to_date, probation_salary_rate, salary, status, note)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Hợp đồng thử việc', ?, ?, 1, ?, ?, ?, ?, 'ACTIVE', 'Tự động tạo khi chuyển từ ứng viên có quyết định tuyển dụng Đạt.')`,
+                [contractId, now, now, contractNum, joinDate, now, empId, candidate.position_name || '', joinDate, probationEnd.getTime(), joinDate, probationEnd.getTime(), probationRate, probationSalary]
+            );
 
-        const contractId = crypto.randomUUID();
-        const contractNum = 'HDTV/BRAVO/' + new Date().getFullYear() + '/' + Math.floor(100 + Math.random() * 900);
-        const salary = offer ? offer.salary_offer : 15000000;
-        const probationEnd = new Date(Number(joinDate));
-        probationEnd.setMonth(probationEnd.getMonth() + 2);
+            await txRun(`UPDATE Candidate SET status = 'HIRED', last_modified_date = ? WHERE candidate_id = ?`, [now, candidateId]);
+            return { candidateName: candidate.full_name, empId, empCode, contractId, probationFrom: joinDate, probationTo: probationEnd.getTime() };
+        });
 
-        await run(
-            `INSERT INTO EmployeeContract (contract_id, created_date, last_modified_date, contract_no, contract_date, employee_id, contract_type, start_date, end_date, has_probation, probation_from_date, probation_to_date, probation_salary_rate, salary, status, note)
-       VALUES (?, ?, ?, ?, ?, ?, 'Hợp đồng Thử việc (2 tháng)', ?, ?, 1, ?, ?, 100, ?, 'ACTIVE', 'Tự động tạo khi chuyển từ Ứng viên')`,
-            [contractId, now, now, contractNum, joinDate, empId, joinDate, probationEnd.getTime(), joinDate, probationEnd.getTime(), salary]
-        );
+        if (conversion.errorStatus) {
+            return res.status(conversion.errorStatus).json({ success: false, message: conversion.errorMessage });
+        }
 
         res.json({
             success: true,
-            message: `Chuyển ứng viên ${candidate.full_name} thành nhân viên chính thức thành công! Mã NV: ${empCode}`,
-            data: { empId, empCode }
+            message: `Chuyển ứng viên ${conversion.candidateName} thành nhân viên thành công! Mã NV: ${conversion.empCode}`,
+            data: {
+                empId: conversion.empId,
+                empCode: conversion.empCode,
+                contractId: conversion.contractId,
+                probationFrom: conversion.probationFrom,
+                probationTo: conversion.probationTo
+            }
         });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });

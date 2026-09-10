@@ -92,7 +92,7 @@ const workspaceTitles: Record<WorkspaceName, Record<string, string>> = {
     schedules: "Quản lý lịch phỏng vấn",
     "interview-evaluations": "Quản lý đánh giá phỏng vấn",
     offers: "Quản lý offer tuyển dụng",
-    conversion: "Chuyển ứng viên thành nhân viên",
+    decisions: "Quản lý quyết định trúng tuyển",
   },
   people: {
     employees: "Quản lý hồ sơ nhân sự",
@@ -989,7 +989,7 @@ function InterviewEvaluationForm({
   const panelIds = panelRows.map((item) => String(item.employee_id ?? item.id ?? "")).filter(Boolean);
   const panelEmployees = lookups.employees.filter((item) => panelIds.includes(String(item.employee_id ?? "")));
   const decisionMakerIds = panelRows.filter((item) => Number(item.is_decision_maker) === 1 || item.is_decision_maker === true).map((item) => String(item.employee_id ?? item.id ?? ""));
-  const evaluatorOptions = panelEmployees.length ? panelEmployees : lookups.employees;
+  const evaluatorOptions = panelEmployees;
   const existingOffer = lookups.offers.find((item) => String(item.candidate_id ?? "") === values.candidate_id);
   const offerValues = (() => {
     try {
@@ -1688,10 +1688,6 @@ function OperationalWorkspace({
           ? "/hr/employees/me"
           : tab.endpoint;
       const rows = await api.list(endpoint, { resource });
-      if (tab.id === "conversion")
-        return rows.filter((item) =>
-          ["S5: Trúng tuyển", "PASSED", "ĐẠT"].includes(String(item.status)),
-        );
       return rows;
     },
   });
@@ -1710,7 +1706,7 @@ function OperationalWorkspace({
           "schedules",
           "interview-evaluations",
           "offers",
-          "conversion",
+          "decisions",
         ].includes(tab.id)),
     queryFn: async () => {
       const [
@@ -1973,7 +1969,6 @@ function OperationalWorkspace({
       "interview-evaluations",
       "decisions",
       "offers",
-      "conversion",
     ].includes(tab.id);
   const isHrOrAdmin =
     session?.role === "Administrator" || session?.role === "HR Staff";
@@ -2000,7 +1995,6 @@ function OperationalWorkspace({
     session &&
     (workflowCreate || (name === "recruitment" && tab.id === "requests" && ["Administrator", "HR Staff", "Trưởng Phòng"].includes(session.role)) || (canManage && canAccess(session, resource, "create"))) &&
     !tab.readOnly &&
-    !tab.convert &&
     tab.id !== "screenings",
   );
   const canEdit = Boolean(
@@ -2883,10 +2877,11 @@ function OperationalWorkspace({
                                 Sơ loại
                               </Button>
                             )}
-                          {(tab.convert || tab.id === "candidates") &&
+                          {(tab.id === "candidates" || tab.id === "decisions") &&
                             canManage &&
                             canAccess(session, resource, "create") &&
                             String(row.status) !== "HIRED" &&
+                            String(row.candidate_status ?? "").toUpperCase() !== "HIRED" &&
                             (lookupQuery.data?.decisions ?? []).some((decision) => String(decision.candidate_id ?? "") === String(row.candidate_id ?? "") && String(decision.result ?? "").trim().toUpperCase() === "ĐẠT" && String(decision.status ?? "COMPLETED") === "COMPLETED") && (
                               <Button
                                 variant="soft"

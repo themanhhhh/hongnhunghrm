@@ -56,6 +56,7 @@ export const RewardDisciplineModule = ({ activeSubTab }) => {
         try {
             const resEmp = await api.get('/hr/employees');
             const resCrit = await api.get('/reward-discipline/criteria');
+            const resProposal = await api.get('/reward-discipline/proposals');
             if (resEmp.success && Array.isArray(resEmp.data)) setEmployees(resEmp.data);
             if (resCrit.success && Array.isArray(resCrit.data)) {
                 setCriteriaList(resCrit.data);
@@ -70,6 +71,7 @@ export const RewardDisciplineModule = ({ activeSubTab }) => {
                     })));
                 }
             }
+            if (resProposal.success && Array.isArray(resProposal.data)) setProposals(resProposal.data);
         } catch (err) {
             console.error(err);
         }
@@ -102,7 +104,7 @@ export const RewardDisciplineModule = ({ activeSubTab }) => {
 
     // --- HANDLERS ---
     const handleCreateCriteria = async (e) => {
-        e.preventDefault();
+        if (e) e.preventDefault();
         const res = await api.post('/reward-discipline/criteria', {
             ...formData,
             scales: scaleRows
@@ -118,7 +120,7 @@ export const RewardDisciplineModule = ({ activeSubTab }) => {
     };
 
     const handleCreateEvaluation = async (e) => {
-        e.preventDefault();
+        if (e) e.preventDefault();
         const res = await api.post('/reward-discipline/evaluations', {
             ...formData,
             details: evalDetailRows
@@ -133,7 +135,7 @@ export const RewardDisciplineModule = ({ activeSubTab }) => {
     };
 
     const handleCreateProposal = async (e) => {
-        e.preventDefault();
+        if (e) e.preventDefault();
         const res = await api.post('/reward-discipline/proposals', formData);
         if (res.success) {
             addToast('Tạo Phiếu Đề xuất Khen thưởng / Kỷ luật thành công!', 'success');
@@ -145,7 +147,7 @@ export const RewardDisciplineModule = ({ activeSubTab }) => {
     };
 
     const handleCreateDecision = async (e) => {
-        e.preventDefault();
+        if (e) e.preventDefault();
         const res = await api.post('/reward-discipline', formData);
         if (res.success) {
             addToast(res.message, 'success');
@@ -275,7 +277,9 @@ export const RewardDisciplineModule = ({ activeSubTab }) => {
                         setFormData({
                             evaluator_id: safeEmployees[0]?.employee_id || '',
                             employee_id: safeEmployees[1]?.employee_id || safeEmployees[0]?.employee_id || '',
-                            year: 2026
+                            year: 2026,
+                            evaluation_quarter: 1,
+                            evaluation_date: new Date().toISOString().split('T')[0]
                         });
                         setModalType('add_eval');
                     }}
@@ -383,6 +387,7 @@ export const RewardDisciplineModule = ({ activeSubTab }) => {
                         setFormData({
                             employee_id: safeEmployees[0]?.employee_id || '',
                             decision_type: 'KHEN_THUONG',
+                            proposal_id: safeProposals.find((proposal) => proposal.status === 'APPROVED')?.proposal_id || '',
                             category: 'CÁ NHÂN XUẤT SẮC',
                             amount: 5000000,
                             decision_by: 'Bùi Xuân Thức - Tổng Giám Đốc'
@@ -648,6 +653,15 @@ export const RewardDisciplineModule = ({ activeSubTab }) => {
                                 <label className="form-label">Năm đánh giá (*)</label>
                                 <input type="number" className="form-input" defaultValue={2026} onChange={(e) => setFormData({ ...formData, year: parseInt(e.target.value) })} />
                             </div>
+                            <div className="form-group">
+                                <label className="form-label">Kỳ đánh giá (*)</label>
+                                <select className="form-select" value={formData.evaluation_quarter || 1} onChange={(e) => setFormData({ ...formData, evaluation_quarter: parseInt(e.target.value, 10) })}>
+                                    <option value={1}>Quý I</option>
+                                    <option value={2}>Quý II</option>
+                                    <option value={3}>Quý III</option>
+                                    <option value={4}>Quý IV</option>
+                                </select>
+                            </div>
                         </div>
 
                         <div className="form-group">
@@ -760,7 +774,7 @@ export const RewardDisciplineModule = ({ activeSubTab }) => {
                 }
             >
                 <form onSubmit={handleCreateProposal}>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                         <div className="form-group">
                             <label className="form-label">Phân loại Đề xuất (*)</label>
                             <select className="form-select" onChange={(e) => setFormData({ ...formData, record_type: e.target.value })}>
@@ -820,6 +834,29 @@ export const RewardDisciplineModule = ({ activeSubTab }) => {
                                     <option key={e.employee_id} value={e.employee_id}>{e.employee_code} - {e.full_name}</option>
                                 ))}
                             </select>
+                        </div>
+                        <div className="form-group" style={{ gridColumn: 'span 2' }}>
+                            <label className="form-label">Đề xuất đã được duyệt (*)</label>
+                            <select className="form-select" value={formData.proposal_id || ''} required onChange={(e) => {
+                                const proposal = safeProposals.find((item) => item.proposal_id === e.target.value);
+                                setFormData({
+                                    ...formData,
+                                    proposal_id: e.target.value,
+                                    employee_id: proposal?.employee_id || formData.employee_id,
+                                    decision_type: proposal?.record_type || formData.decision_type,
+                                    amount: proposal?.proposed_amount || formData.amount
+                                });
+                            }}>
+                                <option value="">-- Chọn đề xuất đã duyệt --</option>
+                                {safeProposals.filter((proposal) => proposal.status === 'APPROVED').map((proposal) => (
+                                    <option key={proposal.proposal_id} value={proposal.proposal_id}>
+                                        {proposal.proposal_code} - {proposal.employee_name} - {proposal.record_type === 'KHEN_THUONG' ? 'Khen thưởng' : 'Kỷ luật'}
+                                    </option>
+                                ))}
+                            </select>
+                            {safeProposals.filter((proposal) => proposal.status === 'APPROVED').length === 0 && (
+                                <span style={{ marginTop: '0.35rem', color: '#B45309', fontSize: '0.75rem' }}>Chưa có đề xuất đã duyệt để lập quyết định.</span>
+                            )}
                         </div>
                         <div className="form-group" style={{ gridColumn: 'span 2' }}>
                             <label className="form-label">Nội dung Quyết định (*)</label>

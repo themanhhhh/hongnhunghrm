@@ -1,5 +1,20 @@
 import React, { useState } from 'react';
-import { Search, Filter, Plus, ChevronLeft, ChevronRight, Folder } from 'lucide-react';
+import { Search, Plus, ChevronLeft, ChevronRight, Download, Printer } from 'lucide-react';
+
+const exportText = (value) => {
+  if (value === null || value === undefined) return '';
+  if (typeof value === 'object') return JSON.stringify(value);
+  return String(value);
+};
+
+const csvValue = (value) => `"${exportText(value).replaceAll('"', '""')}"`;
+
+const getExportValue = (row, column) => {
+  if (typeof column.exportValue === 'function') return column.exportValue(row);
+  if (column.accessor) return row[column.accessor];
+  if (column.key) return row[column.key];
+  return '';
+};
 
 export const DataTable = ({
   columns,
@@ -33,6 +48,37 @@ export const DataTable = ({
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage
   );
+
+  const exportRows = () => filteredData.map((row, index) => [
+    index + 1,
+    ...columns.map((column) => getExportValue(row, column))
+  ]);
+
+  const handleExportCsv = () => {
+    const header = ['STT', ...columns.map((column) => column.header)].map(csvValue).join(',');
+    const body = exportRows().map((row) => row.map(csvValue).join(',')).join('\n');
+    const blob = new Blob([`\uFEFF${header}\n${body}`], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `bravo-${Date.now()}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handlePrint = () => {
+    const printWindow = window.open('', '_blank', 'width=1200,height=800');
+    if (!printWindow) return;
+    const header = ['STT', ...columns.map((column) => column.header)]
+      .map((value) => `<th>${exportText(value).replaceAll('&', '&amp;').replaceAll('<', '&lt;')}</th>`)
+      .join('');
+    const body = exportRows().map((row) => `<tr>${row.map((value) => `<td>${exportText(value).replaceAll('&', '&amp;').replaceAll('<', '&lt;')}</td>`).join('')}</tr>`).join('');
+    printWindow.document.write(`<!doctype html><html lang="vi"><head><meta charset="utf-8"><title>Danh sách dữ liệu BRAVO</title><style>body{font-family:"Segoe UI",Arial,sans-serif;color:#0f172a;padding:24px}h1{font-size:20px}table{border-collapse:collapse;width:100%;font-size:12px}th,td{border:1px solid #cbd5e1;padding:8px;text-align:left;vertical-align:top}th{background:#0f766e;color:#fff}@media print{body{padding:0}}</style></head><body><h1>Danh sách dữ liệu BRAVO</h1><table><thead><tr>${header}</tr></thead><tbody>${body || '<tr><td colspan="99">Không có dữ liệu</td></tr>'}</tbody></table></body></html>`);
+    printWindow.document.close();
+    printWindow.focus();
+    printWindow.print();
+    printWindow.close();
+  };
 
   // Helper for grouping data
   const renderGroupedTableBody = () => {
@@ -205,13 +251,22 @@ export const DataTable = ({
           ))}
         </div>
 
-        {/* Add Button */}
-        {onAdd && (
-          <button className="btn btn-primary" onClick={onAdd} style={{ height: '38px' }}>
-            <Plus size={16} />
-            <span>{addLabel}</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+          <button className="btn btn-secondary" onClick={handleExportCsv} style={{ height: '38px' }} title="Xuất dữ liệu CSV">
+            <Download size={15} />
+            <span>Xuất CSV</span>
           </button>
-        )}
+          <button className="btn btn-secondary" onClick={handlePrint} style={{ height: '38px' }} title="In bảng dữ liệu">
+            <Printer size={15} />
+            <span>In bảng</span>
+          </button>
+          {onAdd && (
+            <button className="btn btn-primary" onClick={onAdd} style={{ height: '38px' }}>
+              <Plus size={16} />
+              <span>{addLabel}</span>
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Table Area */}
