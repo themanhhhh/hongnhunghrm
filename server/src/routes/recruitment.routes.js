@@ -1276,7 +1276,7 @@ router.post('/convert-to-employee', authorizeRole('Administrator', 'HR Staff'), 
                 }
             }
 
-            const candidate = await txQueryOne(`SELECT c.*, COALESCE(req_plan.department_id, req_direct.department_id, c.department_id) AS department_id, COALESCE(req_plan.position_id, req_direct.position_id, c.position_id) AS position_id
+            const candidate = await txQueryOne(`SELECT c.*, COALESCE(req_plan.department_id, req_direct.department_id, c.department_id) AS conversion_department_id, COALESCE(req_plan.position_id, req_direct.position_id, c.position_id) AS conversion_position_id
                     , COALESCE(pos_direct.position_name, pos_request.position_name) AS position_name
                     , COALESCE(dept_direct.department_name, dept_request.department_name) AS department_name
                  FROM Candidate c WITH (UPDLOCK, HOLDLOCK)
@@ -1335,8 +1335,8 @@ router.post('/convert-to-employee', authorizeRole('Administrator', 'HR Staff'), 
                     candidate.email,
                     candidate.address || '',
                     candidateId,
-                    candidate.department_id,
-                    candidate.position_id,
+                    candidate.conversion_department_id,
+                    candidate.conversion_position_id,
                     joinDate,
                     joinDate
                 ]
