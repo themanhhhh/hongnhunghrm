@@ -487,8 +487,7 @@ function displayCell(key: string, value: unknown) {
     return `${Number(value).toLocaleString("vi-VN")} VNĐ`;
   if (key === "weight") return `${Number(value).toLocaleString("vi-VN")} %`;
   if (/date|_time|_at$/i.test(key)) {
-    const date =
-      typeof value === "number" ? new Date(value) : new Date(String(value));
+    const date = toDisplayDate(value);
     if (!Number.isNaN(date.getTime()))
       return key.endsWith("time")
         ? date.toLocaleString("vi-VN")
@@ -1382,17 +1381,21 @@ function StructuredDetail({
 
 function formatDateValue(value: unknown) {
   if (!value) return "";
-  const date =
-    typeof value === "number" ? new Date(value) : new Date(String(value));
+  const date = toDisplayDate(value);
   return Number.isNaN(date.getTime())
     ? String(value)
     : date.toISOString().slice(0, 10);
 }
 
+function toDisplayDate(value: unknown) {
+  if (typeof value === "number") return new Date(value);
+  const text = String(value).trim();
+  return /^\d+$/.test(text) ? new Date(Number(text)) : new Date(text);
+}
+
 function formatDateTimeValue(value: unknown) {
   if (!value) return "";
-  const date =
-    typeof value === "number" ? new Date(value) : new Date(String(value));
+  const date = toDisplayDate(value);
   return Number.isNaN(date.getTime())
     ? String(value)
     : date.toISOString().slice(0, 16);

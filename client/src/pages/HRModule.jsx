@@ -1797,7 +1797,7 @@ export const HRModule = ({ activeSubTab }) => {
                                         <input
                                             type="date"
                                             className="form-input"
-                                            value={editEmpData.date_of_birth ? (typeof editEmpData.date_of_birth === 'string' && editEmpData.date_of_birth.includes('-') ? editEmpData.date_of_birth : new Date(editEmpData.date_of_birth).toISOString().split('T')[0]) : ''}
+                                            value={dateInputValue(editEmpData.date_of_birth)}
                                             disabled={!isEditingEmp}
                                             onChange={(e) => setEditEmpData({ ...editEmpData, date_of_birth: e.target.value })}
                                             style={!isEditingEmp ? { backgroundColor: '#F3F4F6', color: '#374151', cursor: 'not-allowed' } : { backgroundColor: '#FFFFFF' }}
@@ -1916,7 +1916,7 @@ export const HRModule = ({ activeSubTab }) => {
                                         <input
                                             type="date"
                                             className="form-input"
-                                            value={editEmpData.join_date ? (typeof editEmpData.join_date === 'string' && editEmpData.join_date.includes('-') ? editEmpData.join_date : new Date(editEmpData.join_date).toISOString().split('T')[0]) : ''}
+                                            value={dateInputValue(editEmpData.join_date)}
                                             disabled={!isEditingEmp}
                                             onChange={(e) => setEditEmpData({ ...editEmpData, join_date: e.target.value })}
                                             style={!isEditingEmp ? { backgroundColor: '#F3F4F6', color: '#374151', cursor: 'not-allowed' } : { backgroundColor: '#FFFFFF' }}
@@ -1928,7 +1928,7 @@ export const HRModule = ({ activeSubTab }) => {
                                         <input
                                             type="date"
                                             className="form-input"
-                                            value={editEmpData.official_date ? (typeof editEmpData.official_date === 'string' && editEmpData.official_date.includes('-') ? editEmpData.official_date : new Date(editEmpData.official_date).toISOString().split('T')[0]) : ''}
+                                            value={dateInputValue(editEmpData.official_date)}
                                             disabled={!isEditingEmp}
                                             onChange={(e) => setEditEmpData({ ...editEmpData, official_date: e.target.value })}
                                             style={!isEditingEmp ? { backgroundColor: '#F3F4F6', color: '#374151', cursor: 'not-allowed' } : { backgroundColor: '#FFFFFF' }}
@@ -2097,7 +2097,7 @@ export const HRModule = ({ activeSubTab }) => {
                                         <input
                                             type="date"
                                             className="form-input"
-                                            value={editEmpData.resignation_date ? (typeof editEmpData.resignation_date === 'string' && editEmpData.resignation_date.includes('-') ? editEmpData.resignation_date : new Date(editEmpData.resignation_date).toISOString().split('T')[0]) : ''}
+                                            value={dateInputValue(editEmpData.resignation_date)}
                                             disabled={!isEditingEmp}
                                             onChange={(e) => setEditEmpData({ ...editEmpData, resignation_date: e.target.value })}
                                             style={!isEditingEmp ? { backgroundColor: '#F3F4F6', color: '#374151', cursor: 'not-allowed' } : { backgroundColor: '#FFFFFF' }}
@@ -2136,9 +2136,9 @@ export const HRModule = ({ activeSubTab }) => {
                                                 <tr key={c.contract_id || idx} style={{ borderBottom: '1px solid #F1F5F9' }}>
                                                     <td style={{ padding: '0.6rem 0.75rem', fontWeight: 600 }}>{c.contract_no}</td>
                                                     <td style={{ padding: '0.6rem 0.75rem' }}>{c.contract_type}</td>
-                                                    <td style={{ padding: '0.6rem 0.75rem' }}>{c.sign_date ? new Date(c.sign_date).toLocaleDateString('vi-VN') : '—'}</td>
-                                                    <td style={{ padding: '0.6rem 0.75rem' }}>{c.start_date ? new Date(c.start_date).toLocaleDateString('vi-VN') : '—'}</td>
-                                                    <td style={{ padding: '0.6rem 0.75rem' }}>{c.end_date ? new Date(c.end_date).toLocaleDateString('vi-VN') : 'Không xác định'}</td>
+                                                    <td style={{ padding: '0.6rem 0.75rem' }}>{displayDate(c.sign_date)}</td>
+                                                    <td style={{ padding: '0.6rem 0.75rem' }}>{displayDate(c.start_date)}</td>
+                                                    <td style={{ padding: '0.6rem 0.75rem' }}>{displayDate(c.end_date, 'Không xác định')}</td>
                                                     <td style={{ padding: '0.6rem 0.75rem' }}>
                                                         <span className={`badge ${c.status === 'ACTIVE' ? 'badge-green' : c.status === 'EXPIRED' ? 'badge-gray' : 'badge-red'}`}>
                                                             {c.status === 'ACTIVE' ? 'Đang hiệu lực' : c.status === 'EXPIRED' ? 'Đã hết hạn' : c.status}
@@ -2169,7 +2169,7 @@ export const HRModule = ({ activeSubTab }) => {
                                         {[...profileWorkHistory].sort((a, b) => (a.effective_date || 0) - (b.effective_date || 0)).map((wh, idx) => (
                                             <div key={wh.work_history_id || idx} style={{ display: 'flex', gap: '1rem', padding: '0.85rem 1rem', backgroundColor: '#F8FAFC', borderRadius: '8px', borderLeft: '3px solid var(--bravo-teal)' }}>
                                                 <div style={{ minWidth: '110px', fontWeight: 700, color: 'var(--bravo-teal-dark)', fontSize: '0.85rem' }}>
-                                                    {wh.effective_date ? new Date(wh.effective_date).toLocaleDateString('vi-VN') : '—'}
+                                                    {displayDate(wh.effective_date)}
                                                 </div>
                                                 <div style={{ flex: 1 }}>
                                                     <div style={{ fontWeight: 700, fontSize: '0.875rem', color: '#0F172A' }}>
@@ -2214,7 +2214,7 @@ export const HRModule = ({ activeSubTab }) => {
                                                             {isReward ? '🏆 Khen thưởng' : '⚠️ Kỷ luật'} — {rd.decision_no}
                                                         </span>
                                                         <span style={{ fontSize: '0.8rem', color: '#64748B' }}>
-                                                            {rd.decision_date ? new Date(rd.decision_date).toLocaleDateString('vi-VN') : '—'}
+                                                            {displayDate(rd.decision_date)}
                                                         </span>
                                                     </div>
                                                     <div style={{ fontSize: '0.85rem', color: '#0F172A', marginTop: '0.35rem', fontWeight: 600 }}>{rd.reason}</div>
@@ -2324,17 +2324,17 @@ export const HRModule = ({ activeSubTab }) => {
                                         );
                                     }
                                 },
-                                { header: 'Ngày vào làm', render: (r) => <span style={{ whiteSpace: 'nowrap' }}>{r.join_date ? new Date(r.join_date).toLocaleDateString('vi-VN') : '—'}</span> },
-                                { header: 'Ngày ký HĐLĐ', render: (r) => <span style={{ whiteSpace: 'nowrap' }}>{r.official_date ? new Date(r.official_date).toLocaleDateString('vi-VN') : '—'}</span> },
+                                { header: 'Ngày vào làm', render: (r) => <span style={{ whiteSpace: 'nowrap' }}>{displayDate(r.join_date)}</span> },
+                                { header: 'Ngày ký HĐLĐ', render: (r) => <span style={{ whiteSpace: 'nowrap' }}>{displayDate(r.official_date)}</span> },
                                 { header: 'Thâm niên', render: (r) => <span style={{ fontWeight: 700, color: '#047857', whiteSpace: 'nowrap' }}>{calculateTenure(r.join_date)}</span> },
-                                { header: 'Ngày sinh', render: (r) => <span style={{ whiteSpace: 'nowrap' }}>{r.date_of_birth ? new Date(r.date_of_birth).toLocaleDateString('vi-VN') : '—'}</span> },
+                                { header: 'Ngày sinh', render: (r) => <span style={{ whiteSpace: 'nowrap' }}>{displayDate(r.date_of_birth)}</span> },
                                 { header: 'Giới tính', accessor: 'gender', render: (r) => <span style={{ whiteSpace: 'nowrap' }}>{r.gender}</span> },
                                 { header: 'SĐT', accessor: 'phone', render: (r) => <span style={{ whiteSpace: 'nowrap' }}>{r.phone || '—'}</span> },
                                 { header: 'Email', render: (r) => <span style={{ whiteSpace: 'nowrap' }}>{r.company_email || r.email || r.personal_email || '—'}</span> },
                                 { header: 'Nơi sinh', render: (r) => <span style={{ whiteSpace: 'nowrap' }}>{r.place_of_birth || r.citizen_issue_place || '—'}</span> },
                                 { header: 'Địa chỉ (hiện tại)', render: (r) => <span style={{ whiteSpace: 'nowrap' }}>{r.address || '—'}</span> },
                                 { header: 'Địa chỉ (thường trú)', render: (r) => <span style={{ whiteSpace: 'nowrap' }}>{r.permanent_address || '—'}</span> },
-                                { header: 'Ngày nghỉ việc', render: (r) => <span style={{ whiteSpace: 'nowrap' }}>{r.resignation_date ? new Date(r.resignation_date).toLocaleDateString('vi-VN') : '—'}</span> }
+                                { header: 'Ngày nghỉ việc', render: (r) => <span style={{ whiteSpace: 'nowrap' }}>{displayDate(r.resignation_date)}</span> }
                             ]}
                             data={employees.filter(emp => {
                                 if (filterDept !== 'ALL' && emp.department_id !== filterDept && emp.department_name !== filterDept) return false;
@@ -2414,13 +2414,13 @@ export const HRModule = ({ activeSubTab }) => {
                     searchPlaceholder="Tìm số hợp đồng, tên nhân viên..."
                     columns={[
                         { header: 'Số Hợp đồng', accessor: 'contract_no', render: (r) => <b style={{ color: 'var(--bravo-teal-dark)', whiteSpace: 'nowrap' }}>{r.contract_no}</b> },
-                        { header: 'Ngày HĐ', render: (r) => <span style={{ whiteSpace: 'nowrap' }}>{r.contract_date ? new Date(r.contract_date).toLocaleDateString('vi-VN') : (r.created_date ? new Date(r.created_date).toLocaleDateString('vi-VN') : '—')}</span> },
+                        { header: 'Ngày HĐ', render: (r) => <span style={{ whiteSpace: 'nowrap' }}>{displayDate(r.contract_date || r.created_date)}</span> },
                         { header: 'Người ký', render: (r) => <span style={{ fontWeight: 600, whiteSpace: 'nowrap' }}>{r.signer_name || 'Bùi Xuân Thức'}</span> },
                         { header: 'Nhân viên', accessor: 'employee_name', render: (r) => <span style={{ fontWeight: 700, whiteSpace: 'nowrap' }}>{r.employee_name} ({r.employee_code})</span> },
                         { header: 'Loại hợp đồng', accessor: 'contract_type', render: (r) => <span className="badge badge-teal" style={{ whiteSpace: 'nowrap' }}>{r.contract_type}</span> },
                         { header: 'Lương cơ sở', render: (r) => <b style={{ color: '#059669', whiteSpace: 'nowrap' }}>{Number(r.base_salary || r.salary || 0).toLocaleString('vi-VN')} VNĐ</b> },
                         { header: 'Lương đóng BHXH', render: (r) => <span style={{ fontWeight: 600, color: '#0284C7', whiteSpace: 'nowrap' }}>{Number(r.social_insurance_salary || 0).toLocaleString('vi-VN')} VNĐ</span> },
-                        { header: 'Thời hạn', render: (r) => <span style={{ whiteSpace: 'nowrap' }}>{r.start_date ? new Date(r.start_date).toLocaleDateString('vi-VN') : '—'} ➔ {r.end_date ? new Date(r.end_date).toLocaleDateString('vi-VN') : 'Không thời hạn'}</span> },
+                        { header: 'Thời hạn', render: (r) => <span style={{ whiteSpace: 'nowrap' }}>{displayDate(r.start_date)} ➔ {displayDate(r.end_date, 'Không thời hạn')}</span> },
                         {
                             header: 'Thao tác',
                             render: (r) => (
@@ -2469,11 +2469,11 @@ export const HRModule = ({ activeSubTab }) => {
                     searchPlaceholder="Tìm số đề xuất, người đề xuất, nhân viên..."
                     columns={[
                         { header: 'Số Đề xuất', accessor: 'proposal_code', render: (r) => <b style={{ color: 'var(--bravo-teal-dark)', whiteSpace: 'nowrap' }}>{r.proposal_code}</b> },
-                        { header: 'Ngày đề xuất', render: (r) => <span style={{ whiteSpace: 'nowrap' }}>{r.proposal_date ? new Date(r.proposal_date).toLocaleDateString('vi-VN') : (r.created_date ? new Date(r.created_date).toLocaleDateString('vi-VN') : '—')}</span> },
+                        { header: 'Ngày đề xuất', render: (r) => <span style={{ whiteSpace: 'nowrap' }}>{displayDate(r.proposal_date || r.created_date)}</span> },
                         { header: 'Loại quyết định', accessor: 'decision_type', render: (r) => <span className="badge badge-teal" style={{ whiteSpace: 'nowrap' }}>{r.decision_type || 'Thuyên chuyển'}</span> },
                         { header: 'Người đề xuất', render: (r) => <span style={{ fontWeight: 600, whiteSpace: 'nowrap' }}>{r.proposer_name || 'Bùi Xuân Thức'}</span> },
                         { header: 'Số lượng NV', render: (r) => <b style={{ color: '#0284C7', whiteSpace: 'nowrap' }}>{Array.isArray(r.detail_items) ? r.detail_items.length : 1} nhân viên</b> },
-                        { header: 'Ngày hiệu lực', render: (r) => <span style={{ whiteSpace: 'nowrap' }}>{r.effective_date ? new Date(r.effective_date).toLocaleDateString('vi-VN') : (r.proposed_effective_date ? new Date(r.proposed_effective_date).toLocaleDateString('vi-VN') : '—')}</span> },
+                        { header: 'Ngày hiệu lực', render: (r) => <span style={{ whiteSpace: 'nowrap' }}>{displayDate(r.effective_date || r.proposed_effective_date)}</span> },
                         { header: 'Ghi chú / Lý do', accessor: 'note', render: (r) => <span>{r.note || r.reason || '—'}</span> },
                         { header: 'Trạng thái', accessor: 'status', render: (r) => <span className="badge badge-yellow" style={{ whiteSpace: 'nowrap' }}>Chờ phê duyệt</span> },
                         {
@@ -2538,7 +2538,7 @@ export const HRModule = ({ activeSubTab }) => {
                         { header: 'Nhân viên', accessor: 'employee_name', render: (r) => <span style={{ fontWeight: 700 }}>{r.employee_name} ({r.employee_code})</span> },
                         { header: 'Bộ phận chính thức mới', accessor: 'target_dept_name', render: (r) => <b>{r.target_dept_name}</b> },
                         { header: 'Vị trí công việc mới', accessor: 'target_pos_name', render: (r) => <span className="badge badge-teal">{r.target_pos_name}</span> },
-                        { header: 'Ngày hiệu lực', render: (r) => r.effective_date ? new Date(r.effective_date).toLocaleDateString('vi-VN') : '—' },
+                        { header: 'Ngày hiệu lực', render: (r) => displayDate(r.effective_date) },
                         { header: 'Người ký ban hành', accessor: 'signed_by' },
                         { header: 'Trạng thái', render: () => <span className="badge badge-green">Đã thi hành</span> },
                         {
@@ -2582,7 +2582,7 @@ export const HRModule = ({ activeSubTab }) => {
                         { header: 'Nhân viên', accessor: 'employee_name', render: (r) => <span style={{ fontWeight: 700, whiteSpace: 'nowrap' }}>{r.employee_name} ({r.employee_code || '—'})</span> },
                         { header: 'Bộ phận', accessor: 'department_name' },
                         { header: 'Chức danh', accessor: 'position_name' },
-                        { header: 'Ngày nghỉ việc', render: (r) => <span style={{ whiteSpace: 'nowrap' }}>{r.official_resign_date ? new Date(r.official_resign_date).toLocaleDateString('vi-VN') : '—'}</span> },
+                        { header: 'Ngày nghỉ việc', render: (r) => <span style={{ whiteSpace: 'nowrap' }}>{displayDate(r.official_resign_date)}</span> },
                         { header: 'Người ký', accessor: 'signed_by' },
                         { header: 'Trạng thái', render: () => <span className="badge badge-green">Đã thi hành</span> },
                         {
@@ -2615,14 +2615,14 @@ export const HRModule = ({ activeSubTab }) => {
                     onAdd={handleOpenCreateLeaveModal}
                     searchPlaceholder="Tìm số phiếu, tên nhân viên, bộ phận..."
                     columns={[
-                        { header: 'Ngày tạo', render: (r) => <span style={{ whiteSpace: 'nowrap' }}>{r.created_date ? new Date(r.created_date).toLocaleDateString('vi-VN') : '—'}</span> },
+                        { header: 'Ngày tạo', render: (r) => <span style={{ whiteSpace: 'nowrap' }}>{displayDate(r.created_date)}</span> },
                         { header: 'Số phiếu', accessor: 'leave_code', render: (r) => <b>{r.leave_code}</b> },
                         { header: 'Nhân viên', accessor: 'employee_name', render: (r) => <span style={{ fontWeight: 700 }}>{r.employee_name} ({r.employee_code || '—'})</span> },
                         { header: 'Bộ phận', accessor: 'department_name' },
                         { header: 'Quản lý duyệt', accessor: 'approver_name' },
                         { header: 'Số buổi', accessor: 'total_days', render: (r) => <span style={{ fontWeight: 700, color: '#2D6F62' }}>{Number(r.total_days || 1).toFixed(2)}</span> },
-                        { header: 'Từ ngày', render: (r) => <span style={{ whiteSpace: 'nowrap' }}>{r.start_date ? new Date(r.start_date).toLocaleDateString('vi-VN') : '—'}</span> },
-                        { header: 'Đến ngày', render: (r) => <span style={{ whiteSpace: 'nowrap' }}>{r.end_date ? new Date(r.end_date).toLocaleDateString('vi-VN') : '—'}</span> },
+                        { header: 'Từ ngày', render: (r) => <span style={{ whiteSpace: 'nowrap' }}>{displayDate(r.start_date)}</span> },
+                        { header: 'Đến ngày', render: (r) => <span style={{ whiteSpace: 'nowrap' }}>{displayDate(r.end_date)}</span> },
                         { header: 'Lý do', accessor: 'reason' },
                         {
                             header: 'Trạng thái',
@@ -4375,13 +4375,13 @@ export const HRModule = ({ activeSubTab }) => {
                         <div style={{ backgroundColor: '#F8FAFC', padding: '1rem 1.25rem', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.75rem', fontSize: '0.875rem' }}>
                                 <div><b>Số phiếu:</b> <span style={{ color: '#2D6F62', fontWeight: 700 }}>{selectedLeave.leave_code}</span></div>
-                                <div><b>Ngày tạo:</b> {selectedLeave.created_date ? new Date(selectedLeave.created_date).toLocaleDateString('vi-VN') : '—'}</div>
+                                <div><b>Ngày tạo:</b> {displayDate(selectedLeave.created_date)}</div>
                                 <div><b>Nhân viên:</b> <b>{selectedLeave.employee_name}</b> ({selectedLeave.employee_code || '—'})</div>
                                 <div><b>Bộ phận:</b> {selectedLeave.department_name}</div>
                                 <div><b>Quản lý duyệt:</b> {selectedLeave.approver_name}</div>
                                 <div><b>Trưởng nhóm liên quan:</b> {selectedLeave.related_person_name || 'Không có'}</div>
-                                <div><b>Từ ngày:</b> {selectedLeave.start_date ? new Date(selectedLeave.start_date).toLocaleDateString('vi-VN') : '—'}</div>
-                                <div><b>Đến ngày:</b> {selectedLeave.end_date ? new Date(selectedLeave.end_date).toLocaleDateString('vi-VN') : '—'}</div>
+                                <div><b>Từ ngày:</b> {displayDate(selectedLeave.start_date)}</div>
+                                <div><b>Đến ngày:</b> {displayDate(selectedLeave.end_date)}</div>
                                 <div><b>Tổng số buổi:</b> <b style={{ color: '#047857' }}>{Number(selectedLeave.total_days || 1).toFixed(2)} buổi</b></div>
                             </div>
 

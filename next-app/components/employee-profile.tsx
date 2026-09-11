@@ -21,7 +21,10 @@ function valueOf(value: unknown) {
 
 function dateOf(value: unknown) {
   if (!value) return "-";
-  const date = typeof value === "number" ? new Date(value) : new Date(String(value));
+  const text = String(value).trim();
+  const date = typeof value === "number" || /^\d+$/.test(text)
+    ? new Date(Number(value))
+    : new Date(text);
   return Number.isNaN(date.getTime()) ? String(value) : date.toLocaleDateString("vi-VN");
 }
 

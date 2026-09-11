@@ -33,6 +33,24 @@ function isWorkingCandidate(status) {
     return normalizeCandidateStatus(status) === CANDIDATE_STATUS.WORKING;
 }
 
+function toDateTimestamp(value, fallback = null) {
+    if (value === null || value === undefined || value === '') return fallback;
+    if (typeof value === 'number') return Number.isFinite(value) ? value : fallback;
+
+    const text = String(value).trim();
+    if (/^\d+$/.test(text)) {
+        const timestamp = Number(text);
+        return Number.isFinite(timestamp) ? timestamp : fallback;
+    }
+    if (/^\d{4}-\d{2}-\d{2}$/.test(text)) {
+        const [year, month, day] = text.split('-').map(Number);
+        return Date.UTC(year, month - 1, day);
+    }
+
+    const timestamp = new Date(text).getTime();
+    return Number.isFinite(timestamp) ? timestamp : fallback;
+}
+
 async function findDuplicateCandidate({ citizen_id, phone, email }, excludeCandidateId) {
     const duplicateChecks = [];
     const params = [];
@@ -1317,7 +1335,7 @@ router.post('/convert-to-employee', authorizeRole('Administrator', 'HR Staff'), 
             const offer = await txQueryOne(`SELECT TOP 1 * FROM Offer WHERE candidate_id = ? ORDER BY created_date DESC`, [candidateId]);
             const empId = crypto.randomUUID();
             const empCode = 'NV-' + new Date().getFullYear() + '-' + Math.floor(100 + Math.random() * 900);
-            const joinDate = offer?.expected_start_date || now;
+            const joinDate = toDateTimestamp(offer?.expected_start_date, now);
 
             await txRun(
                 `INSERT INTO Employee (employee_id, created_date, last_modified_date, employee_code, full_name, gender, date_of_birth, citizen_id, phone, email, address, candidate_id, department_id, position_id, join_date, initial_contract_date, employment_status, is_active)
