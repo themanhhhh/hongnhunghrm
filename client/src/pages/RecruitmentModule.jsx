@@ -26,7 +26,8 @@ import {
     Save,
     ArrowLeft,
     Filter,
-    Plus
+    Plus,
+    Upload
 } from 'lucide-react';
 
 const EmployeeConversionModal = ({ data, departments, positions, onChange, onClose, onSubmit, isSubmitting }) => {
@@ -4344,9 +4345,16 @@ export const RecruitmentModule = ({ activeSubTab }) => {
                                                                     type="file"
                                                                     id={`exam-file-${idx}`}
                                                                     style={{ display: 'none' }}
-                                                                    onChange={(e) => {
+                                                                    onChange={async (e) => {
                                                                         const file = e.target.files[0];
-                                                                        if (file) handleScheduleTestFieldChange(idx, 'exam_file_name', file.name);
+                                                                        if (!file) return;
+                                                                        const uploadResult = await api.uploadInterviewFile(file);
+                                                                        if (!uploadResult.success) {
+                                                                            addToast(uploadResult.message || 'Không thể tải tệp đề thi lên.', 'error');
+                                                                            return;
+                                                                        }
+                                                                        handleScheduleTestFieldChange(idx, 'exam_file_name', uploadResult.data?.fileName || file.name);
+                                                                        handleScheduleTestFieldChange(idx, 'exam_file_url', uploadResult.data?.fileUrl || '');
                                                                     }}
                                                                 />
                                                                 <label
@@ -4368,9 +4376,16 @@ export const RecruitmentModule = ({ activeSubTab }) => {
                                                                     type="file"
                                                                     id={`answer-file-${idx}`}
                                                                     style={{ display: 'none' }}
-                                                                    onChange={(e) => {
+                                                                    onChange={async (e) => {
                                                                         const file = e.target.files[0];
-                                                                        if (file) handleScheduleTestFieldChange(idx, 'answer_file_name', file.name);
+                                                                        if (!file) return;
+                                                                        const uploadResult = await api.uploadInterviewFile(file);
+                                                                        if (!uploadResult.success) {
+                                                                            addToast(uploadResult.message || 'Không thể tải tệp đáp án lên.', 'error');
+                                                                            return;
+                                                                        }
+                                                                        handleScheduleTestFieldChange(idx, 'answer_file_name', uploadResult.data?.fileName || file.name);
+                                                                        handleScheduleTestFieldChange(idx, 'answer_file_url', uploadResult.data?.fileUrl || '');
                                                                     }}
                                                                 />
                                                                 <label

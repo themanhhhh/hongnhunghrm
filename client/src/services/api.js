@@ -110,5 +110,25 @@ export const api = {
       console.warn(`⚠️ [API] Upload ${endpoint} không kết nối được server thật - dùng preview cục bộ:`, err.message);
       return { success: true, data: { avatarUrl: URL.createObjectURL(formData.get('avatar')) }, mock: true };
     }
+  },
+
+  uploadInterviewFile: async (file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    try {
+      const response = await fetch(`${API_BASE_URL}/recruitment/interview-files`, {
+        method: 'POST',
+        headers: getHeaders(true),
+        body: formData
+      });
+      const json = await response.json();
+      if (!response.ok || !json?.success || !json?.data?.fileUrl) {
+        return json || { success: false, message: `HTTP error ${response.status}` };
+      }
+      return json;
+    } catch (err) {
+      console.warn(`⚠️ [API] Upload tệp bài thi không kết nối được server - dùng preview cục bộ:`, err.message);
+      return { success: true, data: { fileName: file.name, fileUrl: URL.createObjectURL(file) }, mock: true };
+    }
   }
 };

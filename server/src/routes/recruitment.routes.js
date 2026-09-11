@@ -1,10 +1,62 @@
 const express = require('express');
 const router = express.Router();
 const crypto = require('crypto');
+const fs = require('fs');
+const path = require('path');
+const multer = require('multer');
 const { query, queryOne, run, withTransaction } = require('../db/connection');
 const { authenticateToken, authorizeRole } = require('../middleware/auth');
 
 router.use(authenticateToken);
+
+const interviewFilesDir = path.join(__dirname, '../../uploads/interview-tests');
+fs.mkdirSync(interviewFilesDir, { recursive: true });
+
+const interviewFileExtensions = new Set([
+    '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx', '.zip'
+]);
+const interviewFileUpload = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 20 * 1024 * 1024 },
+    fileFilter: (req, file, cb) => {
+        if (!interviewFileExtensions.has(path.extname(file.originalname).toLowerCase())) {
+            const error = new Error('Tệp bài thi chỉ hỗ trợ PDF, Word, Excel, PowerPoint hoặc ZIP.');
+            error.status = 400;
+            return cb(error);
+        }
+        cb(null, true);
+    }
+});
+
+function uploadInterviewFile(req, res, next) {
+    interviewFileUpload.single('file')(req, res, (error) => {
+        if (!error) return next();
+        error.status = error.code === 'LIMIT_FILE_SIZE' ? 400 : (error.status || 400);
+        if (error.code === 'LIMIT_FILE_SIZE') error.message = 'Tệp bài thi không được vượt quá 20 MB.';
+        next(error);
+    });
+}
+
+router.post('/interview-files', uploadInterviewFile, async (req, res) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({ success: false, message: 'Chưa chọn tệp bài thi.' });
+        }
+        const safeName = path.basename(req.file.originalname)
+            .replace(/[^a-zA-Z0-9._-]/g, '_')
+            .replace(/^\.+/, '') || 'interview-file';
+        const storedName = `${crypto.randomUUID()}-${safeName}`;
+        await fs.promises.writeFile(path.join(interviewFilesDir, storedName), req.file.buffer);
+        const fileUrl = `${req.protocol}://${req.get('host')}/uploads/interview-tests/${encodeURIComponent(storedName)}`;
+        res.json({
+            success: true,
+            message: 'Tải tệp bài thi thành công.',
+            data: { fileName: req.file.originalname, fileUrl }
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
 
 const CANDIDATE_STATUS = Object.freeze({
     RECEIVED: 'tiếp nhận hồ sơ',

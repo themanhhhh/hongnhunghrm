@@ -57,6 +57,10 @@ import {
 
 type Row = Record<string, unknown>;
 type ModuleName = WorkspaceName | "reports";
+type ScheduleLookups = {
+  candidates?: Row[];
+  employees?: Row[];
+};
 type PopupState = {
   variant: PopupVariant;
   title: string;
@@ -276,8 +280,10 @@ const detailLabels: Record<string, string> = {
   duration_minutes: "Thời lượng (phút)",
   exam_file: "Tệp đề thi",
   exam_file_name: "Tệp đề thi",
+  exam_file_url: "Đường dẫn tệp đề thi",
   answer_file: "Tệp đáp án",
   answer_file_name: "Tệp đáp án",
+  answer_file_url: "Đường dẫn tệp đáp án",
   evaluator_id: "Mã người đánh giá",
   evaluator_name: "Người đánh giá",
   interview_eval_id: "Mã phiếu đánh giá phỏng vấn",
@@ -835,6 +841,165 @@ function DetailSection({
   );
 }
 
+function ScheduleFileLink({
+  row,
+  nameKey,
+  urlKey,
+  legacyKey,
+}: {
+  row: Row;
+  nameKey: string;
+  urlKey: string;
+  legacyKey: string;
+}) {
+  const fileName = String(row[nameKey] ?? "");
+  const legacyValue = String(row[legacyKey] ?? "");
+  const legacyIsUrl = /^(https?:|blob:|\/uploads\/)/i.test(legacyValue);
+  const fileUrl = String(row[urlKey] ?? "") || (legacyIsUrl ? legacyValue : "");
+  const label = fileName || (fileUrl ? "Mở tệp" : legacyValue) || "-";
+  if (!fileUrl) return <span>{label}</span>;
+  return (
+    <a
+      href={fileUrl}
+      target="_blank"
+      rel="noreferrer"
+      className="font-semibold text-teal-700 underline decoration-teal-200 underline-offset-2 hover:text-teal-900"
+    >
+      {label}
+    </a>
+  );
+}
+
+function InterviewScheduleTestsTable({ rows }: { rows: Array<Record<string, unknown>> }) {
+  return (
+    <div className="overflow-x-auto rounded-xl border border-slate-100">
+      <table className="w-full min-w-[760px] text-left text-xs">
+        <thead className="bg-slate-50 text-[10px] uppercase tracking-wider text-slate-400">
+          <tr>
+            <th className="px-3 py-3 font-bold">Tên bài thi</th>
+            <th className="px-3 py-3 font-bold">Điểm yêu cầu</th>
+            <th className="px-3 py-3 font-bold">Thời lượng (phút)</th>
+            <th className="px-3 py-3 font-bold">Tệp đề thi</th>
+            <th className="px-3 py-3 font-bold">Tệp đáp án</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-slate-100">
+          {rows.length ? rows.map((row, index) => (
+            <tr key={String(row.id ?? row.test_name ?? index)}>
+              <td className="px-3 py-3 align-top text-slate-700">{displayCell("test_name", row.test_name)}</td>
+              <td className="px-3 py-3 align-top text-slate-700">{displayCell("expected_score", row.expected_score)}</td>
+              <td className="px-3 py-3 align-top text-slate-700">{displayCell("duration_minutes", row.duration_minutes)}</td>
+              <td className="px-3 py-3 align-top text-slate-700">
+                <ScheduleFileLink row={row} nameKey="exam_file_name" urlKey="exam_file_url" legacyKey="exam_file" />
+              </td>
+              <td className="px-3 py-3 align-top text-slate-700">
+                <ScheduleFileLink row={row} nameKey="answer_file_name" urlKey="answer_file_url" legacyKey="answer_file" />
+              </td>
+            </tr>
+          )) : (
+            <tr>
+              <td colSpan={5} className="px-3 py-8 text-center text-slate-400">
+                Chưa có bài thi trong lịch.
+              </td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function InterviewScheduleDetail({
+  row,
+  lookups,
+}: {
+  row: Row;
+  lookups?: ScheduleLookups;
+}) {
+  const candidates = parseDetailList(row.candidates ?? row.candidates_json).map(
+    (item) => {
+      const candidateId = String(item.candidate_id ?? item.id ?? "");
+      const candidate = lookups?.candidates?.find(
+        (lookup) => String(lookup.candidate_id ?? lookup.id ?? "") === candidateId,
+      );
+      return {
+        candidate_code: item.candidate_code || candidate?.candidate_code || candidateId,
+        full_name: item.full_name || candidate?.full_name || "",
+        apply_position_name:
+          item.apply_position_name ||
+          candidate?.apply_position_name ||
+          candidate?.position_name ||
+          "",
+        note: item.note ?? "",
+      };
+    },
+  );
+  const council = parseDetailList(row.council ?? row.council_json).map((item) => {
+    const employeeId = String(item.employee_id ?? item.id ?? "");
+    const employee = lookups?.employees?.find(
+      (lookup) => String(lookup.employee_id ?? lookup.id ?? "") === employeeId,
+    );
+    return {
+      employee_code: item.employee_code || employee?.employee_code || employeeId,
+      full_name: item.full_name || employee?.full_name || "",
+      position_name: item.position_name || employee?.position_name || "",
+      is_decision_maker:
+        Number(item.is_decision_maker) === 1 || item.is_decision_maker === true
+          ? "Có"
+          : "Không",
+    };
+  });
+  const tests = parseDetailList(row.tests ?? row.tests_json);
+
+  return (
+    <div className="space-y-3">
+      <DetailGrid
+        items={[
+          ["Mã lịch phỏng vấn", row.schedule_id],
+          ["Mã lịch", row.schedule_code],
+          ["Vòng tuyển dụng", row.round_type],
+          ["Hình thức", row.format_type],
+          ["Thời điểm bắt đầu", row.start_time, "start_time"],
+          ["Thời điểm kết thúc", row.end_time, "end_time"],
+          ["Địa điểm / Link họp", row.location],
+          ["Ghi chú hội đồng", row.note],
+          ["Lưu ý ứng viên", row.candidate_note],
+          ["Trạng thái", row.status],
+        ]}
+      />
+      <div className="space-y-5">
+        <DetailSection title="Danh sách ứng viên">
+          <DetailTable
+            columns={[
+              ["candidate_code", "Mã ứng viên"],
+              ["full_name", "Họ và tên"],
+              ["apply_position_name", "Vị trí ứng tuyển"],
+              ["note", "Ghi chú"],
+            ]}
+            rows={candidates}
+            empty="Chưa có ứng viên trong lịch."
+          />
+        </DetailSection>
+        <DetailSection title="Hội đồng tuyển dụng">
+          <DetailTable
+            columns={[
+              ["employee_code", "Mã nhân viên"],
+              ["full_name", "Họ và tên"],
+              ["position_name", "Chức vụ"],
+              ["is_decision_maker", "Người quyết định"],
+            ]}
+            rows={council}
+            empty="Chưa có thành viên hội đồng."
+          />
+        </DetailSection>
+        <DetailSection title="Bài thi và đáp án">
+          <InterviewScheduleTestsTable rows={tests} />
+        </DetailSection>
+      </div>
+    </div>
+  );
+}
+
 function EmployeeRelationsDetail({ row }: { row: Row }) {
   const contracts = parseDetailList(row.contracts);
   const workHistory = parseDetailList(row.workHistory ?? row.work_history);
@@ -975,11 +1140,16 @@ function StructuredDetail({
   name,
   tab,
   row,
+  lookups,
 }: {
   name: WorkspaceName;
   tab: WorkspaceTab;
   row: Row;
+  lookups?: ScheduleLookups;
 }) {
+  if (name === "recruitment" && tab.id === "schedules") {
+    return <InterviewScheduleDetail row={row} lookups={lookups} />;
+  }
   if (name === "people" && tab.id === "employees") {
     return <EmployeeRelationsDetail row={row} />;
   }
@@ -9425,10 +9595,15 @@ function OperationalWorkspace({
                     "decisions",
                   ].includes(tab.id)) ||
                 (name === "recruitment" &&
-                  ["screenings", "interview-evaluations", "decisions"].includes(
+                  ["screenings", "schedules", "interview-evaluations", "decisions"].includes(
                     tab.id,
                   )) ? (
-                <StructuredDetail name={name} tab={tab} row={showDetail} />
+                <StructuredDetail
+                  name={name}
+                  tab={tab}
+                  row={showDetail}
+                  lookups={lookupData}
+                />
               ) : (
                 <div className="grid gap-3 sm:grid-cols-2">
                   {Object.entries(showDetail).map(([key, value]) => (
@@ -9517,7 +9692,9 @@ function OperationalWorkspace({
 type JsonItemField = {
   key: string;
   label: string;
-  type?: "text" | "number" | "checkbox";
+  type?: "text" | "number" | "checkbox" | "file";
+  aliases?: string[];
+  urlKey?: string;
 };
 
 type JsonListSchema = {
@@ -9617,8 +9794,20 @@ const jsonListSchemas: Record<string, JsonListSchema> = {
       { key: "test_name", label: "Tên bài thi" },
       { key: "expected_score", label: "Điểm yêu cầu", type: "number" },
       { key: "duration_minutes", label: "Thời lượng (phút)", type: "number" },
-      { key: "exam_file", label: "Tệp đề thi" },
-      { key: "answer_file", label: "Tệp đáp án" },
+      {
+        key: "exam_file_name",
+        label: "Tệp đề thi",
+        type: "file",
+        aliases: ["exam_file"],
+        urlKey: "exam_file_url",
+      },
+      {
+        key: "answer_file_name",
+        label: "Tệp đáp án",
+        type: "file",
+        aliases: ["answer_file"],
+        urlKey: "answer_file_url",
+      },
     ],
   },
   "interview-evaluations.script": {
@@ -9734,8 +9923,19 @@ function JsonListInput({
   schema: JsonListSchema;
 }) {
   const { items, error } = parseJsonList(value);
+  const [uploadingKey, setUploadingKey] = useState<string | null>(null);
+  const [uploadError, setUploadError] = useState<{
+    key: string;
+    message: string;
+  } | null>(null);
   const updateItems = (nextItems: Array<Record<string, unknown>>) =>
     onChange(JSON.stringify(nextItems));
+  const itemValue = (item: Record<string, unknown>, field: JsonItemField) =>
+    item[field.key] ??
+    field.aliases
+      ?.map((alias) => item[alias])
+      .find((aliasValue) => aliasValue !== undefined && aliasValue !== null) ??
+    "";
   const addItem = () =>
     updateItems([
       ...items,
@@ -9798,7 +9998,7 @@ function JsonListInput({
                     <span className="flex h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 font-medium">
                       <input
                         type="checkbox"
-                        checked={Boolean(item[itemField.key])}
+                        checked={Boolean(itemValue(item, itemField))}
                         onChange={(event) => {
                           const nextItems = [...items];
                           nextItems[index] = {
@@ -9810,12 +10010,69 @@ function JsonListInput({
                       />
                       {itemField.label}
                     </span>
+                  ) : itemField.type === "file" ? (
+                    <>
+                      <span className="mb-1.5 block">{itemField.label}</span>
+                      {(() => {
+                        const uploadKey = `${index}:${itemField.key}`;
+                        return (
+                          <>
+                      <input
+                        type="file"
+                        accept=".pdf,.doc,.docx,.xls,.xlsx,.zip"
+                        disabled={uploadingKey === uploadKey}
+                        onChange={async (event) => {
+                          const file = event.target.files?.[0];
+                          if (!file) return;
+                          setUploadingKey(uploadKey);
+                          setUploadError(null);
+                          try {
+                            const uploaded = await api.uploadInterviewFile(file);
+                            const nextItems = [...items];
+                            const nextItem = {
+                              ...item,
+                              [itemField.key]: uploaded.fileName || file.name,
+                            };
+                            for (const alias of itemField.aliases ?? [])
+                              delete nextItem[alias];
+                            if (itemField.urlKey)
+                              nextItem[itemField.urlKey] = uploaded.fileUrl;
+                            nextItems[index] = nextItem;
+                            updateItems(nextItems);
+                          } catch (error) {
+                            setUploadError({
+                              key: uploadKey,
+                              message:
+                                error instanceof Error
+                                  ? error.message
+                                  : "Không thể tải tệp lên.",
+                            });
+                          } finally {
+                            setUploadingKey(null);
+                          }
+                        }}
+                        className="block h-10 w-full rounded-xl border border-slate-200 bg-white px-2 py-2 text-xs font-normal outline-none file:mr-2 file:rounded-lg file:border-0 file:bg-teal-50 file:px-2 file:py-1 file:text-xs file:font-bold file:text-teal-700 hover:file:bg-teal-100"
+                      />
+                      <span className="mt-1 block truncate text-[11px] font-normal text-slate-500">
+                        {uploadingKey === uploadKey
+                          ? "Đang tải file lên..."
+                          : String(itemValue(item, itemField) || "Chưa chọn file")}
+                      </span>
+                      {uploadError?.key === uploadKey && (
+                        <span className="mt-1 block text-[11px] font-normal text-rose-600">
+                          {uploadError.message}
+                        </span>
+                      )}
+                          </>
+                        );
+                      })()}
+                    </>
                   ) : (
                     <>
                       <span className="mb-1.5 block">{itemField.label}</span>
                       <input
                         type={itemField.type === "number" ? "number" : "text"}
-                        value={String(item[itemField.key] ?? "")}
+                        value={String(itemValue(item, itemField))}
                         onChange={(event) => {
                           const nextValue =
                             itemField.type === "number" &&

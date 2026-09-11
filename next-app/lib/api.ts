@@ -406,6 +406,42 @@ export const api = {
       return { avatarUrl: URL.createObjectURL(file) };
     }
   },
+  async uploadInterviewFile(file: File) {
+    if (isMockMode()) {
+      return { fileName: file.name, fileUrl: URL.createObjectURL(file) };
+    }
+
+    const formData = new FormData();
+    formData.append("file", file);
+    const headers = new Headers();
+    const token =
+      typeof window !== "undefined"
+        ? window.localStorage.getItem("bravo_next_token")
+        : null;
+    if (token) headers.set("Authorization", `Bearer ${token}`);
+
+    try {
+      const response = await fetch(`${API_URL}/recruitment/interview-files`, {
+        method: "POST",
+        headers,
+        body: formData,
+      });
+      const body = (await response.json().catch(() => null)) as ApiEnvelope<{
+        fileName: string;
+        fileUrl: string;
+      }> | null;
+      if (!response.ok || !body?.success || !body.data?.fileUrl) {
+        throw new ApiError(
+          body?.message ?? "Không thể tải tệp bài thi.",
+          response.status,
+        );
+      }
+      return body.data;
+    } catch (error) {
+      if (error instanceof ApiError && error.status < 500) throw error;
+      return { fileName: file.name, fileUrl: URL.createObjectURL(file) };
+    }
+  },
   async login(username: string, password: string) {
     if (isMockMode()) return demoLogin(username, password);
     try {
