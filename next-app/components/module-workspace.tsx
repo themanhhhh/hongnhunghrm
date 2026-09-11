@@ -1593,9 +1593,6 @@ function ScreeningForm({
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <div>
-              <p className="mt-1 text-xs text-slate-400">
-                Khai báo từng tiêu chí và yêu cầu đạt của vị trí.
-              </p>
             </div>
             <Button
               type="button"
@@ -2166,9 +2163,6 @@ function ContractForm({
               <h3 className="font-display text-sm font-bold text-slate-900">
                 Phụ lục hợp đồng
               </h3>
-              <p className="mt-1 text-xs text-slate-400">
-                Phụ lục sẽ được lưu sau khi HĐLĐ được tạo thành công.
-              </p>
             </div>
             <Button
               type="button"
@@ -3270,9 +3264,7 @@ function EvaluationForm({
               <h3 className="font-display text-sm font-bold text-slate-900">
                 Chi tiết tiêu chí đánh giá
               </h3>
-              <p className="mt-1 text-xs text-slate-400">
-                Điểm của quản lý được tính theo trọng số tiêu chí.
-              </p>
+             
             </div>
             <Button
               type="button"

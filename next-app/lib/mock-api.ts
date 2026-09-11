@@ -971,6 +971,21 @@ function candidatePipelineStages(candidates: MockRow[]) {
   }));
 }
 
+function candidatePipelineFunnel(candidates: MockRow[]) {
+  const statuses = candidates.map((candidate) => normalizeCandidateStatus(candidate.status));
+  const received = statuses.filter((status) => status === "tiếp nhận hồ sơ").length;
+  const interviewing = statuses.filter((status) => ["đã tạo lịch", "đã phỏng vấn", "đã quyết định tuyển", "đi làm"].includes(status)).length;
+  const selected = statuses.filter((status) => ["đã quyết định tuyển", "đi làm"].includes(status)).length;
+  return [
+    { code: "candidates", label: "Ứng viên", count: candidates.length },
+    { code: "screened", label: "Sơ loại", count: Math.max(0, candidates.length - received) },
+    { code: "interviewing", label: "Phỏng vấn", description: "đang phỏng vấn", count: interviewing },
+    { code: "passed", label: "Đạt", count: selected },
+    { code: "selected", label: "Nhận việc", description: "quyết định tuyển dụng", count: selected },
+    { code: "working", label: "Chính thức", description: "đi làm", count: statuses.filter((status) => status === "đi làm").length },
+  ];
+}
+
 function dashboardResponse(session?: Session) {
   const store = loadStore();
   const employees = store["/hr/employees"];
@@ -1035,11 +1050,32 @@ function dashboardResponse(session?: Session) {
   }
   if (role === "HR Staff") {
     const pendingRequests = requests.filter((item) => item.status === "PENDING");
+    const plans = store["/recruitment/plans"];
+    const currentEmployees = employees.filter((employee) => employee.employment_status === "WORKING").length;
+    const headcountTarget = store["/admin/positions"].reduce((sum, position) => sum + Number(position.target_headcount ?? 0), 0);
+    const pipelineFunnel = candidatePipelineFunnel(candidates);
+    const recruitmentByPosition = requests.slice(0, 10).map((request) => {
+      const planIds = plans.filter((plan) => String(plan.recruitment_request_id) === String(request.recruitment_request_id)).map((plan) => String(plan.recruitment_plan_id));
+      return {
+        position_name: String(request.position_name ?? "Chưa xác định"),
+        department_name: String(request.department_name ?? "-"),
+        target_headcount: Number(request.quantity ?? 0),
+        hired_count: candidates.filter((candidate) => planIds.includes(String(candidate.recruitment_plan_id)) && normalizeCandidateStatus(candidate.status) === "đi làm").length,
+      };
+    });
+    const hiredCandidates = candidates
+      .filter((candidate) => ["đã quyết định tuyển", "đi làm"].includes(normalizeCandidateStatus(candidate.status)))
+      .map((candidate) => ({ id: String(candidate.candidate_id), candidate_name: String(candidate.full_name ?? "-"), position_name: String(candidate.apply_position_name ?? "-"), department_name: String(candidate.department_name ?? "-"), hired_date: String(candidate.last_modified_date ?? candidate.created_date ?? candidate.received_date ?? ""), status_label: normalizeCandidateStatus(candidate.status) === "đi làm" ? "Đã nhận việc" : "Chờ nhận việc" }));
+    const inProgressCandidates = candidates
+      .filter((candidate) => !["đã quyết định tuyển", "đi làm", "đã quyết định loại"].includes(normalizeCandidateStatus(candidate.status)))
+      .map((candidate) => ({ id: String(candidate.candidate_id), candidate_name: String(candidate.full_name ?? "-"), position_name: String(candidate.apply_position_name ?? "-"), current_stage: ({ "tiếp nhận hồ sơ": "Sàng lọc", "đã sơ loại": "Sơ loại", "đã tạo lịch": "Lên lịch phỏng vấn", "đã phỏng vấn": "Phỏng vấn" } as Record<string, string>)[normalizeCandidateStatus(candidate.status)] ?? normalizeCandidateStatus(candidate.status), updated_date: String(candidate.last_modified_date ?? candidate.eval_date ?? candidate.received_date ?? candidate.created_date ?? "") }));
     return {
-       kpi: { totalRequests: requests.length, pendingRequests: pendingRequests.length, recruitingRequests: requests.filter((item) => ["APPROVED", "IN_PROGRESS", "RECRUITING"].includes(String(item.status))).length, totalCandidates: candidates.length, processingCandidates: candidates.filter((item) => !["đi làm", "đã quyết định loại"].includes(normalizeCandidateStatus(item.status))).length, upcomingInterviews: 2, pendingOffers: store["/recruitment/offers"].filter((item) => ["SENT", "PENDING"].includes(String(item.offer_status))).length },
-      charts: { deptStructure: countByDepartment },
-       actionNeeded: { recruitment: { pendingRequests, candidatesToScreen: candidates.filter((item) => normalizeCandidateStatus(item.status) === "tiếp nhận hồ sơ"), upcomingInterviews: [], pendingOffers: [] } },
+       kpi: { totalRequests: requests.length, pendingRequests: pendingRequests.length, recruitingRequests: requests.filter((item) => ["APPROVED", "IN_PROGRESS", "RECRUITING"].includes(String(item.status))).length, totalCandidates: candidates.length, processingCandidates: candidates.filter((item) => !["đi làm", "đã quyết định loại"].includes(normalizeCandidateStatus(item.status))).length, upcomingInterviews: 2, pendingOffers: store["/recruitment/offers"].filter((item) => ["SENT", "PENDING"].includes(String(item.offer_status))).length, currentEmployees, headcountTarget, fulfillmentRate: headcountTarget ? Math.round((currentEmployees / headcountTarget) * 100) : 0, expiringContractsCount: 0 },
+       charts: { deptStructure: countByDepartment },
+        actionNeeded: { recruitment: { pendingRequests, candidatesToScreen: candidates.filter((item) => normalizeCandidateStatus(item.status) === "tiếp nhận hồ sơ"), hiredCandidates, inProgressCandidates, upcomingInterviews: [], pendingOffers: [] } },
        pipelineStages: candidatePipelineStages(candidates),
+       pipelineFunnel,
+       recruitmentByPosition,
     };
   }
   if (role === "Ban Giám Đốc") {

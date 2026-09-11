@@ -189,7 +189,13 @@ const RecruitmentComboChart = ({ rows = [] }) => {
 };
 
 const RecruitmentFunnel = ({ stages = [] }) => {
-    const funnelColors = ['#0F766E', '#168F80', '#2CA58D', '#55BBA4', '#83CDBA', '#B5DED2'];
+    const funnelColors = ['#F3C629', '#AA5B25', '#9B6060', '#94625E', '#8E817C', '#7E8D88'];
+    const maxCount = Math.max(...stages.map((stage) => Number(stage.count || 0)), 1);
+    const stageWidths = stages.reduce((widths, stage, index) => {
+        const valueWidth = Number(stage.count || 0) / maxCount * 100;
+        const previousWidth = widths[index - 1] || 100;
+        return [...widths, Math.min(previousWidth, Math.max(28, valueWidth))];
+    }, []);
 
     return (
         <div className="card" style={{ padding: '1.25rem', backgroundColor: '#FFFFFF' }}>
@@ -206,12 +212,12 @@ const RecruitmentFunnel = ({ stages = [] }) => {
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '0.25rem 0 0.5rem' }}>
                     {stages.map((stage, index) => (
                         <React.Fragment key={stage.code || stage.label}>
-                            <div style={{ width: `${Math.max(50, 100 - index * 10)}%`, minHeight: 54, padding: '0.55rem 1rem', borderRadius: '8px', background: funnelColors[index % funnelColors.length], color: index < 3 ? '#FFFFFF' : '#0F4F47', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.45rem', textAlign: 'center', boxShadow: '0 3px 8px rgba(15, 118, 110, 0.12)' }}>
+                            {index === 0 && <div style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '0.5rem', justifyContent: 'center', marginBottom: '0.5rem', color: '#94A3B8', fontSize: '0.65rem', fontWeight: 700 }}><span style={{ height: 1, flex: 1, background: '#E2E8F0' }} /><span>100%</span><span style={{ height: 1, flex: 1, background: '#E2E8F0' }} /></div>}
+                            <div style={{ width: `${stageWidths[index]}%`, minHeight: 38, padding: '0.4rem 1rem', background: funnelColors[index % funnelColors.length], color: index === 0 ? '#4A3210' : '#FFFFFF', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.45rem', textAlign: 'center', boxShadow: '0 2px 6px rgba(71, 50, 24, 0.14)' }}>
                                 <strong style={{ fontSize: '1.2rem', lineHeight: 1 }}>{Number(stage.count || 0).toLocaleString('vi-VN')}</strong>
                                 <span style={{ fontSize: '0.8rem', fontWeight: 700 }}>{stage.label}</span>
                                 {stage.description && <span style={{ fontSize: '0.7rem', fontWeight: 500, opacity: 0.85 }}>({stage.description})</span>}
                             </div>
-                            {index < stages.length - 1 && <div aria-hidden="true" style={{ height: 25, display: 'grid', placeItems: 'center', color: '#0F766E', fontSize: '1.35rem', fontWeight: 700 }}>↓</div>}
                         </React.Fragment>
                     ))}
                 </div>
