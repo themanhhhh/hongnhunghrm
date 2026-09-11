@@ -1,7 +1,7 @@
 import { canAccess, defaultSession, DEMO_USERS, type Action, type Resource, type Role, type Session } from "./permissions";
 import { dashboardData, moduleData } from "./mock-data";
 import { isMockMode, mockApiRequest, mockUploadEmployeeAvatar } from "./mock-api";
-import { setUserCookie } from "./session";
+import { getStoredSession, setUserCookie } from "./session";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5000/api";
 
@@ -128,9 +128,7 @@ export class ApiError extends Error {
 }
 
 function readSession(): Session {
-  if (typeof window === "undefined") return defaultSession();
-  const raw = window.localStorage.getItem("bravo_next_session");
-  return raw ? JSON.parse(raw) : defaultSession();
+  return getStoredSession() ?? defaultSession();
 }
 
 type ApiEnvelope<T> = { success: boolean; data?: T; message?: string; token?: string; user?: Record<string, unknown> };

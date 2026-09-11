@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState } from 'react';
 import { api } from '../services/api';
-import { clearUserCookie, setUserCookie } from '../services/userCookie';
+import { clearUserCookie, getUserCookie, setUserCookie } from '../services/userCookie';
 
 const AuthContext = createContext();
 
@@ -12,7 +12,12 @@ export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(() => {
         try {
             const savedUser = localStorage.getItem('bravo_hrm_user');
-            return (savedUser && savedUser !== 'undefined') ? JSON.parse(savedUser) : null;
+            if (savedUser && savedUser !== 'undefined') return JSON.parse(savedUser);
+
+            const cookieUser = getUserCookie();
+            if (!cookieUser) return null;
+            localStorage.setItem('bravo_hrm_user', JSON.stringify(cookieUser));
+            return cookieUser;
         } catch (e) {
             return null;
         }
