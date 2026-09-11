@@ -1157,7 +1157,6 @@ function WorkforceDashboard({
                 <div className="mt-1 text-sm font-semibold text-slate-700">
                   {item.label}
                 </div>
-                <div className="mt-3 text-xs text-slate-400">{item.detail}</div>
               </CardContent>
             </Card>
           );
@@ -1436,7 +1435,7 @@ export function DashboardOverview() {
                 <div className="mt-1 text-sm font-semibold text-slate-700">
                   {kpi.label}
                 </div>
-                <div className="mt-3 text-xs text-slate-400">{kpi.detail}</div>
+              
               </CardContent>
             </Card>
           );
