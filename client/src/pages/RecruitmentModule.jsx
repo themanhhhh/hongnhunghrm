@@ -210,7 +210,7 @@ export const RecruitmentModule = ({ activeSubTab }) => {
         source: 'TopCV',
         referrer: '',
         experience: '',
-        status: 'Đã tiếp nhận hồ sơ',
+        status: 'tiếp nhận hồ sơ',
         received_date: new Date().toISOString().split('T')[0],
         recruitment_plan_id: '',
         position_id: '',
@@ -1764,7 +1764,7 @@ export const RecruitmentModule = ({ activeSubTab }) => {
             source: 'TopCV',
             referrer: '',
             experience: '',
-            status: 'Đã tiếp nhận hồ sơ',
+            status: 'tiếp nhận hồ sơ',
             received_date: new Date().toISOString().split('T')[0],
             recruitment_plan_id: defaultPlan.recruitment_plan_id || '',
             position_id: defaultPos.position_id || '',
@@ -1795,7 +1795,7 @@ export const RecruitmentModule = ({ activeSubTab }) => {
             source: c.source || 'TopCV',
             referrer: c.referrer || '',
             experience: c.experience || '',
-            status: c.status || 'Đã tiếp nhận hồ sơ',
+            status: c.status || 'tiếp nhận hồ sơ',
             received_date: c.received_date ? (typeof c.received_date === 'string' && c.received_date.includes('-') ? c.received_date : new Date(c.received_date).toISOString().split('T')[0]) : new Date().toISOString().split('T')[0],
             recruitment_plan_id: c.recruitment_plan_id || plans[0]?.recruitment_plan_id || '',
             position_id: c.position_id || positions[0]?.position_id || '',
@@ -2697,7 +2697,7 @@ export const RecruitmentModule = ({ activeSubTab }) => {
                                             <Edit3 size={14} />
                                             <span>Sửa</span>
                                         </button>
-                                        {r.status !== 'HIRED' && hasPassedRecruitmentDecision(r) && (
+                                        {r.status !== 'đi làm' && r.status !== 'HIRED' && hasPassedRecruitmentDecision(r) && (
                                             <button
                                                 className="btn btn-primary"
                                                 style={{ padding: '0.25rem 0.55rem', fontSize: '0.75rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.3rem', whiteSpace: 'nowrap' }}
@@ -2708,7 +2708,7 @@ export const RecruitmentModule = ({ activeSubTab }) => {
                                                 <span>Chuyển thành NV</span>
                                             </button>
                                         )}
-                                        {r.status !== 'HIRED' && (
+                                        {r.status !== 'đi làm' && r.status !== 'HIRED' && (
                                             <button
                                                 className="btn btn-secondary"
                                                 style={{ padding: '0.25rem 0.55rem', fontSize: '0.75rem', fontWeight: 600, color: '#EF4444', borderColor: '#FCA5A5', display: 'flex', alignItems: 'center', gap: '0.3rem', whiteSpace: 'nowrap' }}
@@ -3029,7 +3029,7 @@ export const RecruitmentModule = ({ activeSubTab }) => {
                             {
                                 header: 'Thao tác',
                                 render: (r) => (
-                                    r.candidate_status === 'HIRED' ? (
+                                    r.candidate_status === 'đi làm' || r.candidate_status === 'HIRED' ? (
                                         <span className="badge badge-green">✓ Đã thành Nhân viên</span>
                                     ) : String(r.result || '').trim().toUpperCase() === 'ĐẠT' && String(r.status || '').trim().toUpperCase() === 'COMPLETED' ? (
                                         <button
@@ -3165,12 +3165,14 @@ export const RecruitmentModule = ({ activeSubTab }) => {
                             {/* Row 8 Status & Evaluation */}
                             <div className="form-group">
                                 <label className="form-label">i. Trạng thái (*)</label>
-                                <select className="form-select" value={formData.status || 'S1: Mới'} onChange={(e) => setFormData({ ...formData, status: e.target.value })}>
-                                    <option value="S1: Mới">S1: Mới tiếp nhận</option>
-                                    <option value="S2: Phỏng vấn">S2: Đang phỏng vấn</option>
-                                    <option value="S5: Trúng tuyển">S5: Trúng tuyển (Offer)</option>
-                                    <option value="S7: Loại">S7: Loại / Không đạt</option>
-                                    <option value="HIRED">HIRED - Đã thành nhân viên</option>
+                                <select className="form-select" value={formData.status || 'tiếp nhận hồ sơ'} onChange={(e) => setFormData({ ...formData, status: e.target.value })}>
+                                    <option value="tiếp nhận hồ sơ">Tiếp nhận hồ sơ</option>
+                                    <option value="đã sơ loại">Đã sơ loại</option>
+                                    <option value="đã tạo lịch">Đã tạo lịch</option>
+                                    <option value="đã phỏng vấn">Đã phỏng vấn</option>
+                                    <option value="đã quyết định loại">Đã quyết định loại</option>
+                                    <option value="đã quyết định tuyển">Đã quyết định tuyển</option>
+                                    <option value="đi làm">Đi làm</option>
                                 </select>
                             </div>
                             <div className="form-group">
@@ -3210,7 +3212,7 @@ export const RecruitmentModule = ({ activeSubTab }) => {
                     footer={
                         <>
                             <button className="btn btn-secondary" onClick={() => setModalType(null)}>Hủy bỏ</button>
-                            {candidateFormData.isEdit && candidateFormData.status !== 'HIRED' && hasPassedRecruitmentDecision(candidateFormData) && (
+                            {candidateFormData.isEdit && candidateFormData.status !== 'đi làm' && candidateFormData.status !== 'HIRED' && hasPassedRecruitmentDecision(candidateFormData) && (
                                 <button className="btn btn-primary" onClick={() => handleConvertToEmployee(candidateFormData.candidate_id)}>
                                     <UserPlus size={15} /> Chuyển thành nhân viên
                                 </button>
@@ -3496,13 +3498,13 @@ export const RecruitmentModule = ({ activeSubTab }) => {
                                             onChange={(e) => setCandidateFormData({ ...candidateFormData, status: e.target.value })}
                                             style={{ fontWeight: 700, color: 'var(--bravo-teal-dark)' }}
                                         >
-                                            <option value="Đã tiếp nhận hồ sơ">Đã tiếp nhận hồ sơ</option>
-                                            <option value="Đã sơ loại">Đã sơ loại</option>
-                                            <option value="Đã phỏng vấn">Đã phỏng vấn</option>
-                                            <option value="Đã trao đổi offer">Đã trao đổi offer</option>
-                                            <option value="Đi làm">Đi làm</option>
-                                            <option value="Loại">Loại</option>
-                                            <option value="Đã gửi kết quả vòng tuyển dụng">Đã gửi kết quả vòng tuyển dụng</option>
+                                            <option value="tiếp nhận hồ sơ">Tiếp nhận hồ sơ</option>
+                                            <option value="đã sơ loại">Đã sơ loại</option>
+                                            <option value="đã tạo lịch">Đã tạo lịch</option>
+                                            <option value="đã phỏng vấn">Đã phỏng vấn</option>
+                                            <option value="đã quyết định loại">Đã quyết định loại</option>
+                                            <option value="đã quyết định tuyển">Đã quyết định tuyển</option>
+                                            <option value="đi làm">Đi làm</option>
                                         </select>
                                     </div>
 

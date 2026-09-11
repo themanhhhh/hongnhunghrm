@@ -345,6 +345,7 @@ export const RewardDisciplineModule = ({ activeSubTab }) => {
                             record_type: 'KHEN_THUONG',
                             employee_id: safeEmployees[0]?.employee_id || '',
                             proposed_amount: 5000000,
+                            payment_method: 'CASH',
                             proposed_by: 'Bùi Xuân Thức - Giám Đốc Khối'
                         });
                         setModalType('add_proposal');
@@ -354,8 +355,9 @@ export const RewardDisciplineModule = ({ activeSubTab }) => {
                         { header: 'Mã Phiếu Đề xuất', accessor: 'proposal_code', render: (r) => <b>{r.proposal_code}</b> },
                         { header: 'Loại hình đề xuất', accessor: 'record_type', render: (r) => <StatusChip status={r.record_type} /> },
                         { header: 'Nhân viên đề xuất', accessor: 'employee_name', render: (r) => <span style={{ fontWeight: 700 }}>{r.employee_name} ({r.employee_code})</span> },
-                        { header: 'Bộ phận & Vị trí', render: (r) => `${r.department_name || '—'} - ${r.position_name || '—'}` },
-                        { header: 'Số tiền đề xuất (VNĐ)', accessor: 'proposed_amount', render: (r) => <b style={{ color: '#059669' }}>{Number(r.proposed_amount).toLocaleString('vi-VN')} VNĐ</b> },
+                         { header: 'Bộ phận & Vị trí', render: (r) => `${r.department_name || '—'} - ${r.position_name || '—'}` },
+                         { header: 'Hình thức', accessor: 'payment_method', render: (r) => r.payment_method === 'BANK_TRANSFER' ? 'Chuyển khoản' : r.payment_method === 'CASH' ? 'Tiền mặt' : 'Không áp dụng' },
+                         { header: 'Số tiền đề xuất (VNĐ)', accessor: 'proposed_amount', render: (r) => <b style={{ color: '#059669' }}>{Number(r.proposed_amount).toLocaleString('vi-VN')} VNĐ</b> },
                         { header: 'Lý do & Nội dung đề xuất', accessor: 'reason', render: (r) => <span style={{ fontWeight: 600, color: 'var(--bravo-teal-dark)' }}>{r.reason}</span> },
                         { header: 'Người đề xuất', accessor: 'proposed_by' },
                         { header: 'Trạng thái', accessor: 'status', render: (r) => <span className="badge badge-yellow">Chờ phê duyệt ban hành QĐ</span> },
@@ -777,7 +779,7 @@ export const RewardDisciplineModule = ({ activeSubTab }) => {
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                         <div className="form-group">
                             <label className="form-label">Phân loại Đề xuất (*)</label>
-                            <select className="form-select" onChange={(e) => setFormData({ ...formData, record_type: e.target.value })}>
+                            <select className="form-select" value={formData.record_type || 'KHEN_THUONG'} onChange={(e) => setFormData({ ...formData, record_type: e.target.value, payment_method: e.target.value === 'KY_LUAT' ? 'NOT_APPLICABLE' : formData.payment_method === 'NOT_APPLICABLE' ? 'CASH' : formData.payment_method || 'CASH' })}>
                                 <option value="KHEN_THUONG">Đề xuất Khen thưởng cá nhân / dự án</option>
                                 <option value="KY_LUAT">Đề xuất Kỷ luật / Khiển trách</option>
                             </select>
@@ -793,6 +795,14 @@ export const RewardDisciplineModule = ({ activeSubTab }) => {
                         <div className="form-group">
                             <label className="form-label">Mức tiền đề xuất (VNĐ)</label>
                             <input type="number" className="form-input" defaultValue={5000000} onChange={(e) => setFormData({ ...formData, proposed_amount: parseFloat(e.target.value) })} />
+                        </div>
+                        <div className="form-group">
+                            <label className="form-label">Hình thức</label>
+                            <select className="form-select" value={formData.payment_method || 'CASH'} onChange={(e) => setFormData({ ...formData, payment_method: e.target.value })}>
+                                <option value="CASH">Tiền mặt</option>
+                                <option value="BANK_TRANSFER">Chuyển khoản</option>
+                                <option value="NOT_APPLICABLE">Không áp dụng</option>
+                            </select>
                         </div>
                         <div className="form-group">
                             <label className="form-label">Người lập đề xuất</label>

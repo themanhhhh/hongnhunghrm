@@ -5,6 +5,46 @@ const { authenticateToken, authorizeRole } = require('../middleware/auth');
 
 router.use(authenticateToken);
 
+const CANDIDATE_STATUS_GROUPS = {
+    received: ['tiếp nhận hồ sơ', 'Đã tiếp nhận hồ sơ', 'SUBMITTED', 'NEW'],
+    screened: ['đã sơ loại', 'Đã sơ loại, Đạt', 'Đã sơ loại, Không đạt', 'SCREENED'],
+    scheduled: ['đã tạo lịch', 'INTERVIEWING'],
+    interviewed: ['đã phỏng vấn', 'Đã phỏng vấn, Đạt', 'Đã phỏng vấn, Không đạt', 'INTERVIEWED', 'S2: Phỏng vấn'],
+    rejected: ['đã quyết định loại', 'S7: Loại', 'REJECTED', 'OFFER_REJECTED'],
+    selected: ['đã quyết định tuyển', 'S5: Trúng tuyển', 'PASSED', 'OFFER_ACCEPTED'],
+    working: ['đi làm', 'HIRED']
+};
+
+function countStatuses(pipelineMap, statuses) {
+    return statuses.reduce((sum, status) => sum + Number(pipelineMap[status] || 0), 0);
+}
+
+function candidatePipelineStages(pipelineMap) {
+    return [
+        { code: 'tiếp nhận hồ sơ', label: 'Tiếp nhận hồ sơ', count: countStatuses(pipelineMap, CANDIDATE_STATUS_GROUPS.received) },
+        { code: 'đã sơ loại', label: 'Đã sơ loại', count: countStatuses(pipelineMap, CANDIDATE_STATUS_GROUPS.screened) },
+        { code: 'đã tạo lịch', label: 'Đã tạo lịch', count: countStatuses(pipelineMap, CANDIDATE_STATUS_GROUPS.scheduled) },
+        { code: 'đã phỏng vấn', label: 'Đã phỏng vấn', count: countStatuses(pipelineMap, CANDIDATE_STATUS_GROUPS.interviewed) },
+        { code: 'đã quyết định loại', label: 'Đã quyết định loại', count: countStatuses(pipelineMap, CANDIDATE_STATUS_GROUPS.rejected) },
+        { code: 'đã quyết định tuyển', label: 'Đã quyết định tuyển', count: countStatuses(pipelineMap, CANDIDATE_STATUS_GROUPS.selected) },
+        { code: 'đi làm', label: 'Đi làm', count: countStatuses(pipelineMap, CANDIDATE_STATUS_GROUPS.working) }
+    ];
+}
+
+function canonicalCandidateStatus(value) {
+    const status = String(value || '').trim();
+    const group = Object.entries(CANDIDATE_STATUS_GROUPS).find(([, statuses]) => statuses.includes(status));
+    return {
+        received: 'tiếp nhận hồ sơ',
+        screened: 'đã sơ loại',
+        scheduled: 'đã tạo lịch',
+        interviewed: 'đã phỏng vấn',
+        rejected: 'đã quyết định loại',
+        selected: 'đã quyết định tuyển',
+        working: 'đi làm'
+    }[group?.[0]] || status;
+}
+
 // Hai dashboard này dùng dữ liệu đã giới hạn theo phạm vi người dùng.
 router.get('/dashboard/manager', authorizeRole('Trưởng Khối', 'Trưởng Phòng'), async (req, res) => {
     try {
@@ -33,7 +73,7 @@ router.get('/dashboard/manager', authorizeRole('Trưởng Khối', 'Trưởng Ph
             departmentParams
         ))?.c || 0;
         const processingCandidates = (await queryOne(
-            `SELECT COUNT(*) as c FROM Candidate WHERE department_id IN (${placeholders}) AND status NOT IN ('HIRED', 'REJECTED', 'OFFER_REJECTED')`,
+            `SELECT COUNT(*) as c FROM Candidate WHERE department_id IN (${placeholders}) AND status NOT IN (N'đi làm', N'đã quyết định loại', 'HIRED', 'REJECTED', 'OFFER_REJECTED')`,
             departmentParams
         ))?.c || 0;
         const pendingLeaves = await query(
@@ -94,12 +134,7 @@ router.get('/dashboard/manager', authorizeRole('Trưởng Khối', 'Trưởng Ph
                 },
                 pendingApprovals,
                 deptStructure,
-                pipelineStages: [
-                    { label: 'Mới tiếp nhận', count: (pipelineMap.NEW || 0) + (pipelineMap.SUBMITTED || 0) },
-                    { label: 'Đã sàng lọc', count: pipelineMap.SCREENED || 0 },
-                    { label: 'Phỏng vấn', count: (pipelineMap.INTERVIEWED || 0) + (pipelineMap['S2: Phỏng vấn'] || 0) },
-                    { label: 'Đã tiếp nhận', count: pipelineMap.HIRED || 0 }
-                ]
+                pipelineStages: candidatePipelineStages(pipelineMap)
             }
         });
     } catch (error) {
@@ -307,7 +342,7 @@ router.get('/dashboard/summary', async (req, res) => {
         const totalCandidates = (await queryOne(`SELECT COUNT(*) as count FROM Candidate`))?.count || 0;
         const pendingInterviews = (await queryOne(`SELECT COUNT(*) as count FROM Interview WHERE result = 'PENDING'`))?.count || 0;
         const totalRewards = (await queryOne(`SELECT COUNT(*) as count FROM RewardDiscipline WHERE decision_type = 'KHEN_THUONG'`))?.count || 0;
-        const processingCandidates = (await queryOne(`SELECT COUNT(*) as count FROM Candidate WHERE status NOT IN ('HIRED', 'REJECTED', 'OFFER_REJECTED')`))?.count || 0;
+        const processingCandidates = (await queryOne(`SELECT COUNT(*) as count FROM Candidate WHERE status NOT IN (N'đi làm', N'đã quyết định loại', 'HIRED', 'REJECTED', 'OFFER_REJECTED')`))?.count || 0;
 
         const pendingRequests = await query(`SELECT TOP (5) recruitment_request_id as id, request_code as code, 'YCTD' as type, 'Yêu cầu tuyển dụng' as typeName, reason as title, status FROM RecruitmentRequest WHERE status = 'PENDING'`);
         const deptStructure = await query(
@@ -318,13 +353,7 @@ router.get('/dashboard/summary', async (req, res) => {
         const rawPipeline = await query(`SELECT status, COUNT(*) as count FROM Candidate GROUP BY status`);
         const pipelineMap = {};
         rawPipeline.forEach(row => { pipelineMap[row.status] = row.count; });
-        const pipelineStages = [
-            { label: 'Mới tiếp nhận', count: (pipelineMap.NEW || 0) + (pipelineMap.SUBMITTED || 0) },
-            { label: 'Đã sàng lọc', count: pipelineMap.SCREENED || 0 },
-            { label: 'Phỏng vấn', count: (pipelineMap.INTERVIEWED || 0) + (pipelineMap['S2: Phỏng vấn'] || 0) },
-            { label: 'Trúng tuyển', count: (pipelineMap.OFFER_ACCEPTED || 0) + (pipelineMap['S5: Trúng tuyển'] || 0) },
-            { label: 'Đã tiếp nhận', count: pipelineMap.HIRED || 0 }
-        ];
+        const pipelineStages = candidatePipelineStages(pipelineMap);
 
         const pendingTasks = pendingRequests.map(r => ({
             id: r.id,
@@ -377,11 +406,17 @@ router.get('/dashboard/charts', async (req, res) => {
         );
 
         // 2. Phân bổ ứng viên theo Trạng thái Tuyển dụng
-        const candidateStatusDistribution = await query(
-            `SELECT status as status_code, COUNT(candidate_id) as candidate_count 
-       FROM Candidate 
-       GROUP BY status`
+        const rawCandidateStatusDistribution = await query(
+            `SELECT status as status_code, COUNT(candidate_id) as candidate_count
+        FROM Candidate
+        GROUP BY status`
         );
+        const distributionMap = {};
+        rawCandidateStatusDistribution.forEach((row) => {
+            const status = canonicalCandidateStatus(row.status_code);
+            distributionMap[status] = (distributionMap[status] || 0) + Number(row.candidate_count || 0);
+        });
+        const candidateStatusDistribution = Object.entries(distributionMap).map(([status_code, candidate_count]) => ({ status_code, candidate_count }));
 
         // 3. Thống kê Khen thưởng & Kỷ luật
         const rewardDisciplineStats = await query(
@@ -414,7 +449,7 @@ router.get('/dashboard/hr', async (req, res) => {
         const pendingRequestsCount = (await queryOne(`SELECT COUNT(*) as c FROM RecruitmentRequest WHERE status = 'PENDING'`))?.c || 0;
         const recruitingRequestsCount = (await queryOne(`SELECT COUNT(*) as c FROM RecruitmentRequest WHERE status IN ('APPROVED', 'IN_PROGRESS', 'RECRUITING')`))?.c || 0;
         const totalCandidates = (await queryOne(`SELECT COUNT(*) as c FROM Candidate`))?.c || 0;
-        const processingCandidates = (await queryOne(`SELECT COUNT(*) as c FROM Candidate WHERE status NOT IN ('HIRED', 'REJECTED', 'OFFER_REJECTED')`))?.c || 0;
+        const processingCandidates = (await queryOne(`SELECT COUNT(*) as c FROM Candidate WHERE status NOT IN (N'đi làm', N'đã quyết định loại', 'HIRED', 'REJECTED', 'OFFER_REJECTED')`))?.c || 0;
         const upcomingInterviewsCount = (await queryOne(`SELECT COUNT(*) as c FROM InterviewSchedule WHERE status = 'Đã lên lịch'`))?.c || 0;
         const pendingOffersCount = (await queryOne(`SELECT COUNT(*) as c FROM Offer WHERE offer_status IN ('SENT', 'PENDING')`))?.c || 0;
 
@@ -425,25 +460,14 @@ router.get('/dashboard/hr', async (req, res) => {
         const pipelineMap = {};
         rawPipeline.forEach(r => { pipelineMap[r.status] = r.count; });
 
-        const pipelineStages = [
-            { code: 'SUBMITTED', label: 'Mới', count: (pipelineMap['SUBMITTED'] || 0) + (pipelineMap['NEW'] || 0) },
-            { code: 'SCREENED', label: 'Đã sàng lọc', count: pipelineMap['SCREENED'] || 0 },
-            { code: 'CV_PASSED', label: 'Đạt vòng CV', count: pipelineMap['CV_PASSED'] || 0 },
-            { code: 'INTERVIEWED', label: 'Đã phỏng vấn', count: pipelineMap['INTERVIEWED'] || 0 },
-            { code: 'PASSED_INTERVIEW', label: 'Đạt phỏng vấn', count: (pipelineMap['PASSED_INTERVIEW'] || 0) + (pipelineMap['S5: Trúng tuyển'] || 0) },
-            { code: 'REJECTED', label: 'Không đạt', count: pipelineMap['REJECTED'] || 0 },
-            { code: 'OFFER_SENT', label: 'Đã gửi Offer', count: pipelineMap['OFFER_SENT'] || 0 },
-            { code: 'OFFER_ACCEPTED', label: 'Đã nhận Offer', count: pipelineMap['OFFER_ACCEPTED'] || 0 },
-            { code: 'OFFER_REJECTED', label: 'Từ chối Offer', count: pipelineMap['OFFER_REJECTED'] || 0 },
-            { code: 'HIRED', label: 'Đã tiếp nhận', count: pipelineMap['HIRED'] || 0 }
-        ];
+        const pipelineStages = candidatePipelineStages(pipelineMap);
 
         // 3. Tuyển dụng theo vị trí
         const recruitmentByPosition = await query(
              `SELECT TOP (10) p.position_id, p.position_name, d.department_name,
                     COALESCE(SUM(rr.quantity), p.target_headcount, 0) as target_headcount,
                     COUNT(DISTINCT c.candidate_id) as candidate_count,
-                    SUM(CASE WHEN c.status = 'HIRED' THEN 1 ELSE 0 END) as hired_count
+                    SUM(CASE WHEN c.status IN (N'đi làm', 'HIRED') THEN 1 ELSE 0 END) as hired_count
              FROM Position p
              LEFT JOIN Department d ON p.department_id = d.department_id
              LEFT JOIN RecruitmentRequest rr ON rr.position_id = p.position_id
@@ -469,7 +493,7 @@ router.get('/dashboard/hr', async (req, res) => {
 
         const candidatesToScreen = await query(
              `SELECT TOP (5) candidate_id as id, candidate_code as code, full_name as fullName, email, phone, received_date
-              FROM Candidate WHERE status IN ('SUBMITTED', 'NEW') ORDER BY created_date DESC`
+               FROM Candidate WHERE status IN (N'tiếp nhận hồ sơ', N'Đã tiếp nhận hồ sơ', 'SUBMITTED', 'NEW') ORDER BY created_date DESC`
         );
 
         const upcomingInterviewsList = await query(
@@ -662,7 +686,7 @@ router.get('/dashboard/bgd', async (req, res) => {
 
         // 3. Tình hình tuyển dụng tổng quan
         const totalTargetRecruitment = (await queryOne(`SELECT COALESCE(SUM(quantity), 0) as s FROM RecruitmentRequest`))?.s || 30;
-        const totalHiredRecruitment = (await queryOne(`SELECT COUNT(*) as c FROM Candidate WHERE status = 'HIRED'`))?.c || 22;
+        const totalHiredRecruitment = (await queryOne(`SELECT COUNT(*) as c FROM Candidate WHERE status IN (N'đi làm', 'HIRED')`))?.c || 22;
         const remainingShortfall = Math.max(0, totalTargetRecruitment - totalHiredRecruitment);
         const completionRate = totalTargetRecruitment > 0 ? Math.round((totalHiredRecruitment / totalTargetRecruitment) * 100) : 0;
 
@@ -701,8 +725,8 @@ router.get('/recruitment', async (req, res) => {
     const plans = await query(
         `SELECT pl.recruitment_plan_id, pl.plan_name, pl.budget, pl.start_date, pl.end_date,
             COUNT(c.candidate_id) as total_candidates,
-            SUM(CASE WHEN c.status = 'HIRED' THEN 1 ELSE 0 END) as hired_count,
-            SUM(CASE WHEN c.status = 'S5: Trúng tuyển' THEN 1 ELSE 0 END) as offered_count
+            SUM(CASE WHEN c.status IN (N'đi làm', 'HIRED') THEN 1 ELSE 0 END) as hired_count,
+            SUM(CASE WHEN c.status IN (N'đã quyết định tuyển', N'S5: Trúng tuyển') THEN 1 ELSE 0 END) as offered_count
      FROM RecruitmentPlan pl
      LEFT JOIN Candidate c ON pl.recruitment_plan_id = c.recruitment_plan_id
      GROUP BY pl.recruitment_plan_id`
@@ -753,7 +777,7 @@ router.post('/query', async (req, res) => {
                             FROM Candidate c
                             LEFT JOIN RecruitmentPlan pl ON pl.recruitment_plan_id = c.recruitment_plan_id
                             JOIN Employee e ON e.candidate_id = c.candidate_id
-                            WHERE c.status = 'HIRED' AND e.is_active = 1 AND e.employment_status = 'WORKING'
+                            WHERE c.status IN (N'đi làm', 'HIRED') AND e.is_active = 1 AND e.employment_status = 'WORKING'
                             GROUP BY COALESCE(c.recruitment_request_id, pl.recruitment_request_id)
                         )
                         SELECT d.department_name, p.position_name,
@@ -777,9 +801,9 @@ router.post('/query', async (req, res) => {
                     `SELECT COALESCE(NULLIF(c.source, ''), N'Không xác định') as source_name,
                             COUNT(DISTINCT c.recruitment_plan_id) as post_count,
                             COUNT(DISTINCT c.candidate_id) as total_cv,
-                            SUM(CASE WHEN c.status NOT IN ('REJECTED', 'S7: Loại') THEN 1 ELSE 0 END) as qualified_cv,
+                            SUM(CASE WHEN c.status NOT IN (N'đã quyết định loại', N'S7: Loại', 'REJECTED') THEN 1 ELSE 0 END) as qualified_cv,
                             COUNT(DISTINCT i.candidate_id) as interview_count,
-                            SUM(CASE WHEN c.status = 'HIRED' THEN 1 ELSE 0 END) as hired_count,
+                            SUM(CASE WHEN c.status IN (N'đi làm', 'HIRED') THEN 1 ELSE 0 END) as hired_count,
                             CAST(0 as DECIMAL(18, 2)) as cost
                      FROM Candidate c
                      LEFT JOIN Interview i ON i.candidate_id = c.candidate_id

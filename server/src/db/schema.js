@@ -229,7 +229,7 @@ const tableDefinitions = {
         [cv_url] NVARCHAR(255),
         [received_date] BIGINT,
         [eval_date] BIGINT,
-        [status] NVARCHAR(50) NOT NULL DEFAULT 'SUBMITTED',
+        [status] NVARCHAR(50) NOT NULL DEFAULT N'tiếp nhận hồ sơ',
         [rejection_reason] NVARCHAR(255),
         [note] NVARCHAR(255),
         [attachments_json] NVARCHAR(MAX)`,
@@ -627,6 +627,7 @@ const tableDefinitions = {
         [record_type] NVARCHAR(20) NOT NULL,
         [employee_id] NVARCHAR(36) NOT NULL,
         [proposed_amount] DECIMAL(18, 2) NOT NULL DEFAULT 0,
+        [payment_method] NVARCHAR(30),
         [proposal_date] BIGINT,
         [reason] NVARCHAR(500),
         [content] NVARCHAR(1000),
@@ -750,7 +751,7 @@ const columnsToEnsure = [
     ['InterviewSchedule', 'recruitment_request_id', 'NVARCHAR(36)'], ['InterviewSchedule', 'duration_minutes', 'INT'], ['InterviewEvaluation', 'evaluator_id', 'NVARCHAR(36)'],
     ['LeaveApplication', 'leave_type', "NVARCHAR(30) NOT NULL DEFAULT 'ANNUAL'"], ['LeaveApplication', 'leave_year', 'INT'], ['LeaveApplication', 'entitled_days', 'DECIMAL(10, 2)'], ['LeaveApplication', 'used_days_before', 'DECIMAL(10, 2)'], ['LeaveApplication', 'remaining_days_before', 'DECIMAL(10, 2)'], ['LeaveApplication', 'remaining_days_after', 'DECIMAL(10, 2)'],
     ['RewardDiscipline', 'proposal_id', 'NVARCHAR(36)'], ['RewardDiscipline', 'amount', 'DECIMAL(18, 2) NOT NULL DEFAULT 0'], ['RewardDiscipline', 'status', "NVARCHAR(30) NOT NULL DEFAULT 'COMPLETED'"],
-    ['RewardDisciplineProposal', 'proposal_date', 'BIGINT'], ['RewardDisciplineProposal', 'content', 'NVARCHAR(1000)'], ['RewardDisciplineProposal', 'proposed_by_employee_id', 'NVARCHAR(36)'], ['RewardDisciplineProposal', 'attachment_url', 'NVARCHAR(500)'],
+    ['RewardDisciplineProposal', 'payment_method', 'NVARCHAR(30)'], ['RewardDisciplineProposal', 'proposal_date', 'BIGINT'], ['RewardDisciplineProposal', 'content', 'NVARCHAR(1000)'], ['RewardDisciplineProposal', 'proposed_by_employee_id', 'NVARCHAR(36)'], ['RewardDisciplineProposal', 'attachment_url', 'NVARCHAR(500)'],
     ['EmployeeEvaluation', 'evaluation_quarter', 'INT'], ['EmployeeEvaluation', 'manager_comment', 'NVARCHAR(1000)'], ['EmployeeEvaluation', 'recommendation', 'NVARCHAR(1000)'],
     ['WorkHistory', 'source_type', 'NVARCHAR(50)'], ['WorkHistory', 'source_id', 'NVARCHAR(36)'],
     ['DepartmentQuota', 'budget_details', 'NVARCHAR(MAX)'], ['TransferProposal', 'proposal_date', 'BIGINT'], ['TransferProposal', 'decision_type', 'NVARCHAR(50)'],
@@ -869,7 +870,7 @@ async function initSchema() {
     if (!(await queryOne('SELECT migration_key FROM [SchemaMigration] WHERE migration_key = ?', [recruitmentDecisionMigrationKey]))) {
         const hiredCandidates = await query(`SELECT candidate_id, candidate_code, received_date
                                              FROM [Candidate] candidate
-                                             WHERE status IN (N'S5: Trúng tuyển', 'PASSED', N'ĐẠT')
+                                             WHERE status IN (N'đã quyết định tuyển', N'S5: Trúng tuyển', 'PASSED', N'ĐẠT')
                                                AND NOT EXISTS (SELECT 1 FROM [RecruitmentDecision] decision WHERE decision.candidate_id = candidate.candidate_id AND decision.result = N'ĐẠT')`);
         for (const candidate of hiredCandidates) {
             const now = Date.now();

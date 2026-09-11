@@ -1,5 +1,6 @@
 import { reportDefinitions } from "./report-config";
 import type { Session } from "./permissions";
+import { isCandidateHiringDecisionPassed, isCandidateWorking, normalizeCandidateStatus } from "./candidate-status";
 
 type MockRow = Record<string, unknown>;
 type MockStore = Record<string, MockRow[]>;
@@ -54,9 +55,9 @@ const initialStore: MockStore = {
     { user_id: "usr-hr", username: "HANT", full_name: "Nguyễn Thùy Linh", email: "linh.nt@bravo.com.vn", phone: "0966123456", role_id: "role-hr", role_name: "HR Staff", department_id: "dept-hr", department_name: "Phòng Nhân sự", status: 1, created_date: "2026-01-04" },
   ],
   "/admin/departments": [
-    { department_id: "dept-hr", department_code: "PHR", department_name: "Phòng Nhân sự", parent_department_name: "-", manager_name: "Trần Thị Thu Hà", target_headcount: 8 },
-    { department_id: "dept-kd", department_code: "PKD", department_name: "Phòng Kinh doanh", parent_department_name: "-", manager_name: "Phạm Quốc Tuấn", target_headcount: 20 },
-    { department_id: "dept-cloud", department_code: "CLOUD", department_name: "Phòng Cloud và Hạ tầng", parent_department_name: "Khối Công nghệ", manager_name: "Hoàng Trọng Nghĩa", target_headcount: 10 },
+    { department_id: "dept-hr", department_code: "PHR", department_name: "Phòng Nhân sự", parent_department_name: "-", manager_id: "emp-hr-01", manager_name: "Trần Thị Thu Hà", target_headcount: 8 },
+    { department_id: "dept-kd", department_code: "PKD", department_name: "Phòng Kinh doanh", parent_department_name: "-", manager_id: "emp-kd-01", manager_name: "Phạm Quốc Tuấn", target_headcount: 20 },
+    { department_id: "dept-cloud", department_code: "CLOUD", department_name: "Phòng Cloud và Hạ tầng", parent_department_name: "Khối Công nghệ", manager_id: "emp-cloud-manager", manager_name: "Hoàng Trọng Nghĩa", target_headcount: 10 },
   ],
   "/admin/positions": [
     { position_id: "pos-hr-emp", position_code: "PHR_EMP", position_name: "Nhân viên Nhân sự", department_id: "dept-hr", department_name: "Phòng Nhân sự", target_headcount: 5, description: "Tuyển dụng và C&B" },
@@ -170,11 +171,11 @@ const initialStore: MockStore = {
     { recruitment_plan_id: "plan-demo-01", recruitment_request_id: "req-demo-01", request_code: "YCTD/2026-018", plan_name: "Kế hoạch tuyển Kỹ sư Cloud Quý IV", department_name: "Phòng Cloud và Hạ tầng", start_date: "2026-09-01", end_date: "2026-10-31", budget: 45000000, status: "IN_PROGRESS" },
   ],
   "/recruitment/candidates": [
-    { candidate_id: "cand-demo-01", candidate_code: "UV-2026-001", full_name: "Lê Bảo Trâm", citizen_id: "079206001234", date_of_birth: "1998-04-12", gender: "Nữ", phone: "0909123456", email: "tram.lb@example.test", address: "Hà Nội", culture_level: "12/12", education_level: "Cử nhân", education_school: "Đại học Bách khoa", major: "Công nghệ thông tin", gpa: 8.2, experience: "3 năm vận hành Cloud", referrer: "Nguyễn Thùy Linh", referrer_employee_id: "emp-hr-02", source: "LinkedIn", created_date: "2026-08-28", received_date: "2026-08-28", recruitment_request_id: "req-demo-01", apply_position_name: "Kỹ sư Cloud và Hạ tầng", position_id: "pos-cloud-emp", department_id: "dept-cloud", department_name: "Phòng Cloud và Hạ tầng", attachments_json: [{ name: "CV_LeBaoTram.pdf", file: "CV_LeBaoTram.pdf", note: "CV bản tiếng Việt" }], status: "S2: Phỏng vấn" },
-    { candidate_id: "cand-demo-02", candidate_code: "UV-2026-002", full_name: "Vũ Minh Khôi", citizen_id: "001203009876", date_of_birth: "1996-11-03", gender: "Nam", phone: "0903812345", email: "khoi.vm@example.test", address: "Hồ Chí Minh", culture_level: "12/12", education_level: "Thạc sĩ", education_school: "Đại học Kinh tế", major: "Quản trị kinh doanh", gpa: 8.5, experience: "5 năm kinh doanh B2B", referrer: "Phạm Quốc Tuấn", referrer_employee_id: "emp-kd-01", source: "Giới thiệu nội bộ", created_date: "2026-08-25", received_date: "2026-08-25", recruitment_request_id: "req-demo-02", apply_position_name: "Nhân viên Kinh doanh", position_id: "pos-kd-emp", department_id: "dept-kd", department_name: "Phòng Kinh doanh", attachments_json: [], status: "S5: Trúng tuyển" },
-    { candidate_id: "cand-demo-03", candidate_code: "UV-2026-003", full_name: "Trần Khánh Linh", citizen_id: "001198004321", date_of_birth: "1998-06-19", gender: "Nữ", phone: "0909887766", email: "linh.tk@example.test", education_level: "Cử nhân", major: "Kinh tế", experience: "2 năm kinh doanh phần mềm", referrer: "Phạm Quốc Tuấn", referrer_employee_id: "emp-kd-01", source: "VietnamWorks", created_date: "2026-09-03", received_date: "2026-09-03", recruitment_request_id: "req-demo-03", apply_position_name: "Nhân viên Kinh doanh", position_id: "pos-kd-emp", department_id: "dept-kd", department_name: "Phòng Kinh doanh", attachments_json: [], status: "SUBMITTED" },
-    { candidate_id: "cand-demo-04", candidate_code: "UV-2026-004", full_name: "Phạm Gia Huy", citizen_id: "001198007654", date_of_birth: "1997-02-11", gender: "Nam", phone: "0908776655", email: "huy.pg@example.test", education_level: "Cử nhân", major: "Quản trị kinh doanh", experience: "3 năm bán hàng B2B", referrer: "Phạm Quốc Tuấn", referrer_employee_id: "emp-kd-01", source: "Giới thiệu nội bộ", created_date: "2026-08-30", received_date: "2026-08-30", recruitment_request_id: "req-demo-03", apply_position_name: "Nhân viên Kinh doanh", position_id: "pos-kd-emp", department_id: "dept-kd", department_name: "Phòng Kinh doanh", attachments_json: [], status: "INTERVIEWED" },
-    { candidate_id: "cand-demo-05", candidate_code: "UV-2026-005", full_name: "Ngô Tuấn Kiệt", citizen_id: "001198009999", date_of_birth: "1997-09-22", gender: "Nam", phone: "0908112233", email: "kiet.nt@example.test", education_level: "Cử nhân", major: "Kinh tế", experience: "4 năm kinh doanh doanh nghiệp", referrer: "Phạm Quốc Tuấn", referrer_employee_id: "emp-kd-01", source: "TopCV", created_date: "2026-08-20", received_date: "2026-08-20", recruitment_request_id: "req-demo-04", apply_position_name: "Nhân viên Kinh doanh", position_id: "pos-kd-emp", department_id: "dept-kd", department_name: "Phòng Kinh doanh", attachments_json: [], status: "HIRED" },
+    { candidate_id: "cand-demo-01", candidate_code: "UV-2026-001", full_name: "Lê Bảo Trâm", citizen_id: "079206001234", date_of_birth: "1998-04-12", gender: "Nữ", phone: "0909123456", email: "tram.lb@example.test", address: "Hà Nội", culture_level: "12/12", education_level: "Cử nhân", education_school: "Đại học Bách khoa", major: "Công nghệ thông tin", gpa: 8.2, experience: "3 năm vận hành Cloud", referrer: "Nguyễn Thùy Linh", referrer_employee_id: "emp-hr-02", source: "LinkedIn", created_date: "2026-08-28", received_date: "2026-08-28", recruitment_request_id: "req-demo-01", apply_position_name: "Kỹ sư Cloud và Hạ tầng", position_id: "pos-cloud-emp", department_id: "dept-cloud", department_name: "Phòng Cloud và Hạ tầng", attachments_json: [{ name: "CV_LeBaoTram.pdf", file: "CV_LeBaoTram.pdf", note: "CV bản tiếng Việt" }], status: "đã phỏng vấn" },
+    { candidate_id: "cand-demo-02", candidate_code: "UV-2026-002", full_name: "Vũ Minh Khôi", citizen_id: "001203009876", date_of_birth: "1996-11-03", gender: "Nam", phone: "0903812345", email: "khoi.vm@example.test", address: "Hồ Chí Minh", culture_level: "12/12", education_level: "Thạc sĩ", education_school: "Đại học Kinh tế", major: "Quản trị kinh doanh", gpa: 8.5, experience: "5 năm kinh doanh B2B", referrer: "Phạm Quốc Tuấn", referrer_employee_id: "emp-kd-01", source: "Giới thiệu nội bộ", created_date: "2026-08-25", received_date: "2026-08-25", recruitment_request_id: "req-demo-02", apply_position_name: "Nhân viên Kinh doanh", position_id: "pos-kd-emp", department_id: "dept-kd", department_name: "Phòng Kinh doanh", attachments_json: [], status: "đã quyết định tuyển" },
+    { candidate_id: "cand-demo-03", candidate_code: "UV-2026-003", full_name: "Trần Khánh Linh", citizen_id: "001198004321", date_of_birth: "1998-06-19", gender: "Nữ", phone: "0909887766", email: "linh.tk@example.test", education_level: "Cử nhân", major: "Kinh tế", experience: "2 năm kinh doanh phần mềm", referrer: "Phạm Quốc Tuấn", referrer_employee_id: "emp-kd-01", source: "VietnamWorks", created_date: "2026-09-03", received_date: "2026-09-03", recruitment_request_id: "req-demo-03", apply_position_name: "Nhân viên Kinh doanh", position_id: "pos-kd-emp", department_id: "dept-kd", department_name: "Phòng Kinh doanh", attachments_json: [], status: "tiếp nhận hồ sơ" },
+    { candidate_id: "cand-demo-04", candidate_code: "UV-2026-004", full_name: "Phạm Gia Huy", citizen_id: "001198007654", date_of_birth: "1997-02-11", gender: "Nam", phone: "0908776655", email: "huy.pg@example.test", education_level: "Cử nhân", major: "Quản trị kinh doanh", experience: "3 năm bán hàng B2B", referrer: "Phạm Quốc Tuấn", referrer_employee_id: "emp-kd-01", source: "Giới thiệu nội bộ", created_date: "2026-08-30", received_date: "2026-08-30", recruitment_request_id: "req-demo-03", apply_position_name: "Nhân viên Kinh doanh", position_id: "pos-kd-emp", department_id: "dept-kd", department_name: "Phòng Kinh doanh", attachments_json: [], status: "đã phỏng vấn" },
+    { candidate_id: "cand-demo-05", candidate_code: "UV-2026-005", full_name: "Ngô Tuấn Kiệt", citizen_id: "001198009999", date_of_birth: "1997-09-22", gender: "Nam", phone: "0908112233", email: "kiet.nt@example.test", education_level: "Cử nhân", major: "Kinh tế", experience: "4 năm kinh doanh doanh nghiệp", referrer: "Phạm Quốc Tuấn", referrer_employee_id: "emp-kd-01", source: "TopCV", created_date: "2026-08-20", received_date: "2026-08-20", recruitment_request_id: "req-demo-04", apply_position_name: "Nhân viên Kinh doanh", position_id: "pos-kd-emp", department_id: "dept-kd", department_name: "Phòng Kinh doanh", attachments_json: [], status: "đi làm" },
   ],
   "/recruitment/pre-screenings": [
     { pre_screening_id: "screen-demo-01", candidate_id: "cand-demo-01", screening_code: "SL/2026-001", candidate_name: "Lê Bảo Trâm", position_name: "Kỹ sư Cloud và Hạ tầng", level_score: 8, screening_result: "ĐẠT", screening_date: "2026-09-02" },
@@ -276,10 +277,10 @@ const initialStore: MockStore = {
     { evaluation_id: "evaluation-demo-04", evaluation_code: "DG/2025-004", evaluation_date: "2025-12-31", evaluation_quarter: 4, year: 2025, evaluator_id: "emp-hr-01", evaluator_name: "Trần Thị Thu Hà", employee_id: "emp-hr-02", employee_name: "Nguyễn Thùy Linh", department_id: "dept-hr", department_name: "Phòng Nhân sự", position_id: "pos-hr-emp", position_name: "Nhân viên Nhân sự", details: [{ detail_id: "detail-evaluation-demo-04-01", criteria_id: "criteria-demo-01", criteria_code: "KPI_WORK", criteria_name: "Mức độ hoàn thành chỉ tiêu công việc (KPI)", weight: 40, score: 8.5, note: "Hoàn thành kế hoạch năm." }, { detail_id: "detail-evaluation-demo-04-02", criteria_id: "criteria-demo-02", criteria_code: "SKILL_PROF", criteria_name: "Kỹ năng chuyên môn & Nghiệp vụ", weight: 20, score: 8, note: "Đáp ứng tốt nghiệp vụ." }, { detail_id: "detail-evaluation-demo-04-03", criteria_id: "criteria-demo-03", criteria_code: "ATTITUDE", criteria_name: "Thái độ làm việc & Kỷ luật lao động", weight: 20, score: 8.5, note: "Có trách nhiệm với công việc." }, { detail_id: "detail-evaluation-demo-04-04", criteria_id: "criteria-demo-04", criteria_code: "TEAMWORK", criteria_name: "Kỹ năng phối hợp & Làm việc nhóm", weight: 20, score: 8.5, note: "Phối hợp hiệu quả." }], total_score: 8.4, grade_result: "Loại A (Giỏi)", description: "Đánh giá tổng kết năm 2025.", manager_comment: "Có tiến bộ rõ rệt so với kỳ trước.", recommendation: "Được tham gia chương trình phát triển chuyên môn.", status: "COMPLETED" },
   ],
   "/reward-discipline/proposals": [
-    { proposal_id: "reward-proposal-demo-01", proposal_code: "DXKT/2026-001", record_type: "KHEN_THUONG", employee_id: "emp-hr-02", employee_name: "Nguyễn Thùy Linh", employee_code: "NV-2024-005", department_name: "Phòng Nhân sự", position_name: "Nhân viên Nhân sự", proposed_amount: 5000000, proposal_date: "2026-08-25", proposed_by_employee_id: "emp-hr-01", proposed_by: "Trần Thị Thu Hà", reason: "Hoàn thành vượt chỉ tiêu tuyển dụng Quý III", content: "Đề xuất khen thưởng thành tích tuyển dụng nổi bật.", attachment_url: "https://example.test/files/dxkt-2026-001.pdf", status: "APPROVED" },
-    { proposal_id: "reward-proposal-demo-02", proposal_code: "DXKT/2026-002", record_type: "KHEN_THUONG", employee_id: "emp-cloud-04", employee_name: "Đặng Việt Dũng", employee_code: "NV-2024-100", department_name: "Phòng Cloud và Hạ tầng", position_name: "Kỹ sư Cloud và Hạ tầng", proposed_amount: 4000000, proposal_date: "2026-08-28", proposed_by_employee_id: "emp-kd-01", proposed_by: "Phạm Quốc Tuấn", reason: "Xử lý sự cố hạ tầng khẩn cấp ngoài giờ.", content: "Đề xuất ghi nhận đóng góp trong việc duy trì hệ thống hoạt động ổn định.", attachment_url: "https://example.test/files/dxkt-2026-002.pdf", status: "APPROVED" },
-    { proposal_id: "discipline-proposal-demo-01", proposal_code: "DXKL/2026-001", record_type: "KY_LUAT", employee_id: "emp-kd-01", employee_name: "Phạm Quốc Tuấn", employee_code: "NV-2024-027", department_name: "Phòng Kinh doanh", position_name: "Trưởng Phòng Kinh doanh", proposed_amount: 0, proposal_date: "2026-08-12", proposed_by_employee_id: "emp-hr-01", proposed_by: "Trần Thị Thu Hà", reason: "Chưa cập nhật báo cáo đúng hạn nhiều lần.", content: "Đề xuất nhắc nhở bằng văn bản và theo dõi cải thiện trong kỳ tiếp theo.", status: "APPROVED" },
-    { proposal_id: "reward-proposal-demo-03", proposal_code: "DXKT/2026-003", record_type: "KHEN_THUONG", employee_id: "emp-hr-02", employee_name: "Nguyễn Thùy Linh", employee_code: "NV-2024-005", department_name: "Phòng Nhân sự", position_name: "Nhân viên Nhân sự", proposed_amount: 3000000, proposal_date: "2026-09-05", proposed_by_employee_id: "emp-hr-01", proposed_by: "Trần Thị Thu Hà", reason: "Hoàn thành tốt kế hoạch chuẩn hóa hồ sơ nhân sự.", content: "Đề xuất xem xét trong kỳ tổng kết năm.", status: "PENDING" },
+    { proposal_id: "reward-proposal-demo-01", proposal_code: "DXKT/2026-001", record_type: "KHEN_THUONG", employee_id: "emp-hr-02", employee_name: "Nguyễn Thùy Linh", employee_code: "NV-2024-005", department_name: "Phòng Nhân sự", department_manager_id: "emp-hr-01", department_manager_name: "Trần Thị Thu Hà", position_name: "Nhân viên Nhân sự", proposed_amount: 5000000, payment_method: "BANK_TRANSFER", proposal_date: "2026-08-25", proposed_by_employee_id: "emp-hr-01", proposed_by: "Trần Thị Thu Hà", reason: "Hoàn thành vượt chỉ tiêu tuyển dụng Quý III", content: "Đề xuất khen thưởng thành tích tuyển dụng nổi bật.", attachment_url: "https://example.test/files/dxkt-2026-001.pdf", status: "APPROVED" },
+    { proposal_id: "reward-proposal-demo-02", proposal_code: "DXKT/2026-002", record_type: "KHEN_THUONG", employee_id: "emp-cloud-04", employee_name: "Đặng Việt Dũng", employee_code: "NV-2024-100", department_name: "Phòng Cloud và Hạ tầng", department_manager_id: "emp-cloud-manager", department_manager_name: "Hoàng Trọng Nghĩa", position_name: "Kỹ sư Cloud và Hạ tầng", proposed_amount: 4000000, payment_method: "CASH", proposal_date: "2026-08-28", proposed_by_employee_id: "emp-kd-01", proposed_by: "Phạm Quốc Tuấn", reason: "Xử lý sự cố hạ tầng khẩn cấp ngoài giờ.", content: "Đề xuất ghi nhận đóng góp trong việc duy trì hệ thống hoạt động ổn định.", attachment_url: "https://example.test/files/dxkt-2026-002.pdf", status: "APPROVED" },
+    { proposal_id: "discipline-proposal-demo-01", proposal_code: "DXKL/2026-001", record_type: "KY_LUAT", employee_id: "emp-kd-01", employee_name: "Phạm Quốc Tuấn", employee_code: "NV-2024-027", department_name: "Phòng Kinh doanh", department_manager_id: "emp-kd-01", department_manager_name: "Phạm Quốc Tuấn", position_name: "Trưởng Phòng Kinh doanh", proposed_amount: 0, payment_method: "NOT_APPLICABLE", proposal_date: "2026-08-12", proposed_by_employee_id: "emp-hr-01", proposed_by: "Trần Thị Thu Hà", reason: "Chưa cập nhật báo cáo đúng hạn nhiều lần.", content: "Đề xuất nhắc nhở bằng văn bản và theo dõi cải thiện trong kỳ tiếp theo.", status: "APPROVED" },
+    { proposal_id: "reward-proposal-demo-03", proposal_code: "DXKT/2026-003", record_type: "KHEN_THUONG", employee_id: "emp-hr-02", employee_name: "Nguyễn Thùy Linh", employee_code: "NV-2024-005", department_name: "Phòng Nhân sự", department_manager_id: "emp-hr-01", department_manager_name: "Trần Thị Thu Hà", position_name: "Nhân viên Nhân sự", proposed_amount: 3000000, payment_method: "BANK_TRANSFER", proposal_date: "2026-09-05", proposed_by_employee_id: "emp-hr-01", proposed_by: "Trần Thị Thu Hà", reason: "Hoàn thành tốt kế hoạch chuẩn hóa hồ sơ nhân sự.", content: "Đề xuất xem xét trong kỳ tổng kết năm.", status: "PENDING" },
   ],
   "/reward-discipline": [
     { reward_discipline_id: "reward-demo-01", decision_no: "QĐKT/2026/001", decision_type: "KHEN_THUONG", employee_id: "emp-hr-02", employee_code: "NV-2024-005", employee_name: "Nguyễn Thùy Linh", department_name: "Phòng Nhân sự", position_name: "Nhân viên Nhân sự", decision_date: "2026-08-30", effective_date: "2026-08-30", decision_by: "Bùi Xuân Thức", proposal_id: "reward-proposal-demo-01", amount: 5000000, status: "COMPLETED", reason: "Hoàn thành vượt chỉ tiêu tuyển dụng Quý III", content: "Tặng bằng khen công ty và tiền thưởng 5.000.000 VNĐ.", attachment_url: "https://example.test/files/qdkt-2026-001.pdf" },
@@ -331,6 +332,10 @@ function loadStore(): MockStore {
       }
       if (evaluator) evaluation.evaluator_name ??= evaluator.full_name;
     }
+    store["/recruitment/candidates"] = (store["/recruitment/candidates"] ?? []).map((candidate) => ({
+      ...candidate,
+      status: normalizeCandidateStatus(candidate.status),
+    }));
     const quotaDefaults = initialStore["/hr/quotas"]?.[0] ?? {};
     const storedQuotas: MockRow[] = (store["/hr/quotas"] ?? []).map((quota) => ({
       ...quotaDefaults,
@@ -385,7 +390,7 @@ function mockReportResult(reportId: string, filters: Record<string, string>) {
       const key = `${request.department_id ?? department}|${request.position_id ?? position}`;
       const current = grouped.get(key) ?? { department_name: department, position_name: position, required_quantity: 0, hired_quantity: 0 };
       current.required_quantity += Number(request.quantity ?? 0);
-      const hired = store["/recruitment/candidates"].filter((candidate) => String(candidate.recruitment_request_id) === String(request.recruitment_request_id) && (candidate.status === "HIRED" || store["/hr/employees"].some((employee) => String(employee.candidate_id) === String(candidate.candidate_id) && employee.employment_status === "WORKING"))).length;
+      const hired = store["/recruitment/candidates"].filter((candidate) => String(candidate.recruitment_request_id) === String(request.recruitment_request_id) && (isCandidateWorking(candidate.status) || store["/hr/employees"].some((employee) => String(employee.candidate_id) === String(candidate.candidate_id) && employee.employment_status === "WORKING"))).length;
       current.hired_quantity += hired;
       grouped.set(key, current);
     });
@@ -493,9 +498,7 @@ function duplicateCandidate(
 }
 
 function canConvertCandidate(candidate: MockRow) {
-  return ["S5: Trúng tuyển", "PASSED", "ĐẠT"].includes(
-    String(candidate.status),
-  );
+  return isCandidateHiringDecisionPassed(candidate.status);
 }
 
 export function isMockMode() {
@@ -567,6 +570,14 @@ export async function mockApiRequest<T>(path: string, init: RequestInit = {}, se
   }
 
   const payload = payloadFor(init);
+  if (route === "/recruitment/interview-schedules" && (method === "POST" || method === "PUT")) {
+    const candidateIds = parseDetailList(payload.candidates ?? payload.candidates_json)
+      .map((item) => String(item.candidate_id ?? item.id ?? ""))
+      .filter(Boolean);
+    for (const candidate of store["/recruitment/candidates"] ?? []) {
+      if (candidateIds.includes(String(candidate.candidate_id))) candidate.status = "đã tạo lịch";
+    }
+  }
   if (route === "/admin/users" && method === "POST") {
     const username = String(payload.username ?? "").trim();
     const fullName = String(payload.full_name ?? "").trim();
@@ -591,7 +602,7 @@ export async function mockApiRequest<T>(path: string, init: RequestInit = {}, se
     if (!decision)
       return failure("Chỉ ứng viên có quyết định trúng tuyển kết quả Đạt mới được chuyển thành nhân viên.") as T;
     const existingEmployee = store["/hr/employees"].find((row) => String(row.candidate_id ?? "") === String(payload.candidate_id));
-    if (candidate.status === "HIRED" || existingEmployee)
+    if (isCandidateWorking(candidate.status) || existingEmployee)
       return failure("Ứng viên này đã được chuyển thành nhân viên.") as T;
 
     const now = new Date();
@@ -617,7 +628,7 @@ export async function mockApiRequest<T>(path: string, init: RequestInit = {}, se
     probationTo.setMonth(probationTo.getMonth() + 2);
     const probationRate = officialSalary > 0 ? Number(((probationSalary / officialSalary) * 100).toFixed(2)) : 100;
 
-    candidate.status = "HIRED";
+    candidate.status = "đi làm";
     store["/hr/employees"].unshift({
       employee_id: employeeId,
       employee_code: `NV-${String(timestamp).slice(-6)}`,
@@ -687,7 +698,7 @@ export async function mockApiRequest<T>(path: string, init: RequestInit = {}, se
       if (index < 0) return failure("Không tìm thấy Phiếu Sơ loại.") as T;
       rows[index] = nextRow;
     }
-    candidate.status = String(payload.screening_result ?? "").trim().toUpperCase() === "ĐẠT" ? "Đã sơ loại, Đạt" : "Đã sơ loại, Không đạt";
+    candidate.status = "đã sơ loại";
     store[route] = rows;
     saveStore(store);
     return envelope(nextRow) as T;
@@ -715,7 +726,7 @@ export async function mockApiRequest<T>(path: string, init: RequestInit = {}, se
     };
     if (method === "POST") rows.unshift(nextRow);
     else rows[rows.findIndex((item) => String(item[idField]) === id)] = nextRow;
-    candidate.status = String(payload.overall_result ?? "").trim().toUpperCase() === "ĐẠT" ? "Đã phỏng vấn, Đạt" : "Đã phỏng vấn, Không đạt";
+    candidate.status = "đã phỏng vấn";
     if (payload.offer && typeof payload.offer === "object" && !Array.isArray(payload.offer)) {
       const offer = payload.offer as MockRow;
       const existingOffer = store["/recruitment/offers"].find((item) => String(item.candidate_id) === String(payload.candidate_id));
@@ -741,7 +752,7 @@ export async function mockApiRequest<T>(path: string, init: RequestInit = {}, se
     if (rows.some((item) => String(item.candidate_id) === String(payload.candidate_id) && item.status !== "CANCELLED")) return failure("Ứng viên này đã có quyết định tuyển dụng.") as T;
     const nextRow = { ...payload, [idField]: `mock-decision-${Date.now()}`, decision_number: String(payload.decision_number ?? `QDTD/${new Date().getFullYear().toString().slice(-2)}-${String(rows.length + 1).padStart(4, "0")}`), candidate_name: candidate.full_name, candidate_code: candidate.candidate_code, eval_code: evaluation.eval_code, status: "COMPLETED" };
     rows.unshift(nextRow);
-    candidate.status = result === "ĐẠT" ? "S5: Trúng tuyển" : "S7: Loại";
+    candidate.status = result === "ĐẠT" ? "đã quyết định tuyển" : "đã quyết định loại";
     store[route] = rows;
     saveStore(store);
     return envelope(nextRow) as T;
@@ -861,6 +872,10 @@ export async function mockApiRequest<T>(path: string, init: RequestInit = {}, se
     const existing = method === "PUT" ? rows.find((item) => String(item[idField]) === id) : undefined;
     if (method === "PUT" && !existing) return failure("Không tìm thấy đề xuất.") as T;
     const normalizedType = payload.record_type === "REWARD" ? "KHEN_THUONG" : payload.record_type === "DISCIPLINE" ? "KY_LUAT" : String(payload.record_type);
+    const paymentMethod = ["CASH", "BANK_TRANSFER", "NOT_APPLICABLE"].includes(String(payload.payment_method ?? "")) ? String(payload.payment_method) : "";
+    if (normalizedType === "KHEN_THUONG" && !paymentMethod) return failure("Hình thức chi trả là bắt buộc với đề xuất khen thưởng.") as T;
+    if (payload.payment_method && !paymentMethod) return failure("Hình thức chi trả không hợp lệ.") as T;
+    const department = store["/admin/departments"].find((item) => String(item.department_id) === String(employee.department_id));
     const nextRow = {
       ...(existing ?? {}),
       ...payload,
@@ -870,6 +885,8 @@ export async function mockApiRequest<T>(path: string, init: RequestInit = {}, se
       employee_name: employee.full_name,
       employee_code: employee.employee_code,
       department_name: employee.department_name,
+      department_manager_id: department?.manager_id,
+      department_manager_name: department?.manager_name,
       position_name: employee.position_name,
       proposed_amount: Number(payload.proposed_amount) || 0,
       status: "PENDING",
@@ -922,11 +939,11 @@ export async function mockApiRequest<T>(path: string, init: RequestInit = {}, se
     store[route] = rows.filter((item) => String(item[idField]) !== id);
     if (route === "/recruitment/interview-evaluations") {
       const candidate = store["/recruitment/candidates"].find((item) => String(item.candidate_id) === String(row.candidate_id));
-      if (candidate && !store[route].some((item) => String(item.candidate_id) === String(row.candidate_id))) candidate.status = "Đã sơ loại, Đạt";
+      if (candidate && !store[route].some((item) => String(item.candidate_id) === String(row.candidate_id))) candidate.status = "đã sơ loại";
     }
     if (route === "/recruitment/pre-screenings") {
       const candidate = store["/recruitment/candidates"].find((item) => String(item.candidate_id) === String(row.candidate_id));
-      if (candidate && !store[route].some((item) => String(item.candidate_id) === String(row.candidate_id))) candidate.status = "Đã tiếp nhận hồ sơ";
+      if (candidate && !store[route].some((item) => String(item.candidate_id) === String(row.candidate_id))) candidate.status = "tiếp nhận hồ sơ";
     }
     saveStore(store);
     return envelope(row) as T;
@@ -936,6 +953,21 @@ export async function mockApiRequest<T>(path: string, init: RequestInit = {}, se
   if (action === "approve" || action === "status") row.status = payload.status ?? "APPROVED";
   saveStore(store);
   return envelope(row) as T;
+}
+
+function candidatePipelineStages(candidates: MockRow[]) {
+  return [
+    ["Tiếp nhận hồ sơ", "tiếp nhận hồ sơ"],
+    ["Đã sơ loại", "đã sơ loại"],
+    ["Đã tạo lịch", "đã tạo lịch"],
+    ["Đã phỏng vấn", "đã phỏng vấn"],
+    ["Đã quyết định loại", "đã quyết định loại"],
+    ["Đã quyết định tuyển", "đã quyết định tuyển"],
+    ["Đi làm", "đi làm"],
+  ].map(([label, status]) => ({
+    label,
+    count: candidates.filter((candidate) => normalizeCandidateStatus(candidate.status) === status).length,
+  }));
 }
 
 function dashboardResponse(session?: Session) {
@@ -962,10 +994,10 @@ function dashboardResponse(session?: Session) {
   if (role === "HR Staff") {
     const pendingRequests = requests.filter((item) => item.status === "PENDING");
     return {
-      kpi: { totalRequests: requests.length, pendingRequests: pendingRequests.length, recruitingRequests: requests.filter((item) => ["APPROVED", "IN_PROGRESS", "RECRUITING"].includes(String(item.status))).length, totalCandidates: candidates.length, processingCandidates: candidates.filter((item) => !["HIRED", "REJECTED"].includes(String(item.status))).length, upcomingInterviews: 2, pendingOffers: store["/recruitment/offers"].filter((item) => ["SENT", "PENDING"].includes(String(item.offer_status))).length },
+       kpi: { totalRequests: requests.length, pendingRequests: pendingRequests.length, recruitingRequests: requests.filter((item) => ["APPROVED", "IN_PROGRESS", "RECRUITING"].includes(String(item.status))).length, totalCandidates: candidates.length, processingCandidates: candidates.filter((item) => !["đi làm", "đã quyết định loại"].includes(normalizeCandidateStatus(item.status))).length, upcomingInterviews: 2, pendingOffers: store["/recruitment/offers"].filter((item) => ["SENT", "PENDING"].includes(String(item.offer_status))).length },
       charts: { deptStructure: countByDepartment },
-      actionNeeded: { recruitment: { pendingRequests, candidatesToScreen: candidates.filter((item) => ["NEW", "SUBMITTED"].includes(String(item.status))), upcomingInterviews: [], pendingOffers: [] } },
-      pipelineStages: [{ label: "Mới", count: candidates.filter((item) => ["NEW", "SUBMITTED"].includes(String(item.status))).length }, { label: "Phỏng vấn", count: candidates.filter((item) => String(item.status).includes("Phỏng vấn") || item.status === "INTERVIEWED").length }, { label: "Đã tiếp nhận", count: candidates.filter((item) => item.status === "HIRED").length }],
+       actionNeeded: { recruitment: { pendingRequests, candidatesToScreen: candidates.filter((item) => normalizeCandidateStatus(item.status) === "tiếp nhận hồ sơ"), upcomingInterviews: [], pendingOffers: [] } },
+       pipelineStages: candidatePipelineStages(candidates),
     };
   }
   if (role === "Ban Giám Đốc") {
@@ -974,7 +1006,7 @@ function dashboardResponse(session?: Session) {
       kpi: { totalEmployees: employees.length, activeEmployees: employees.filter((item) => item.employment_status === "WORKING").length, newEmployeesPeriod: 9, resignedEmployeesPeriod: 1, openPositionsCount: requests.filter((item) => ["APPROVED", "IN_PROGRESS"].includes(String(item.status))).length, pendingRequestsCount: requests.filter((item) => item.status === "PENDING").length, pendingApprovalsCount: pendingApprovals.length },
       pendingApprovals,
       deptStructure: countByDepartment,
-      recruitmentOverview: { totalTarget: requests.reduce((sum, item) => sum + Number(item.quantity ?? 0), 0), totalHired: candidates.filter((item) => item.status === "HIRED").length, remainingShortfall: Math.max(0, requests.reduce((sum, item) => sum + Number(item.quantity ?? 0), 0) - candidates.filter((item) => item.status === "HIRED").length), completionRate: 60 },
+      recruitmentOverview: { totalTarget: requests.reduce((sum, item) => sum + Number(item.quantity ?? 0), 0), totalHired: candidates.filter((item) => normalizeCandidateStatus(item.status) === "đi làm").length, remainingShortfall: Math.max(0, requests.reduce((sum, item) => sum + Number(item.quantity ?? 0), 0) - candidates.filter((item) => normalizeCandidateStatus(item.status) === "đi làm").length), completionRate: 60 },
     };
   }
   if (role === "Nhân viên") {
@@ -991,23 +1023,18 @@ function dashboardResponse(session?: Session) {
     const teamCandidates = candidates.filter((item) => item.department_id === manager?.department_id);
     const teamEmployeeNames = new Set(teamEmployees.map((item) => String(item.full_name ?? "")));
     const teamPending = pendingItems.filter((item) => (item as MockRow).deptName === manager?.department_name || teamEmployeeNames.has(String((item as MockRow).employeeName ?? "")));
-    return { kpi: { totalEmployees: teamEmployees.length, activeEmployees: teamEmployees.length, totalRequests: teamRequests.length, pendingRequests: teamRequests.filter((item) => item.status === "PENDING").length, openPositionsCount: teamRequests.filter((item) => ["APPROVED", "IN_PROGRESS"].includes(String(item.status))).length, processingCandidates: teamCandidates.filter((item) => !["HIRED", "REJECTED"].includes(String(item.status))).length, pendingApprovalsCount: teamPending.length }, charts: { deptStructure: [{ department_name: manager?.department_name ?? session?.department ?? "Đơn vị", count: teamEmployees.length }] }, deptStructure: [{ department_name: manager?.department_name ?? session?.department ?? "Đơn vị", count: teamEmployees.length }], pendingApprovals: teamPending, pipelineStages: [{ label: "Mới tiếp nhận", count: teamCandidates.filter((item) => ["NEW", "SUBMITTED"].includes(String(item.status))).length }, { label: "Phỏng vấn", count: teamCandidates.filter((item) => String(item.status).includes("Phỏng vấn") || item.status === "INTERVIEWED").length }, { label: "Đã tiếp nhận", count: teamCandidates.filter((item) => item.status === "HIRED").length }] };
+    return { kpi: { totalEmployees: teamEmployees.length, activeEmployees: teamEmployees.length, totalRequests: teamRequests.length, pendingRequests: teamRequests.filter((item) => item.status === "PENDING").length, openPositionsCount: teamRequests.filter((item) => ["APPROVED", "IN_PROGRESS"].includes(String(item.status))).length, processingCandidates: teamCandidates.filter((item) => !["đi làm", "đã quyết định loại"].includes(normalizeCandidateStatus(item.status))).length, pendingApprovalsCount: teamPending.length }, charts: { deptStructure: [{ department_name: manager?.department_name ?? session?.department ?? "Đơn vị", count: teamEmployees.length }] }, deptStructure: [{ department_name: manager?.department_name ?? session?.department ?? "Đơn vị", count: teamEmployees.length }], pendingApprovals: teamPending, pipelineStages: candidatePipelineStages(teamCandidates) };
   }
   return {
     kpi: {
       totalEmployees: employees.length,
       activeEmployees: employees.filter((item) => item.employment_status === "WORKING").length,
       openPositionsCount: requests.filter((item) => item.status === "APPROVED" || item.status === "IN_PROGRESS").length,
-      processingCandidates: candidates.filter((item) => !["HIRED", "REJECTED"].includes(String(item.status))).length,
+       processingCandidates: candidates.filter((item) => !["đi làm", "đã quyết định loại"].includes(normalizeCandidateStatus(item.status))).length,
       pendingApprovalsCount: pendingItems.length,
     },
     charts: { deptStructure: countByDepartment },
     pendingApprovals: pendingItems,
-    pipelineStages: [
-      { label: "Mới tiếp nhận", count: candidates.filter((item) => ["NEW", "SUBMITTED"].includes(String(item.status))).length },
-      { label: "Phỏng vấn", count: candidates.filter((item) => String(item.status).includes("Phỏng vấn") || item.status === "INTERVIEWED").length },
-      { label: "Trúng tuyển", count: candidates.filter((item) => ["S5: Trúng tuyển", "OFFER_ACCEPTED"].includes(String(item.status))).length },
-      { label: "Đã tiếp nhận", count: candidates.filter((item) => item.status === "HIRED").length },
-    ],
+    pipelineStages: candidatePipelineStages(candidates),
   };
 }

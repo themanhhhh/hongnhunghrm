@@ -49,6 +49,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Popup, type PopupVariant } from "@/components/ui/popup";
 import { ReportsWorkspace } from "@/components/reports-workspace";
+import {
+  CANDIDATE_STATUS_OPTIONS,
+  isCandidateWorking,
+} from "@/lib/candidate-status";
 
 type Row = Record<string, unknown>;
 type ModuleName = WorkspaceName | "reports";
@@ -143,6 +147,9 @@ const labels: Record<string, string> = {
   KY_LUAT: "Kỷ luật",
   REWARD: "Khen thưởng",
   DISCIPLINE: "Kỷ luật",
+  CASH: "Tiền mặt",
+  BANK_TRANSFER: "Chuyển khoản",
+  NOT_APPLICABLE: "Không áp dụng",
 };
 
 const detailLabels: Record<string, string> = {
@@ -157,6 +164,7 @@ const detailLabels: Record<string, string> = {
   employee_id: "Mã nhân viên",
   employee_code: "Mã nhân viên",
   employee_name: "Nhân viên",
+  requested_by: "Người lập",
   full_name: "Họ và tên",
   short_name: "Tên viết tắt",
   avatar_url: "URL ảnh hồ sơ",
@@ -164,6 +172,8 @@ const detailLabels: Record<string, string> = {
   department_id: "Mã bộ phận",
   department_code: "Mã bộ phận",
   department_name: "Bộ phận",
+  department_manager_id: "Mã quản lý bộ phận",
+  department_manager_name: "Quản lý bộ phận",
   parent_department_id: "Mã bộ phận cha",
   parent_department_name: "Bộ phận cha",
   position_id: "Mã vị trí",
@@ -306,6 +316,7 @@ const detailLabels: Record<string, string> = {
   proposal_date: "Ngày lập đề xuất",
   proposed_salary: "Lương đề xuất",
   proposed_amount: "Số tiền đề xuất",
+  payment_method: "Hình thức",
   proposed_by: "Người đề xuất",
   proposed_by_employee_id: "Mã nhân viên đề xuất",
   effective_date: "Ngày hiệu lực",
@@ -1476,9 +1487,6 @@ function ScreeningForm({
   ) => void;
   lookups: CandidateLookups;
 }) {
-  const [activeTab, setActiveTab] = useState<
-    "candidate" | "criteria" | "assessment"
-  >("candidate");
   const candidate = lookups.candidates.find(
     (item) => String(item.candidate_id ?? "") === values.candidate_id,
   );
@@ -1503,24 +1511,10 @@ function ScreeningForm({
 
   return (
     <div className="space-y-5">
-      <div className="flex gap-1 overflow-x-auto border-b border-slate-200">
-        {[
-          ["candidate", "1. Thông tin ứng viên"],
-          ["criteria", "2. Điều kiện sơ loại"],
-          ["assessment", "3. Đánh giá sơ loại"],
-        ].map(([key, label]) => (
-          <button
-            key={key}
-            type="button"
-            onClick={() => setActiveTab(key as typeof activeTab)}
-            className={`whitespace-nowrap border-b-2 px-4 py-3 text-xs font-bold ${activeTab === key ? "border-teal-600 text-teal-700" : "border-transparent text-slate-400"}`}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
-
-      {activeTab === "candidate" && (
+      <section>
+        <h3 className="mb-3 font-display text-sm font-bold text-slate-900">
+          1. Thông tin ứng viên
+        </h3>
         <div className="space-y-4">
           <div>
             <label className="mb-1.5 block text-xs font-bold text-slate-600">
@@ -1591,15 +1585,15 @@ function ScreeningForm({
             })}
           </div>
         </div>
-      )}
+      </section>
 
-      {activeTab === "criteria" && (
+      <section>
+        <h3 className="mb-3 font-display text-sm font-bold text-slate-900">
+          2. Điều kiện sơ loại
+        </h3>
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="font-display text-sm font-bold text-slate-900">
-                Điều kiện sơ loại
-              </h3>
               <p className="mt-1 text-xs text-slate-400">
                 Khai báo từng tiêu chí và yêu cầu đạt của vị trí.
               </p>
@@ -1741,9 +1735,12 @@ function ScreeningForm({
             </p>
           )}
         </div>
-      )}
+      </section>
 
-      {activeTab === "assessment" && (
+      <section>
+        <h3 className="mb-3 font-display text-sm font-bold text-slate-900">
+          3. Đánh giá sơ loại
+        </h3>
         <div className="grid gap-4 md:grid-cols-2">
           <WorkspaceInput
             field={{
@@ -1794,7 +1791,7 @@ function ScreeningForm({
             />
           </div>
         </div>
-      )}
+      </section>
     </div>
   );
 }
@@ -3419,6 +3416,17 @@ function RewardProposalForm({
   );
   const set = (name: string, value: string) =>
     setValues((current) => ({ ...current, [name]: value }));
+  const selectType = (value: string) =>
+    setValues((current) => ({
+      ...current,
+      record_type: value,
+      payment_method:
+        value === "KY_LUAT"
+          ? "NOT_APPLICABLE"
+          : current.payment_method === "NOT_APPLICABLE"
+            ? "CASH"
+            : current.payment_method,
+    }));
   const selectEmployee = (employeeId: string) =>
     setValues((current) => ({ ...current, employee_id: employeeId }));
   const selectProposer = (employeeId: string) => {
@@ -3441,10 +3449,6 @@ function RewardProposalForm({
   ));
   return (
     <div className="space-y-5">
-      <div className="rounded-xl border border-teal-100 bg-teal-50/60 p-4 text-xs text-teal-800">
-        Đề xuất sẽ ở trạng thái <b>Chờ duyệt</b>. Sau khi được duyệt, HR mới có
-        thể ban hành quyết định khen thưởng hoặc kỷ luật.
-      </div>
       <div className="grid gap-4 md:grid-cols-2">
         <div>
           <label className="mb-1.5 block text-xs font-bold text-slate-600">
@@ -3454,7 +3458,7 @@ function RewardProposalForm({
             className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm"
             value={values.record_type ?? "KHEN_THUONG"}
             required
-            onChange={(event) => set("record_type", event.target.value)}
+             onChange={(event) => selectType(event.target.value)}
           >
             <option value="KHEN_THUONG">Khen thưởng</option>
             <option value="KY_LUAT">Kỷ luật</option>
@@ -3509,6 +3513,22 @@ function RewardProposalForm({
           value={values.proposed_amount ?? "0"}
           onChange={(value) => set("proposed_amount", value)}
         />
+        <div>
+          <label className="mb-1.5 block text-xs font-bold text-slate-600">
+            Hình thức{values.record_type === "KHEN_THUONG" ? " *" : ""}
+          </label>
+          <select
+            className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm"
+            value={values.payment_method ?? ""}
+            required={values.record_type === "KHEN_THUONG"}
+            onChange={(event) => set("payment_method", event.target.value)}
+          >
+            <option value="">-- Chọn hình thức --</option>
+            <option value="CASH">Tiền mặt</option>
+            <option value="BANK_TRANSFER">Chuyển khoản</option>
+            <option value="NOT_APPLICABLE">Không áp dụng</option>
+          </select>
+        </div>
         <div className="rounded-xl border border-slate-100 bg-slate-50/70 p-3">
           <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
             Thông tin nhân viên
@@ -3544,12 +3564,6 @@ function RewardProposalForm({
             onChange={(value) => set("content", value)}
           />
         </div>
-        <WorkspaceInput
-          field={{ name: "attachment_url", label: "Tệp đính kèm" }}
-          tabId="proposals"
-          value={values.attachment_url ?? ""}
-          onChange={(value) => set("attachment_url", value)}
-        />
       </div>
     </div>
   );
@@ -3728,6 +3742,209 @@ function RewardDecisionForm({
   );
 }
 
+function LeaveForm({
+  values,
+  setValues,
+  lookups,
+  session,
+}: {
+  values: Record<string, string>;
+  setValues: (
+    updater: (current: Record<string, string>) => Record<string, string>,
+  ) => void;
+  lookups: RequestLookups;
+  session: Session | null;
+}) {
+  const details = parseDetailList(values.details_json);
+  const employeeOptions = lookups.employees.map((item) => ({
+    value: String(item.employee_id ?? ""),
+    label: `${String(item.employee_code ?? item.employee_id ?? "")} - ${String(item.full_name ?? "")}`,
+  }));
+  const totalDays = details.reduce((sum, item) => sum + (Number(item.days) || 0), 0);
+  const set = (name: string, value: string) =>
+    setValues((current) => ({ ...current, [name]: value }));
+  const updateDetails = (next: Array<Record<string, unknown>>) =>
+    setValues((current) => ({
+      ...current,
+      details_json: JSON.stringify(next),
+      total_days: String(
+        next.reduce((sum, item) => sum + (Number(item.days) || 0), 0),
+      ),
+    }));
+  const updateDetail = (index: number, key: string, value: unknown) => {
+    const next = [...details];
+    next[index] = { ...next[index], [key]: value };
+    updateDetails(next);
+  };
+  const addDetail = () =>
+    updateDetails([
+      ...details,
+      { date: "", time_option: "Cả ngày", days: 1, note: "" },
+    ]);
+  const removeDetail = (index: number) =>
+    updateDetails(details.filter((_, detailIndex) => detailIndex !== index));
+  const input = (
+    name: string,
+    label: string,
+    type: WorkspaceField["type"] = "text",
+    required = false,
+    disabled = false,
+    options?: Array<{ value: string; label: string }>,
+  ) => (
+    <WorkspaceInput
+      field={{ name, label, type, required, disabled, options }}
+      tabId="leave"
+      value={values[name] ?? ""}
+      onChange={(value) => set(name, value)}
+    />
+  );
+
+  return (
+    <div className="space-y-5">
+      <div className="grid gap-4 md:grid-cols-2">
+        {input(
+          "employee_id",
+          "Nhân viên *",
+          "select",
+          true,
+          session?.role === "Nhân viên",
+          [{ value: "", label: "-- Chọn nhân viên --" }, ...employeeOptions],
+        )}
+        {input("start_date", "Ngày bắt đầu", "date", true)}
+        {input("end_date", "Ngày kết thúc", "date", true)}
+        {input("total_days", "Tổng số ngày", "number", true, true)}
+        {input(
+          "leave_type",
+          "Loại nghỉ phép",
+          "select",
+          true,
+          false,
+          [
+            { value: "ANNUAL", label: "Nghỉ phép năm" },
+            { value: "SICK", label: "Nghỉ ốm" },
+            { value: "MATERNITY", label: "Nghỉ thai sản" },
+            { value: "UNPAID", label: "Nghỉ không lương" },
+          ],
+        )}
+        {input(
+          "approver_id",
+          "Người duyệt",
+          "select",
+          false,
+          false,
+          [{ value: "", label: "-- Chọn người duyệt --" }, ...employeeOptions],
+        )}
+        {input(
+          "related_person_id",
+          "Người liên quan",
+          "select",
+          false,
+          false,
+          [{ value: "", label: "-- Không chọn --" }, ...employeeOptions],
+        )}
+        <div className="md:col-span-2">
+          <WorkspaceInput
+            field={{ name: "reason", label: "Lý do", type: "textarea", span: 2 }}
+            tabId="leave"
+            value={values.reason ?? ""}
+            onChange={(value) => set("reason", value)}
+          />
+        </div>
+      </div>
+      <section className="space-y-3">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h3 className="font-display text-sm font-bold text-slate-900">
+              Chi tiết ngày nghỉ
+            </h3>
+            <p className="mt-1 text-xs text-slate-400">
+              Tổng số ngày: {totalDays.toLocaleString("vi-VN")}
+            </p>
+          </div>
+          <Button type="button" variant="secondary" size="sm" onClick={addDetail}>
+            <Plus size={14} /> Thêm ngày nghỉ
+          </Button>
+        </div>
+        <div className="overflow-x-auto rounded-xl border border-slate-100">
+          <table className="w-full min-w-[760px] text-left text-xs">
+            <thead className="bg-slate-50 text-[10px] uppercase tracking-wider text-slate-400">
+              <tr>
+                <th className="px-3 py-3">Ngày nghỉ</th>
+                <th className="px-3 py-3">Thời gian</th>
+                <th className="px-3 py-3">Số ngày</th>
+                <th className="px-3 py-3">Ghi chú</th>
+                <th className="px-3 py-3">Xóa</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {details.length ? details.map((item, index) => (
+                <tr key={index}>
+                  <td className="px-3 py-2">
+                    <Input
+                      type="date"
+                      required
+                      value={formatDateValue(item.date)}
+                      onChange={(event) => updateDetail(index, "date", event.target.value)}
+                      className="h-9 w-40"
+                    />
+                  </td>
+                  <td className="px-3 py-2">
+                    <select
+                      required
+                      value={String(item.time_option ?? "Cả ngày")}
+                      onChange={(event) => updateDetail(index, "time_option", event.target.value)}
+                      className="h-9 rounded-lg border border-slate-200 bg-white px-2"
+                    >
+                      <option value="Cả ngày">Cả ngày</option>
+                      <option value="Buổi sáng">Buổi sáng</option>
+                      <option value="Buổi chiều">Buổi chiều</option>
+                    </select>
+                  </td>
+                  <td className="px-3 py-2">
+                    <Input
+                      type="number"
+                      min={0.5}
+                      step={0.5}
+                      required
+                      value={String(item.days ?? "")}
+                      onChange={(event) => updateDetail(index, "days", event.target.value)}
+                      className="h-9 w-24"
+                    />
+                  </td>
+                  <td className="px-3 py-2">
+                    <Input
+                      value={String(item.note ?? "")}
+                      onChange={(event) => updateDetail(index, "note", event.target.value)}
+                      className="h-9 min-w-56"
+                    />
+                  </td>
+                  <td className="px-3 py-2">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      aria-label="Xóa ngày nghỉ"
+                      onClick={() => removeDetail(index)}
+                    >
+                      <Trash2 size={15} />
+                    </Button>
+                  </td>
+                </tr>
+              )) : (
+                <tr>
+                  <td colSpan={5} className="px-3 py-8 text-center text-slate-400">
+                    Chưa có ngày nghỉ. Nhấn “Thêm ngày nghỉ” để bổ sung.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  );
+}
+
 function EmployeeForm({
   values,
   setValues,
@@ -3886,8 +4103,11 @@ function EmployeeForm({
             </div>
           }
           {input("full_name", "Họ tên", "text", true)}
+          {input("short_name", "Tên viết tắt")}
           {input("gender", "Giới tính", "select")}
           {input("date_of_birth", "Ngày sinh", "date")}
+          {input("nationality", "Quốc tịch")}
+          {input("marital_status", "Tình trạng hôn nhân")}
           {input("place_of_birth", "Nơi sinh")}
           {input("ethnicity", "Dân tộc")}
           {input("religion", "Tôn giáo")}
@@ -4360,10 +4580,8 @@ function InterviewEvaluationForm({
             <div>
               <h3 className="font-display text-sm font-bold text-slate-900">
                 Câu hỏi phỏng vấn
-              </h3>
-              <p className="mt-1 text-xs text-slate-400">
-                Ghi lại câu hỏi, kết quả kỳ vọng và câu trả lời/đánh giá.
-              </p>
+               </h3>
+
             </div>
             <Button
               type="button"
@@ -4469,9 +4687,7 @@ function InterviewEvaluationForm({
               <h3 className="font-display text-sm font-bold text-slate-900">
                 Chi tiết đánh giá
               </h3>
-              <p className="mt-1 text-xs text-slate-400">
-                Đánh giá đích danh cho ứng viên đang được chọn.
-              </p>
+
             </div>
             <Button
               type="button"
@@ -4612,10 +4828,7 @@ function InterviewEvaluationForm({
 
       {activeTab === "offer" && (
         <div className="grid gap-4 md:grid-cols-2">
-          <div className="md:col-span-2 rounded-xl border border-slate-100 bg-slate-50/70 p-3 text-xs text-slate-500">
-            Thông tin offer là tùy chọn. Nếu ứng viên đã có offer, dữ liệu hiện
-            tại sẽ được nạp để đối chiếu.
-          </div>
+
           <div>
             <label className="mb-1.5 block text-xs font-bold text-slate-600">
               Ngày bắt đầu đi làm
@@ -4767,11 +4980,7 @@ function RecruitmentDecisionForm({
 
   return (
     <div className="space-y-5">
-      <div className="rounded-xl border border-amber-100 bg-amber-50/70 p-4 text-xs text-amber-800">
-        Quyết định được lập dựa trên kết quả <b>Đánh giá chung</b> của Phiếu
-        Đánh giá phỏng vấn. Kết quả quyết định phải khớp với kết quả đánh giá đã
-        chọn.
-      </div>
+
       <div className="grid gap-4 md:grid-cols-2">
         <div>
           <label className="mb-1.5 block text-xs font-bold text-slate-600">
@@ -5187,26 +5396,10 @@ function CandidateForm({
               name: "status",
               label: "Trạng thái ứng viên",
               type: "select",
-              options: [
-                { value: "Đã tiếp nhận hồ sơ", label: "Đã tiếp nhận hồ sơ" },
-                { value: "Đã sơ loại, Đạt", label: "Đã sơ loại, Đạt" },
-                {
-                  value: "Đã sơ loại, Không đạt",
-                  label: "Đã sơ loại, Không đạt",
-                },
-                { value: "Đã phỏng vấn, Đạt", label: "Đã phỏng vấn, Đạt" },
-                {
-                  value: "Đã phỏng vấn, Không đạt",
-                  label: "Đã phỏng vấn, Không đạt",
-                },
-                { value: "S2: Phỏng vấn", label: "Phỏng vấn" },
-                { value: "S5: Trúng tuyển", label: "Trúng tuyển" },
-                { value: "S7: Loại", label: "Loại" },
-                { value: "HIRED", label: "Đã chuyển thành nhân viên" },
-              ],
+              options: [...CANDIDATE_STATUS_OPTIONS],
             }}
             tabId="candidates"
-            value={values.status ?? "Đã tiếp nhận hồ sơ"}
+            value={values.status ?? "tiếp nhận hồ sơ"}
             onChange={(value) => set("status", value)}
           />
           <WorkspaceInput
@@ -5451,7 +5644,6 @@ function RecruitmentRequestForm({
   ) => void;
   lookups: RequestLookups;
 }) {
-  const [activeTab, setActiveTab] = useState<"general" | "detail">("general");
   const departments = lookups.departments;
   const employees = lookups.employees;
   const department = departments.find(
@@ -5491,23 +5683,10 @@ function RecruitmentRequestForm({
 
   return (
     <div className="space-y-5">
-      <div className="flex gap-1 overflow-x-auto border-b border-slate-200">
-        {[
-          ["general", "1. Thông tin chung"],
-          ["detail", "2. Chi tiết vị trí định biên"],
-        ].map(([key, label]) => (
-          <button
-            key={key}
-            type="button"
-            onClick={() => setActiveTab(key as "general" | "detail")}
-            className={`whitespace-nowrap border-b-2 px-4 py-3 text-xs font-bold ${activeTab === key ? "border-teal-600 text-teal-700" : "border-transparent text-slate-400"}`}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
-
-      {activeTab === "general" ? (
+      <section>
+        <h3 className="mb-3 font-display text-sm font-bold text-slate-900">
+          1. Thông tin chung
+        </h3>
         <div className="grid gap-4 md:grid-cols-2">
           <WorkspaceInput
             field={{
@@ -5556,7 +5735,6 @@ function RecruitmentRequestForm({
                   key={String(quota.quota_id)}
                   value={String(quota.quota_id)}
                 >
-                  {String(quota.quota_code ?? quota.quota_id)} -{" "}
                   {String(
                     quota.department_name ?? department?.department_name ?? "",
                   )}
@@ -5579,13 +5757,12 @@ function RecruitmentRequestForm({
               required
               onChange={(event) => setRequester(event.target.value)}
             >
-              <option value="">-- Chọn hồ sơ nhân sự --</option>
+              <option value="">-- Chọn người lập --</option>
               {employees.map((employee) => (
                 <option
                   key={String(employee.employee_id)}
                   value={String(employee.employee_id)}
                 >
-                  {String(employee.employee_code ?? employee.employee_id)} -{" "}
                   {String(employee.full_name ?? "")}
                 </option>
               ))}
@@ -5597,8 +5774,8 @@ function RecruitmentRequestForm({
             </label>
             <Input
               value={
-                department
-                  ? `${String(department.department_code ?? department.department_id)} - ${String(department.department_name ?? "")}`
+                  department
+                   ? String(department.department_name ?? "")
                   : "Tự động theo người lập"
               }
               disabled
@@ -5619,12 +5796,17 @@ function RecruitmentRequestForm({
             />
           </div>
         </div>
-      ) : (
+      </section>
+
+      <section>
+        <h3 className="mb-3 font-display text-sm font-bold text-slate-900">
+          2. Chi tiết vị trí định biên
+        </h3>
         <div className="space-y-4">
           <div className="grid gap-4 md:grid-cols-2">
             <div>
               <label className="mb-1.5 block text-xs font-bold text-slate-600">
-                Mã vị trí *
+                Vị trí *
               </label>
               <select
                 className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm"
@@ -5638,7 +5820,6 @@ function RecruitmentRequestForm({
                     key={String(position.position_id)}
                     value={String(position.position_id)}
                   >
-                    {String(position.position_code ?? position.position_id)} -{" "}
                     {String(position.position_name ?? "")}
                   </option>
                 ))}
@@ -5705,7 +5886,7 @@ function RecruitmentRequestForm({
             </div>
           )}
         </div>
-      )}
+      </section>
     </div>
   );
 }
@@ -6421,6 +6602,15 @@ function OperationalWorkspace({
   const [popup, setPopup] = useState<PopupState | null>(null);
   const [dismissedQueryError, setDismissedQueryError] = useState<unknown>(null);
   const [historyEmployeeId, setHistoryEmployeeId] = useState("");
+  const [showFilters, setShowFilters] = useState(false);
+  const [statusFilter, setStatusFilter] = useState("");
+  const [departmentFilter, setDepartmentFilter] = useState("");
+  const [positionFilter, setPositionFilter] = useState("");
+  const [proposalCodeFilter, setProposalCodeFilter] = useState("");
+  const [proposalTypeFilter, setProposalTypeFilter] = useState("");
+  const [proposalManagerFilter, setProposalManagerFilter] = useState("");
+  const [proposalDateFrom, setProposalDateFrom] = useState("");
+  const [proposalDateTo, setProposalDateTo] = useState("");
   const queryClient = useQueryClient();
 
   const selectContractSection = (nextTab: string) => {
@@ -6781,16 +6971,103 @@ function OperationalWorkspace({
       ),
   });
 
-  const rows = (rowsQuery.data ?? []).filter(
-    (row) =>
-      Object.values(row)
-        .join(" ")
+  const lookupData = lookupQuery.data;
+  const statusField = tab.fields.find((field) => field.name === "status");
+  const statusOptions = Array.from(
+    new Set([
+      ...(statusField?.options?.map((option) => option.value) ?? []),
+      ...(rowsQuery.data ?? []).map((row) => String(row.status ?? "")).filter(Boolean),
+    ]),
+  );
+  const selectedDepartment = lookupData?.departments.find(
+    (item) => String(item.department_id ?? "") === departmentFilter,
+  );
+  const selectedPosition = lookupData?.positions.find(
+    (item) => String(item.position_id ?? "") === positionFilter,
+  );
+  const isProposalTab = name === "rewards" && tab.id === "proposals";
+  const departmentManagerOptions = Array.from(
+    new Map(
+      (lookupData?.departments ?? [])
+        .filter((item) => item.manager_id || item.manager_name)
+        .map((item) => [
+          String(item.manager_id ?? item.manager_name),
+          {
+            manager_id: String(item.manager_id ?? item.manager_name ?? ""),
+            manager_name: String(item.manager_name ?? item.manager_id ?? ""),
+          },
+        ]),
+    ).values(),
+  );
+  const selectedProposalManager = departmentManagerOptions.find(
+    (item) => item.manager_id === proposalManagerFilter,
+  );
+  const rows = (rowsQuery.data ?? []).filter((row) => {
+    const rowText = Object.values(row)
+      .map((value) => (typeof value === "object" ? JSON.stringify(value) : String(value ?? "")))
+      .join(" ")
+      .toLowerCase();
+    const rowDepartments = [
+      row.department_id,
+      row.department_name,
+      row.department,
+    ].map((value) => String(value ?? ""));
+    const rowPositions = [
+      row.position_id,
+      row.position_name,
+      row.position,
+    ].map((value) => String(value ?? ""));
+    const detailPositions = parseDetailList(row.details).flatMap((detail) => [
+      String(detail.position_id ?? ""),
+      String(detail.position_code ?? ""),
+      String(detail.position_name ?? ""),
+    ]);
+    const departmentMatches =
+      !departmentFilter ||
+      rowDepartments.includes(departmentFilter) ||
+      rowDepartments.includes(String(selectedDepartment?.department_name ?? ""));
+    const positionMatches =
+      !positionFilter ||
+      rowPositions.includes(positionFilter) ||
+      rowPositions.includes(String(selectedPosition?.position_name ?? "")) ||
+      detailPositions.includes(positionFilter) ||
+      detailPositions.includes(String(selectedPosition?.position_name ?? ""));
+    const proposalCodeMatches =
+      !isProposalTab ||
+      !proposalCodeFilter ||
+      String(row.proposal_code ?? "")
         .toLowerCase()
-        .includes(search.toLowerCase()) &&
+        .includes(proposalCodeFilter.toLowerCase());
+    const proposalTypeMatches =
+      !isProposalTab ||
+      !proposalTypeFilter ||
+      String(row.record_type ?? "") === proposalTypeFilter;
+    const proposalManagerMatches =
+      !isProposalTab ||
+      !proposalManagerFilter ||
+      String(row.department_manager_id ?? "") === proposalManagerFilter ||
+      String(row.department_manager_name ?? "") ===
+        String(selectedProposalManager?.manager_name ?? "");
+    const proposalDate = formatDateValue(row.proposal_date);
+    const proposalDateFromMatches =
+      !isProposalTab || !proposalDateFrom || proposalDate >= proposalDateFrom;
+    const proposalDateToMatches =
+      !isProposalTab || !proposalDateTo || proposalDate <= proposalDateTo;
+    return (
+      rowText.includes(search.toLowerCase()) &&
       (!historyEmployeeId ||
         tab.id !== "history" ||
-        String(row.employee_id) === historyEmployeeId),
-  );
+        String(row.employee_id) === historyEmployeeId) &&
+      (!statusFilter || String(row.status ?? "") === statusFilter) &&
+      departmentMatches &&
+      positionMatches &&
+      proposalCodeMatches &&
+      proposalTypeMatches &&
+      proposalManagerMatches &&
+      proposalDateFromMatches &&
+      proposalDateToMatches
+    );
+  });
   const pageSize = 10;
   const totalPages = Math.max(1, Math.ceil(rows.length / pageSize));
   const currentPage = Math.min(page, totalPages);
@@ -6908,7 +7185,7 @@ function OperationalWorkspace({
     if (tab.id === "candidates") {
       values.candidate_code = `UV/${new Date().getFullYear()}/${String((rowsQuery.data?.length ?? 0) + 1).padStart(4, "0")}`;
       values.received_date = new Date().toISOString().slice(0, 10);
-      values.status = "Đã tiếp nhận hồ sơ";
+      values.status = "tiếp nhận hồ sơ";
       values.source = "TopCV";
       values.attachments_json = "[]";
     }
@@ -7018,6 +7295,7 @@ function OperationalWorkspace({
       values.proposal_date = new Date().toISOString().slice(0, 10);
       values.record_type = "KHEN_THUONG";
       values.proposed_amount = "0";
+      values.payment_method = "CASH";
       values.proposed_by_employee_id = session?.employeeId ?? "";
       values.proposed_by = session?.name ?? "";
     }
@@ -7029,6 +7307,13 @@ function OperationalWorkspace({
     }
     if (name === "people" && tab.id === "leave" && session?.employeeId)
       values.employee_id = session.employeeId;
+    if (name === "people" && tab.id === "leave") {
+      values.leave_type = "ANNUAL";
+      values.details_json = JSON.stringify([
+        { date: "", time_option: "Cả ngày", days: 1, note: "" },
+      ]);
+      values.total_days = "1";
+    }
     setFormValues(values);
     setShowForm(true);
   };
@@ -7154,6 +7439,10 @@ function OperationalWorkspace({
   const openDetail = async (row: Row) => {
     if (name === "people" && tab.id === "employees") {
       router.push(`/people/employees/${rowId(tab, row)}`);
+      return;
+    }
+    if (name === "recruitment" && tab.id === "candidates") {
+      router.push(`/recruitment/candidates/${rowId(tab, row)}`);
       return;
     }
     setShowDetail(row);
@@ -7463,6 +7752,23 @@ function OperationalWorkspace({
           return;
         }
       }
+      if (name === "people" && tab.id === "leave") {
+        const details = parseDetailList(formValues.details_json);
+        const invalidLeaveDetail =
+          details.length === 0 ||
+          details.some(
+            (detail) =>
+              !String(detail.date ?? "").trim() || Number(detail.days) <= 0,
+          );
+        if (invalidLeaveDetail) {
+          showPopup(
+            "error",
+            "Thiếu thông tin ngày nghỉ",
+            "Vui lòng nhập ít nhất một ngày nghỉ và số ngày hợp lệ cho từng dòng.",
+          );
+          return;
+        }
+      }
       if (name === "rewards" && tab.id === "proposals") {
         const missingProposalField = [
           "record_type",
@@ -7642,20 +7948,17 @@ function OperationalWorkspace({
     if (tab.id === "requests" && field.name === "department_id")
       return lookup.departments.map((item) => ({
         value: String(item.department_id ?? ""),
-        label:
-          `${item.department_code ?? ""} ${item.department_name ?? item.department_id ?? ""}`.trim(),
+        label: String(item.department_name ?? ""),
       }));
     if (tab.id === "requests" && field.name === "position_id")
       return lookup.positions.map((item) => ({
         value: String(item.position_id ?? ""),
-        label:
-          `${item.position_code ?? ""} ${item.position_name ?? item.position_id ?? ""}`.trim(),
+        label: String(item.position_name ?? ""),
       }));
     if (tab.id === "requests" && field.name === "requested_by")
       return lookup.employees.map((item) => ({
         value: String(item.employee_id ?? ""),
-        label:
-          `${item.employee_code ?? ""} ${item.full_name ?? item.employee_id ?? ""}`.trim(),
+        label: String(item.full_name ?? ""),
       }));
     if (tab.id === "plans" && field.name === "recruitment_request_id")
       return lookup.requests.map((item) => ({
@@ -7847,7 +8150,7 @@ function OperationalWorkspace({
         <div className="flex flex-wrap gap-2">
           {canCreate && (
             <Button onClick={openCreate}>
-              <Plus size={16} /> Tạo {tab.label.toLowerCase()}
+              <Plus size={16} /> Thêm mới {tab.label.toLowerCase()}
             </Button>
           )}
         </div>
@@ -7917,11 +8220,167 @@ function OperationalWorkspace({
                   ))}
                 </select>
               )}
-              <Button variant="secondary" size="sm">
+              <Button
+                type="button"
+                variant={showFilters ? "soft" : "secondary"}
+                size="sm"
+                onClick={() => setShowFilters((visible) => !visible)}
+              >
                 <SlidersHorizontal size={14} /> Lọc
               </Button>
             </div>
           </div>
+          {showFilters && (
+            <div className="grid gap-3 border-b border-slate-100 bg-slate-50/60 p-4 sm:grid-cols-2 lg:grid-cols-4">
+              <label className="text-xs font-bold text-slate-600">
+                Trạng thái
+                <select
+                  value={statusFilter}
+                  onChange={(event) => {
+                    setStatusFilter(event.target.value);
+                    setPage(1);
+                  }}
+                  className="mt-1.5 h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-xs font-normal text-slate-700"
+                >
+                  <option value="">Tất cả trạng thái</option>
+                  {statusOptions.map((status) => (
+                    <option key={status} value={status}>
+                      {statusField?.options?.find((option) => option.value === status)?.label ?? status}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              {isProposalTab && (
+                <>
+                  <label className="text-xs font-bold text-slate-600">
+                    Mã đề xuất
+                    <Input
+                      value={proposalCodeFilter}
+                      onChange={(event) => {
+                        setProposalCodeFilter(event.target.value);
+                        setPage(1);
+                      }}
+                      className="mt-1.5 h-10 text-xs font-normal"
+                      placeholder="Nhập mã đề xuất"
+                    />
+                  </label>
+                  <label className="text-xs font-bold text-slate-600">
+                    Loại đề xuất
+                    <select
+                      value={proposalTypeFilter}
+                      onChange={(event) => {
+                        setProposalTypeFilter(event.target.value);
+                        setPage(1);
+                      }}
+                      className="mt-1.5 h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-xs font-normal text-slate-700"
+                    >
+                      <option value="">Tất cả loại</option>
+                      <option value="KHEN_THUONG">Khen thưởng</option>
+                      <option value="KY_LUAT">Kỷ luật</option>
+                    </select>
+                  </label>
+                  <label className="text-xs font-bold text-slate-600">
+                    Từ ngày đề xuất
+                    <Input
+                      type="date"
+                      value={proposalDateFrom}
+                      onChange={(event) => {
+                        setProposalDateFrom(event.target.value);
+                        setPage(1);
+                      }}
+                      className="mt-1.5 h-10 text-xs font-normal"
+                    />
+                  </label>
+                  <label className="text-xs font-bold text-slate-600">
+                    Đến ngày đề xuất
+                    <Input
+                      type="date"
+                      value={proposalDateTo}
+                      onChange={(event) => {
+                        setProposalDateTo(event.target.value);
+                        setPage(1);
+                      }}
+                      className="mt-1.5 h-10 text-xs font-normal"
+                    />
+                  </label>
+                  <label className="text-xs font-bold text-slate-600">
+                    Quản lý bộ phận
+                    <select
+                      value={proposalManagerFilter}
+                      onChange={(event) => {
+                        setProposalManagerFilter(event.target.value);
+                        setPage(1);
+                      }}
+                      className="mt-1.5 h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-xs font-normal text-slate-700"
+                    >
+                      <option value="">Tất cả quản lý</option>
+                      {departmentManagerOptions.map((manager) => (
+                        <option key={manager.manager_id} value={manager.manager_id}>
+                          {manager.manager_name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </>
+              )}
+              <label className="text-xs font-bold text-slate-600">
+                Bộ phận
+                <select
+                  value={departmentFilter}
+                  onChange={(event) => {
+                    setDepartmentFilter(event.target.value);
+                    setPage(1);
+                  }}
+                  className="mt-1.5 h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-xs font-normal text-slate-700"
+                >
+                  <option value="">Tất cả bộ phận</option>
+                  {(lookupData?.departments ?? []).map((department) => (
+                    <option key={String(department.department_id)} value={String(department.department_id)}>
+                      {String(department.department_name ?? department.department_id ?? "")}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="text-xs font-bold text-slate-600">
+                Vị trí
+                <select
+                  value={positionFilter}
+                  onChange={(event) => {
+                    setPositionFilter(event.target.value);
+                    setPage(1);
+                  }}
+                  className="mt-1.5 h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-xs font-normal text-slate-700"
+                >
+                  <option value="">Tất cả vị trí</option>
+                  {(lookupData?.positions ?? []).map((position) => (
+                    <option key={String(position.position_id)} value={String(position.position_id)}>
+                      {String(position.position_name ?? position.position_id ?? "")}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <div className="flex items-end justify-end">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setStatusFilter("");
+                    setDepartmentFilter("");
+                    setPositionFilter("");
+                    setProposalCodeFilter("");
+                    setProposalTypeFilter("");
+                    setProposalManagerFilter("");
+                    setProposalDateFrom("");
+                    setProposalDateTo("");
+                    setPage(1);
+                  }}
+                >
+                  Xóa bộ lọc
+                </Button>
+              </div>
+            </div>
+          )}
           <div className="overflow-x-auto">
             <table className="w-full min-w-[980px] text-left text-sm">
               <thead className="bg-slate-50/70 text-[10px] uppercase tracking-wider text-slate-400">
@@ -8094,9 +8553,8 @@ function OperationalWorkspace({
                             tab.id === "decisions") &&
                             canManage &&
                             canAccess(session, resource, "create") &&
-                            String(row.status) !== "HIRED" &&
-                            String(row.candidate_status ?? "").toUpperCase() !==
-                              "HIRED" &&
+                            !isCandidateWorking(row.status) &&
+                            !isCandidateWorking(row.candidate_status) &&
                             (lookupQuery.data?.decisions ?? []).some(
                               (decision) =>
                                 String(decision.candidate_id ?? "") ===
@@ -8301,6 +8759,20 @@ function OperationalWorkspace({
                   }
                   session={session}
                 />
+              ) : tab.id === "leave" && name === "people" ? (
+                <LeaveForm
+                  values={formValues}
+                  setValues={setFormValues}
+                  lookups={
+                    (lookupQuery.data ?? {
+                      departments: [],
+                      positions: [],
+                      employees: [],
+                      quotas: [],
+                    }) as RequestLookups
+                  }
+                  session={session}
+                />
               ) : tab.id === "employees" ? (
                 <EmployeeForm
                   values={formValues}
@@ -8407,8 +8879,7 @@ function OperationalWorkspace({
                   session={session}
                   onViewCandidate={(candidate) => {
                     setShowForm(false);
-                    setTabId("candidates");
-                    setShowDetail(candidate);
+                    router.push(`/recruitment/candidates/${String(candidate.candidate_id ?? "")}`);
                   }}
                 />
               ) : tab.id === "decisions" && name === "recruitment" ? (
@@ -8431,8 +8902,7 @@ function OperationalWorkspace({
                   }
                   onViewCandidate={(candidate) => {
                     setShowForm(false);
-                    setTabId("candidates");
-                    setShowDetail(candidate);
+                    router.push(`/recruitment/candidates/${String(candidate.candidate_id ?? "")}`);
                   }}
                 />
               ) : (

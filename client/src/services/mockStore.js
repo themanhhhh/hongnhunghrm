@@ -303,27 +303,27 @@ const INITIAL_CANDIDATES = [
     {
         id: 'cand-uv01', candidate_id: 'cand-uv01', candidate_code: 'UV01', full_name: 'Nguyễn Nhung', gender: 'Nữ', date_of_birth: '2004-05-18',
         phone: '0987456223', email: 'nhung.nguyen@gmail.com', received_date: '2026-07-17', recruitment_plan_id: 'plan-rne-01', plan_name: 'KHTD/0726-01: Tuyển bổ sung Chuyên viên Kiểm thử QA',
-        citizen_id: '001206123456', education_level: 'Đại học', major: 'CNTT', education_school: 'Đại học Quốc gia Hà Nội', source: 'TopCV', status: 'S1: Mới', rejection_reason: null
+        citizen_id: '001206123456', education_level: 'Đại học', major: 'CNTT', education_school: 'Đại học Quốc gia Hà Nội', source: 'TopCV', status: 'tiếp nhận hồ sơ', rejection_reason: null
     },
     {
         id: 'cand-uv09', candidate_id: 'cand-uv09', candidate_code: 'UV09', full_name: 'Phạm Khánh Linh', gender: 'Nữ', date_of_birth: '2004-11-04',
         phone: '0938456123', email: 'pkl02@gmail.com', received_date: '2026-08-01', recruitment_plan_id: 'plan-rne-02', plan_name: 'KHTD/0726-02: Tuyển bổ sung Chuyên viên Kinh doanh ERP',
-        citizen_id: '001204456789', education_level: 'Đại học', major: 'Kinh tế', education_school: 'Đại học Kinh tế Quốc dân', source: 'TopCV', status: 'S1: Mới', rejection_reason: null
+        citizen_id: '001204456789', education_level: 'Đại học', major: 'Kinh tế', education_school: 'Đại học Kinh tế Quốc dân', source: 'TopCV', status: 'tiếp nhận hồ sơ', rejection_reason: null
     },
     {
         id: 'cand-uv07', candidate_id: 'cand-uv07', candidate_code: 'UV07', full_name: 'Nguyễn Minh Anh', gender: 'Nam', date_of_birth: '2001-04-12',
         phone: '0912345698', email: 'minhanh@gmail.com', received_date: '2026-07-31', recruitment_plan_id: 'plan-rne-02', plan_name: 'KHTD/0726-02: Tuyển bổ sung Chuyên viên Kinh doanh ERP',
-        citizen_id: '001201123456', education_level: 'Đại học', major: 'KT: Kinh tế', education_school: 'Đại học Quốc gia Hà Nội - Khoa Kinh tế', source: 'TopCV', status: 'S7: Loại', rejection_reason: 'Lý do: Kỹ năng chuyên môn chưa phù hợp'
+        citizen_id: '001201123456', education_level: 'Đại học', major: 'KT: Kinh tế', education_school: 'Đại học Quốc gia Hà Nội - Khoa Kinh tế', source: 'TopCV', status: 'đã quyết định loại', rejection_reason: 'Lý do: Kỹ năng chuyên môn chưa phù hợp'
     },
     {
         id: 'cand-uv08', candidate_id: 'cand-uv08', candidate_code: 'UV08', full_name: 'Nguyễn Thu Hà', gender: 'Nữ', date_of_birth: '2002-09-20',
         phone: '0988123456', email: 'thuha@gmail.com', received_date: '2026-07-31', recruitment_plan_id: 'plan-rne-02', plan_name: 'KHTD/0726-02: Tuyển bổ sung Chuyên viên Kinh doanh ERP',
-        citizen_id: '001202234567', education_level: 'Đại học', major: 'Quản trị Kinh doanh', education_school: 'Đại học Thương mại', source: 'LinkedIn', status: 'S2: Phỏng vấn', rejection_reason: null
+        citizen_id: '001202234567', education_level: 'Đại học', major: 'Quản trị Kinh doanh', education_school: 'Đại học Thương mại', source: 'LinkedIn', status: 'đã phỏng vấn', rejection_reason: null
     },
     {
         id: 'cand-uv10', candidate_id: 'cand-uv10', candidate_code: 'UV10', full_name: 'Đỗ Quốc Hưng', gender: 'Nam', date_of_birth: '1999-02-08',
         phone: '0909123789', email: 'dqhung@gmail.com', received_date: '2026-07-31', recruitment_plan_id: 'plan-rne-02', plan_name: 'KHTD/0726-02: Tuyển bổ sung Chuyên viên Kinh doanh ERP',
-        citizen_id: '001199345678', education_level: 'Đại học', major: 'Marketing', education_school: 'Đại học Hà Nội', source: 'Website BRAVO', status: 'S5: Trúng tuyển', rejection_reason: null
+        citizen_id: '001199345678', education_level: 'Đại học', major: 'Marketing', education_school: 'Đại học Hà Nội', source: 'Website BRAVO', status: 'đã quyết định tuyển', rejection_reason: null
     }
 ];
 
@@ -432,11 +432,26 @@ const INITIAL_USERS = [
     { id: 'usr-emp-kd', user_id: 'usr-emp-kd', username: 'emp_kd', full_name: 'Nhân viên Kinh doanh', email: 'nam.nv@bravo.com.vn', phone: '0977333444', role_id: 'role-employee', role_name: 'User – Employee', department_id: 'dept-kd', department_name: 'Phòng Kinh doanh', status: 1, created_date: 1723200000000, last_modified_date: 1723200000000 }
 ];
 
+const normalizeCandidateStatus = (value) => {
+    const status = String(value || '').trim().toLocaleLowerCase();
+    if (['new', 'submitted', 's1: mới', 'đã tiếp nhận hồ sơ', 'tiếp nhận hồ sơ'].includes(status)) return 'tiếp nhận hồ sơ';
+    if (['screened', 'đã sơ loại', 'đã sơ loại, đạt', 'đã sơ loại, không đạt'].includes(status)) return 'đã sơ loại';
+    if (['đã tạo lịch', 'interviewing'].includes(status)) return 'đã tạo lịch';
+    if (['interviewed', 's2: phỏng vấn', 'đã phỏng vấn', 'đã phỏng vấn, đạt', 'đã phỏng vấn, không đạt'].includes(status)) return 'đã phỏng vấn';
+    if (['s7: loại', 'rejected', 'offer_rejected', 'loại', 'đã quyết định loại'].includes(status)) return 'đã quyết định loại';
+    if (['s5: trúng tuyển', 'passed', 'đạt', 'offer_accepted', 'đã quyết định tuyển'].includes(status)) return 'đã quyết định tuyển';
+    if (['hired', 'đã chuyển thành nhân viên', 'đã chuyển nhân viên', 'đi làm'].includes(status)) return 'đi làm';
+    return value || 'tiếp nhận hồ sơ';
+};
+
 // Helper to get or initialize local storage dataset
 const getStorageItem = (key, initialValue) => {
     try {
         const item = localStorage.getItem(`bravo_hrm_mock_${key}`);
-        if (item) return JSON.parse(item);
+        if (item) {
+            const value = JSON.parse(item);
+            return key === 'candidates' ? value.map(candidate => ({ ...candidate, status: normalizeCandidateStatus(candidate.status) })) : value;
+        }
         localStorage.setItem(`bravo_hrm_mock_${key}`, JSON.stringify(initialValue));
         return initialValue;
     } catch (e) {
@@ -911,7 +926,7 @@ export const getMockResponse = (method, endpoint, body) => {
             const newCand = {
                 id: `cand-${Date.now()}`, candidate_id: `cand-${Date.now()}`,
                 candidate_code: `UV${String(cands.length + 1).padStart(2, '0')}`,
-                status: 'S1: Mới', received_date: new Date().toISOString().split('T')[0], ...body
+                status: 'tiếp nhận hồ sơ', received_date: new Date().toISOString().split('T')[0], ...body
             };
             setStorageItem('candidates', [newCand, ...cands]);
             return { success: true, message: 'Tiếp nhận hồ sơ ứng viên thành công!', data: newCand };
@@ -972,6 +987,9 @@ export const getMockResponse = (method, endpoint, body) => {
             const schs = getStorageItem('interview_schedules', INITIAL_INTERVIEW_SCHEDULES);
             const newSch = { id: `sch-${Date.now()}`, schedule_id: `sch-${Date.now()}`, ...body };
             setStorageItem('interview_schedules', [newSch, ...schs]);
+            const candidateIds = (Array.isArray(body.candidates) ? body.candidates : []).map(item => item.candidate_id || item.id).filter(Boolean);
+            const candidates = getStorageItem('candidates', INITIAL_CANDIDATES);
+            setStorageItem('candidates', candidates.map(candidate => candidateIds.includes(candidate.candidate_id || candidate.id) ? { ...candidate, status: 'đã tạo lịch' } : candidate));
             return { success: true, message: 'Tạo Lịch phỏng vấn - thi tuyển thành công!', data: newSch };
         }
     }
@@ -981,6 +999,9 @@ export const getMockResponse = (method, endpoint, body) => {
         if (method === 'PUT') {
             const updated = schs.map(s => (s.id === id || s.schedule_id === id) ? { ...s, ...body } : s);
             setStorageItem('interview_schedules', updated);
+            const candidateIds = (Array.isArray(body.candidates) ? body.candidates : []).map(item => item.candidate_id || item.id).filter(Boolean);
+            const candidates = getStorageItem('candidates', INITIAL_CANDIDATES);
+            setStorageItem('candidates', candidates.map(candidate => candidateIds.includes(candidate.candidate_id || candidate.id) ? { ...candidate, status: 'đã tạo lịch' } : candidate));
             return { success: true, message: 'Cập nhật Lịch phỏng vấn - thi tuyển thành công!' };
         }
         if (method === 'DELETE') {
@@ -1020,7 +1041,7 @@ export const getMockResponse = (method, endpoint, body) => {
             setStorageItem('interview_evaluations', updated);
             const remaining = updated.some(e => e.candidate_id === candidate.candidate_id);
             if (!remaining) {
-                const updatedCandidates = candidates.map(c => (c.id === candidate.candidate_id || c.candidate_id === candidate.candidate_id) ? { ...c, status: 'Đã sơ loại, Đạt' } : c);
+                const updatedCandidates = candidates.map(c => (c.id === candidate.candidate_id || c.candidate_id === candidate.candidate_id) ? { ...c, status: 'đã sơ loại' } : c);
                 setStorageItem('candidates', updatedCandidates);
             }
             return { success: true, message: 'Đã xóa Phiếu Đánh giá phỏng vấn thành công!' };
@@ -1057,7 +1078,7 @@ export const getMockResponse = (method, endpoint, body) => {
             const nextOffer = { ...(existingOffer || {}), ...next.offer, candidate_id: candidate.candidate_id, candidate_code: candidate.candidate_code, candidate_name: candidate.full_name };
             setStorageItem('offers', existingOffer ? offers.map(o => o.candidate_id === candidate.candidate_id ? nextOffer : o) : [nextOffer, ...offers]);
         }
-        const updatedCandidates = candidates.map(c => (c.id === candidate.candidate_id || c.candidate_id === candidate.candidate_id) ? { ...c, status: normalizedResult === 'ĐẠT' ? 'Đã phỏng vấn, Đạt' : 'Đã phỏng vấn, Không đạt' } : c);
+        const updatedCandidates = candidates.map(c => (c.id === candidate.candidate_id || c.candidate_id === candidate.candidate_id) ? { ...c, status: 'đã phỏng vấn' } : c);
         setStorageItem('candidates', updatedCandidates);
         return { success: true, message: method === 'PUT' ? 'Cập nhật Phiếu Đánh giá phỏng vấn thành công!' : 'Tạo Phiếu Đánh giá phỏng vấn thành công!', data: next };
     }
@@ -1073,7 +1094,7 @@ export const getMockResponse = (method, endpoint, body) => {
             // Cascade update Candidate Status
             if (body.candidate_id) {
                 const cands = getStorageItem('candidates', INITIAL_CANDIDATES);
-                const newStatus = body.result === 'PASSED' ? 'S2: Phỏng vấn' : (body.result === 'FAILED' ? 'S7: Loại' : 'S1: Mới');
+                const newStatus = ['PASSED', 'FAILED'].includes(body.result) ? 'đã phỏng vấn' : 'tiếp nhận hồ sơ';
                 const updatedCands = cands.map(c => (c.id === body.candidate_id || c.candidate_id === body.candidate_id) ? { ...c, status: newStatus } : c);
                 setStorageItem('candidates', updatedCands);
             }
@@ -1091,7 +1112,7 @@ export const getMockResponse = (method, endpoint, body) => {
 
             if (body.candidate_id) {
                 const cands = getStorageItem('candidates', INITIAL_CANDIDATES);
-                const updatedCands = cands.map(c => (c.id === body.candidate_id || c.candidate_id === body.candidate_id) ? { ...c, status: 'S5: Trúng tuyển' } : c);
+                const updatedCands = cands.map(c => (c.id === body.candidate_id || c.candidate_id === body.candidate_id) ? { ...c, status: 'đã quyết định tuyển' } : c);
                 setStorageItem('candidates', updatedCands);
             }
             return { success: true, message: 'Tạo Offer thành công!', data: newOff };
@@ -1115,7 +1136,7 @@ export const getMockResponse = (method, endpoint, body) => {
 
         const emps = getStorageItem('employees', INITIAL_EMPLOYEES);
         const existingEmployee = emps.find(e => e.candidate_id === candidate_id);
-        if (candidate.status === 'HIRED' || existingEmployee) {
+        if (candidate.status === 'đi làm' || candidate.status === 'HIRED' || existingEmployee) {
             return { success: false, message: 'Ứng viên này đã được chuyển thành nhân viên.' };
         }
         const newEmpCode = `NV-${new Date().getFullYear()}-${Math.floor(100 + Math.random() * 900)}`;
@@ -1169,8 +1190,8 @@ export const getMockResponse = (method, endpoint, body) => {
         const contracts = getStorageItem('employee_contracts', []);
         setStorageItem('employee_contracts', [newContract, ...contracts]);
 
-        // Update candidate status to HIRED
-        const updatedCands = cands.map(c => (c.id === candidate_id || c.candidate_id === candidate_id) ? { ...c, status: 'HIRED' } : c);
+        // Update candidate status to the canonical working state.
+        const updatedCands = cands.map(c => (c.id === candidate_id || c.candidate_id === candidate_id) ? { ...c, status: 'đi làm' } : c);
         setStorageItem('candidates', updatedCands);
 
         return {
@@ -1246,11 +1267,11 @@ export const getMockResponse = (method, endpoint, body) => {
         }));
 
         const candidateStatusDistribution = [
-            { status_code: 'S1: Mới', candidate_count: cands.filter(c => c.status === 'S1: Mới').length },
-            { status_code: 'S2: Phỏng vấn', candidate_count: cands.filter(c => c.status === 'S2: Phỏng vấn').length },
-            { status_code: 'S5: Trúng tuyển', candidate_count: cands.filter(c => c.status === 'S5: Trúng tuyển').length },
-            { status_code: 'HIRED', candidate_count: cands.filter(c => c.status === 'HIRED').length },
-            { status_code: 'S7: Loại', candidate_count: cands.filter(c => c.status === 'S7: Loại').length }
+            { status_code: 'tiếp nhận hồ sơ', candidate_count: cands.filter(c => c.status === 'tiếp nhận hồ sơ').length },
+            { status_code: 'đã phỏng vấn', candidate_count: cands.filter(c => c.status === 'đã phỏng vấn').length },
+            { status_code: 'đã quyết định tuyển', candidate_count: cands.filter(c => c.status === 'đã quyết định tuyển').length },
+            { status_code: 'đi làm', candidate_count: cands.filter(c => c.status === 'đi làm').length },
+            { status_code: 'đã quyết định loại', candidate_count: cands.filter(c => c.status === 'đã quyết định loại').length }
         ];
 
         const rewardDisciplineStats = [

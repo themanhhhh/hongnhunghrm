@@ -6,6 +6,33 @@ const { authenticateToken, authorizeRole } = require('../middleware/auth');
 
 router.use(authenticateToken);
 
+const CANDIDATE_STATUS = Object.freeze({
+    RECEIVED: 'tiếp nhận hồ sơ',
+    SCREENED: 'đã sơ loại',
+    SCHEDULED: 'đã tạo lịch',
+    INTERVIEWED: 'đã phỏng vấn',
+    REJECTED: 'đã quyết định loại',
+    SELECTED: 'đã quyết định tuyển',
+    WORKING: 'đi làm'
+});
+
+function normalizeCandidateStatus(value) {
+    const status = String(value || '').trim();
+    const normalized = status.toLocaleLowerCase();
+    if (['new', 'submitted', 's1: mới', 'đã tiếp nhận hồ sơ', 'tiếp nhận hồ sơ'].includes(normalized)) return CANDIDATE_STATUS.RECEIVED;
+    if (['screened', 'đã sơ loại', 'đã sơ loại, đạt', 'đã sơ loại, không đạt'].includes(normalized)) return CANDIDATE_STATUS.SCREENED;
+    if (['đã tạo lịch', 'interviewing'].includes(normalized)) return CANDIDATE_STATUS.SCHEDULED;
+    if (['interviewed', 's2: phỏng vấn', 'đã phỏng vấn', 'đã phỏng vấn, đạt', 'đã phỏng vấn, không đạt'].includes(normalized)) return CANDIDATE_STATUS.INTERVIEWED;
+    if (['s7: loại', 'rejected', 'offer_rejected', 'loại', 'đã quyết định loại'].includes(normalized)) return CANDIDATE_STATUS.REJECTED;
+    if (['s5: trúng tuyển', 'passed', 'đạt', 'offer_accepted', 'đã quyết định tuyển'].includes(normalized)) return CANDIDATE_STATUS.SELECTED;
+    if (['hired', 'đã chuyển thành nhân viên', 'đã chuyển nhân viên', 'đi làm'].includes(normalized)) return CANDIDATE_STATUS.WORKING;
+    return status || CANDIDATE_STATUS.RECEIVED;
+}
+
+function isWorkingCandidate(status) {
+    return normalizeCandidateStatus(status) === CANDIDATE_STATUS.WORKING;
+}
+
 async function findDuplicateCandidate({ citizen_id, phone, email }, excludeCandidateId) {
     const duplicateChecks = [];
     const params = [];
@@ -283,7 +310,8 @@ router.get('/candidates', async (req, res) => {
         } catch (e) { }
         return {
             ...c,
-            attachments_json: attachments
+            attachments_json: attachments,
+            status: normalizeCandidateStatus(c.status)
         };
     });
     res.json({ success: true, data: parsed });
@@ -332,7 +360,7 @@ router.post('/candidates', authorizeRole('Administrator', 'HR Staff'), async (re
             [
                 id, now, now, candidate_code, full_name, gender || 'Nam', dob, citizen_id || '', phone || '', email || '', address || '',
                 culture_level || '12/12', education_level || '', education_school || '', major || '', gpaValue, experience || '', recruitment_plan_id || '', finalRequestId, finalDepartmentId, position_id || null,
-                source || 'TopCV', recruitment_unit || 'Công ty CP Phần mềm BRAVO', referrer || '', referrer_employee_id || null, rDate, status || 'Đã tiếp nhận hồ sơ', rejection_reason || '', note || '', attJson
+                source || 'TopCV', recruitment_unit || 'Công ty CP Phần mềm BRAVO', referrer || '', referrer_employee_id || null, rDate, normalizeCandidateStatus(status), rejection_reason || '', note || '', attJson
             ]
         );
         await replaceCandidateAttachments(id, attachments_json, now);
@@ -386,7 +414,7 @@ router.put('/candidates/:id', authorizeRole('Administrator', 'HR Staff'), async 
             [
                 candidate_code, full_name, gender, dob, citizen_id, phone, email, address,
                 culture_level, education_level, education_school, major, gpaValue, experience, recruitment_plan_id, finalRequestId, finalDepartmentId, position_id,
-                source, recruitment_unit, referrer, referrer_employee_id || null, rDate, evDate, status, rejection_reason, note, attJson, now, req.params.id
+                source, recruitment_unit, referrer, referrer_employee_id || null, rDate, evDate, normalizeCandidateStatus(status), rejection_reason, note, attJson, now, req.params.id
             ]
         );
         await replaceCandidateAttachments(req.params.id, attachments_json, now);
@@ -403,7 +431,7 @@ router.delete('/candidates/:id', authorizeRole('Administrator', 'HR Staff'), asy
         if (!candidate) {
             return res.status(404).json({ success: false, message: 'Không tìm thấy ứng viên.' });
         }
-        if (candidate.status === 'HIRED') {
+        if (isWorkingCandidate(candidate.status)) {
             return res.status(400).json({ success: false, message: 'Ứng viên này đã trở thành nhân viên chính thức - không được phép xóa dữ liệu lịch sử tuyển dụng.' });
         }
         const screenings = await query(`SELECT pre_screening_id FROM PreScreening WHERE candidate_id = ?`, [req.params.id]);
@@ -510,7 +538,7 @@ router.post('/pre-screenings', authorizeRole('Administrator', 'HR Staff'), async
         }
 
         await run(`UPDATE Candidate SET status = ?, last_modified_date = ? WHERE candidate_id = ?`, [
-            String(screening_result || '').trim().toUpperCase() === 'ĐẠT' ? 'Đã sơ loại, Đạt' : 'Đã sơ loại, Không đạt',
+            CANDIDATE_STATUS.SCREENED,
             now,
             candidate_id,
         ]);
@@ -559,7 +587,7 @@ router.put('/pre-screenings/:id', authorizeRole('Administrator', 'HR Staff'), as
         }
 
         await run(`UPDATE Candidate SET status = ?, last_modified_date = ? WHERE candidate_id = ?`, [
-            String(screening_result || '').trim().toUpperCase() === 'ĐẠT' ? 'Đã sơ loại, Đạt' : 'Đã sơ loại, Không đạt',
+            CANDIDATE_STATUS.SCREENED,
             now,
             candidate_id,
         ]);
@@ -576,7 +604,7 @@ router.delete('/pre-screenings/:id', authorizeRole('Administrator', 'HR Staff'),
         await run(`DELETE FROM PreScreeningCriteria WHERE pre_screening_id = ?`, [req.params.id]);
         await run(`DELETE FROM PreScreening WHERE pre_screening_id = ?`, [req.params.id]);
         if (screening?.candidate_id) {
-            await run(`UPDATE Candidate SET status = N'Đã tiếp nhận hồ sơ', last_modified_date = ? WHERE candidate_id = ? AND NOT EXISTS (SELECT 1 FROM PreScreening WHERE candidate_id = ?)`, [Date.now(), screening.candidate_id, screening.candidate_id]);
+            await run(`UPDATE Candidate SET status = ?, last_modified_date = ? WHERE candidate_id = ? AND NOT EXISTS (SELECT 1 FROM PreScreening WHERE candidate_id = ?)`, [CANDIDATE_STATUS.RECEIVED, Date.now(), screening.candidate_id, screening.candidate_id]);
         }
         res.json({ success: true, message: 'Đã xóa Phiếu Sơ loại thành công!' });
     } catch (error) {
@@ -587,11 +615,21 @@ router.delete('/pre-screenings/:id', authorizeRole('Administrator', 'HR Staff'),
 // --- 3C. ĐÁNH GIÁ PHỎNG VẤN (INTERVIEW EVALUATION) ---
 
 function parseJsonArray(value) {
+    if (Array.isArray(value)) return value;
     try {
         const parsed = JSON.parse(value || '[]');
         return Array.isArray(parsed) ? parsed : [];
     } catch {
         return [];
+    }
+}
+
+async function markScheduledCandidates(rawCandidates, now) {
+    for (const candidate of parseJsonArray(rawCandidates)) {
+        const candidateId = candidate?.candidate_id || candidate?.id;
+        if (candidateId) {
+            await run(`UPDATE Candidate SET status = ?, last_modified_date = ? WHERE candidate_id = ?`, [CANDIDATE_STATUS.SCHEDULED, now, candidateId]);
+        }
     }
 }
 
@@ -749,7 +787,7 @@ router.post('/interview-evaluations', async (req, res) => {
         }
 
         await saveEvaluationOffer(candidate_id, offer, now);
-        await run(`UPDATE Candidate SET status = ?, last_modified_date = ? WHERE candidate_id = ?`, [normalizedResult === 'ĐẠT' ? 'Đã phỏng vấn, Đạt' : 'Đã phỏng vấn, Không đạt', now, candidate_id]);
+        await run(`UPDATE Candidate SET status = ?, last_modified_date = ? WHERE candidate_id = ?`, [CANDIDATE_STATUS.INTERVIEWED, now, candidate_id]);
         res.json({ success: true, message: 'Tạo Phiếu Đánh giá phỏng vấn thành công!' });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
@@ -819,7 +857,7 @@ router.put('/interview-evaluations/:id', async (req, res) => {
         }
 
         await saveEvaluationOffer(candidate_id, offer, now);
-        await run(`UPDATE Candidate SET status = ?, last_modified_date = ? WHERE candidate_id = ?`, [normalizedResult === 'ĐẠT' ? 'Đã phỏng vấn, Đạt' : 'Đã phỏng vấn, Không đạt', now, candidate_id]);
+        await run(`UPDATE Candidate SET status = ?, last_modified_date = ? WHERE candidate_id = ?`, [CANDIDATE_STATUS.INTERVIEWED, now, candidate_id]);
         res.json({ success: true, message: 'Cập nhật Phiếu Đánh giá phỏng vấn thành công!' });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
@@ -902,6 +940,7 @@ router.post('/interview-schedules', async (req, res) => {
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Đã lên lịch')`,
             [id, now, now, finalCode, round_type || 'Vòng phỏng vấn', format_type || 'Offline', location || '', startTs, endTs, note || '', candidate_note || '', candJson, counJson, testJson]
         );
+        await markScheduledCandidates(candidates, now);
 
         res.json({ success: true, message: 'Tạo Lịch phỏng vấn - thi tuyển thành công!' });
     } catch (error) {
@@ -927,6 +966,7 @@ router.put('/interview-schedules/:id', async (req, res) => {
        WHERE schedule_id = ?`,
             [schedule_code, round_type || 'Vòng phỏng vấn', format_type || 'Offline', location || '', startTs, endTs, note || '', candidate_note || '', candJson, counJson, testJson, status || 'Đã lên lịch', now, req.params.id]
         );
+        await markScheduledCandidates(candidates, now);
 
         res.json({ success: true, message: 'Cập nhật Lịch phỏng vấn - thi tuyển thành công!' });
     } catch (error) {
@@ -990,10 +1030,8 @@ router.post('/interviews', async (req, res) => {
             [id, now, now, candidate_id, recruitment_round_id, interviewer_id || null, iDate, score || 0, result || 'PENDING', comment || '']
         );
 
-        if (result === 'PASSED') {
-            await run(`UPDATE Candidate SET status = 'S2: Phỏng vấn', last_modified_date = ? WHERE candidate_id = ?`, [now, candidate_id]);
-        } else if (result === 'FAILED') {
-            await run(`UPDATE Candidate SET status = 'S7: Loại', last_modified_date = ? WHERE candidate_id = ?`, [now, candidate_id]);
+        if (result === 'PASSED' || result === 'FAILED') {
+            await run(`UPDATE Candidate SET status = ?, last_modified_date = ? WHERE candidate_id = ?`, [CANDIDATE_STATUS.INTERVIEWED, now, candidate_id]);
         }
 
         res.json({ success: true, message: 'Lên lịch & ghi nhận đánh giá phỏng vấn thành công!' });
@@ -1044,7 +1082,7 @@ router.post('/offers', authorizeRole('Administrator', 'HR Staff'), async (req, r
             [id, now, now, candidate_id, oDate, sDate, pSal, oSal, oSal, offer_status || 'Đã phát hành', note || '']
         );
 
-        await run(`UPDATE Candidate SET status = 'S5: Trúng tuyển', last_modified_date = ? WHERE candidate_id = ?`, [now, candidate_id]);
+        await run(`UPDATE Candidate SET status = ?, last_modified_date = ? WHERE candidate_id = ?`, [CANDIDATE_STATUS.SELECTED, now, candidate_id]);
 
         res.json({ success: true, message: 'Tạo Thư mời nhận việc (Offer) thành công!' });
     } catch (error) {
@@ -1175,7 +1213,7 @@ router.post('/decisions', authorizeRole('Administrator', 'HR Staff'), async (req
         );
         await run(
             `UPDATE Candidate SET status = ?, rejection_reason = ?, last_modified_date = ? WHERE candidate_id = ?`,
-            [normalizedResult === 'ĐẠT' ? 'S5: Trúng tuyển' : 'S7: Loại', normalizedResult === 'KHÔNG ĐẠT' ? String(rejection_reason).trim() : null, now, candidate_id]
+            [normalizedResult === 'ĐẠT' ? CANDIDATE_STATUS.SELECTED : CANDIDATE_STATUS.REJECTED, normalizedResult === 'KHÔNG ĐẠT' ? String(rejection_reason).trim() : null, now, candidate_id]
         );
 
         res.json({ success: true, message: 'Đã lập quyết định tuyển dụng.', data: { id, decision_number: finalNumber } });
@@ -1213,7 +1251,7 @@ router.post('/convert-to-employee', authorizeRole('Administrator', 'HR Staff'), 
                 `SELECT employee_id, employee_code FROM Employee WHERE candidate_id = ?`,
                 [candidateId]
             );
-            if (candidate.status === 'HIRED' || existingEmployee) {
+            if (isWorkingCandidate(candidate.status) || existingEmployee) {
                 return { errorStatus: 400, errorMessage: 'Ứng viên này đã được chuyển thành nhân viên.' };
             }
             const hiringDecision = await txQueryOne(
@@ -1273,7 +1311,7 @@ router.post('/convert-to-employee', authorizeRole('Administrator', 'HR Staff'), 
                 [contractId, now, now, contractNum, joinDate, now, empId, candidate.position_name || '', joinDate, probationEnd.getTime(), joinDate, probationEnd.getTime(), probationRate, probationSalary]
             );
 
-            await txRun(`UPDATE Candidate SET status = 'HIRED', last_modified_date = ? WHERE candidate_id = ?`, [now, candidateId]);
+            await txRun(`UPDATE Candidate SET status = ?, last_modified_date = ? WHERE candidate_id = ?`, [CANDIDATE_STATUS.WORKING, now, candidateId]);
             return { candidateName: candidate.full_name, empId, empCode, contractId, probationFrom: joinDate, probationTo: probationEnd.getTime() };
         });
 

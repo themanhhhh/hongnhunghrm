@@ -15,6 +15,7 @@ const toTimestamp = (value, fallback = Date.now()) => {
 };
 
 const normalizeType = (value) => value === 'KHEN_THUONG' || value === 'REWARD' ? 'KHEN_THUONG' : 'KY_LUAT';
+const normalizePaymentMethod = (value) => ['CASH', 'BANK_TRANSFER', 'NOT_APPLICABLE'].includes(value) ? value : null;
 
 const calculateEvaluation = (details) => {
     if (!Array.isArray(details) || details.length === 0) {
@@ -217,10 +218,13 @@ router.post('/evaluations', authorizeRole('Administrator', 'HR Staff'), async (r
 router.get('/proposals', rewardReaders, async (req, res) => {
     try {
         const list = await query(
-            `SELECT rdp.*, e.full_name as employee_name, e.employee_code, d.department_name, p.position_name
+            `SELECT rdp.*, e.full_name as employee_name, e.employee_code, d.department_name,
+               d.manager_id as department_manager_id, dm.full_name as department_manager_name,
+               p.position_name
        FROM RewardDisciplineProposal rdp
        JOIN Employee e ON rdp.employee_id = e.employee_id
        LEFT JOIN Department d ON e.department_id = d.department_id
+       LEFT JOIN Employee dm ON d.manager_id = dm.employee_id
        LEFT JOIN Position p ON e.position_id = p.position_id
        ORDER BY rdp.created_date DESC`
         );
@@ -232,20 +236,23 @@ router.get('/proposals', rewardReaders, async (req, res) => {
 
 router.post('/proposals', rewardManagers, async (req, res) => {
     try {
-        const { record_type, employee_id, proposed_amount, reason, proposed_by, proposal_date, content, proposed_by_employee_id, attachment_url } = req.body;
+        const { record_type, employee_id, proposed_amount, payment_method, reason, proposed_by, proposal_date, content, proposed_by_employee_id, attachment_url } = req.body;
         if (!employee_id || !record_type || !reason) return res.status(400).json({ success: false, message: 'Nhân viên, loại đề xuất và lý do là bắt buộc.' });
+        const normalizedType = normalizeType(record_type);
+        const normalizedPaymentMethod = normalizePaymentMethod(payment_method);
+        if (normalizedType === 'KHEN_THUONG' && !normalizedPaymentMethod) return res.status(400).json({ success: false, message: 'Hình thức chi trả là bắt buộc với đề xuất khen thưởng.' });
+        if (payment_method && !normalizedPaymentMethod) return res.status(400).json({ success: false, message: 'Hình thức chi trả không hợp lệ.' });
         const employee = await queryOne(`SELECT employee_id FROM Employee WHERE employee_id = ?`, [employee_id]);
         if (!employee) return res.status(404).json({ success: false, message: 'Không tìm thấy nhân viên được đề xuất.' });
         const now = Date.now();
         const id = crypto.randomUUID();
-        const normalizedType = normalizeType(record_type);
         const prefix = normalizedType === 'KHEN_THUONG' ? 'DXKT' : 'DXKL';
         const code = `${prefix}-${new Date().getFullYear()}-${Math.floor(100 + Math.random() * 900)}`;
 
         await run(
-            `INSERT INTO RewardDisciplineProposal (proposal_id, created_date, last_modified_date, proposal_code, record_type, employee_id, proposed_amount, proposal_date, reason, content, proposed_by_employee_id, proposed_by, attachment_url, status)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'PENDING')`,
-            [id, now, now, code, normalizedType, employee_id, Number(proposed_amount) || 0, toTimestamp(proposal_date, now), reason, content || '', proposed_by_employee_id || req.user?.employeeId || null, proposed_by || req.user?.fullName || 'Người đề xuất', attachment_url || null]
+            `INSERT INTO RewardDisciplineProposal (proposal_id, created_date, last_modified_date, proposal_code, record_type, employee_id, proposed_amount, payment_method, proposal_date, reason, content, proposed_by_employee_id, proposed_by, attachment_url, status)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'PENDING')`,
+            [id, now, now, code, normalizedType, employee_id, Number(proposed_amount) || 0, normalizedPaymentMethod, toTimestamp(proposal_date, now), reason, content || '', proposed_by_employee_id || req.user?.employeeId || null, proposed_by || req.user?.fullName || 'Người đề xuất', attachment_url || null]
         );
 
         res.json({ success: true, data: { id }, message: 'Tạo Phiếu Đề xuất Khen thưởng / Kỷ luật thành công!' });
@@ -336,9 +343,13 @@ router.put('/proposals/:id/status', rewardManagers, async (req, res) => {
 
 router.put('/proposals/:id', rewardManagers, async (req, res) => {
     try {
-        const { record_type, employee_id, proposed_amount, reason, proposed_by, proposal_date, content, proposed_by_employee_id, attachment_url } = req.body;
+        const { record_type, employee_id, proposed_amount, payment_method, reason, proposed_by, proposal_date, content, proposed_by_employee_id, attachment_url } = req.body;
         if (!record_type || !employee_id || !reason) return res.status(400).json({ success: false, message: 'Nhân viên, loại đề xuất và lý do là bắt buộc.' });
-        await run(`UPDATE RewardDisciplineProposal SET last_modified_date = ?, record_type = ?, employee_id = ?, proposed_amount = ?, proposal_date = ?, reason = ?, content = ?, proposed_by_employee_id = ?, proposed_by = ?, attachment_url = ?, status = 'PENDING' WHERE proposal_id = ?`, [Date.now(), normalizeType(record_type), employee_id, Number(proposed_amount) || 0, toTimestamp(proposal_date), reason, content || '', proposed_by_employee_id || null, proposed_by || '', attachment_url || null, req.params.id]);
+        const normalizedType = normalizeType(record_type);
+        const normalizedPaymentMethod = normalizePaymentMethod(payment_method);
+        if (normalizedType === 'KHEN_THUONG' && !normalizedPaymentMethod) return res.status(400).json({ success: false, message: 'Hình thức chi trả là bắt buộc với đề xuất khen thưởng.' });
+        if (payment_method && !normalizedPaymentMethod) return res.status(400).json({ success: false, message: 'Hình thức chi trả không hợp lệ.' });
+        await run(`UPDATE RewardDisciplineProposal SET last_modified_date = ?, record_type = ?, employee_id = ?, proposed_amount = ?, payment_method = ?, proposal_date = ?, reason = ?, content = ?, proposed_by_employee_id = ?, proposed_by = ?, attachment_url = ?, status = 'PENDING' WHERE proposal_id = ?`, [Date.now(), normalizedType, employee_id, Number(proposed_amount) || 0, normalizedPaymentMethod, toTimestamp(proposal_date), reason, content || '', proposed_by_employee_id || null, proposed_by || '', attachment_url || null, req.params.id]);
         res.json({ success: true, message: 'Cập nhật đề xuất thành công.' });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });

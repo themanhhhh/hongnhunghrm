@@ -23,25 +23,46 @@ export const StatusChip = ({ status }) => {
       break;
 
     // Candidate Status
+    case 'tiếp nhận hồ sơ':
     case 'SUBMITTED':
       badgeClass = 'badge-blue';
-      label = 'Mới tiếp nhận';
+      label = 'Tiếp nhận hồ sơ';
       break;
+    case 'đã sơ loại':
     case 'SCREENING':
       badgeClass = 'badge-yellow';
-      label = 'Đang sàng lọc';
+      label = 'Đã sơ loại';
       break;
+    case 'đã tạo lịch':
     case 'INTERVIEWING':
       badgeClass = 'badge-teal';
-      label = 'Đang phỏng vấn';
+      label = 'Đã tạo lịch';
+      break;
+    case 'đã phỏng vấn':
+    case 'đã phỏng vấn, đạt':
+    case 'đã phỏng vấn, không đạt':
+    case 'INTERVIEWED':
+      badgeClass = 'badge-teal';
+      label = 'Đã phỏng vấn';
+      break;
+    case 'đã quyết định loại':
+    case 'S7: Loại':
+      badgeClass = 'badge-red';
+      label = 'Đã quyết định loại';
+      break;
+    case 'đã quyết định tuyển':
+    case 'S5: Trúng tuyển':
+      badgeClass = 'badge-green';
+      label = 'Đã quyết định tuyển';
       break;
     case 'OFFERED':
       badgeClass = 'badge-teal';
       label = 'Đã tạo Offer';
       break;
+    case 'đi làm':
     case 'HIRED':
       badgeClass = 'badge-green';
-      label = 'Đã tuyển (Nhân viên)';
+      label = 'Đi làm';
       break;
 
     // Interview Results

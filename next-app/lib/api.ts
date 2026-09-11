@@ -316,6 +316,6 @@ export const api = {
   create(name: keyof typeof moduleData, payload: Record<string, string>) {
     if (name === "recruitment") return this.request("/recruitment/requests", { method: "POST", body: JSON.stringify({ request_code: `YCTD/${Date.now()}`, department_id: "dept-hr", position_id: "pos-hr-emp", requested_by: "emp-hr-02", quantity: 1, reason: payload.title, expected_date: new Date(Date.now() + 30 * 86400000).toISOString(), note: payload.note ?? "" }) }, { resource: "recruitment", action: "create" });
     if (name === "people") return this.request("/hr/employees", { method: "POST", body: JSON.stringify({ full_name: payload.title, email: `${Date.now()}@bravo.com.vn`, phone: "0900000000", department_id: "dept-hr", position_id: "pos-hr-emp", employment_status: "WORKING" }) }, { resource: "people", action: "create" });
-    return this.request("/reward-discipline/proposals", { method: "POST", body: JSON.stringify({ record_type: "KHEN_THUONG", employee_id: "emp-hr-02", reason: payload.title, proposed_by: readSession().name }) }, { resource: "rewards", action: "create" });
+    return this.request("/reward-discipline/proposals", { method: "POST", body: JSON.stringify({ record_type: "KHEN_THUONG", employee_id: "emp-hr-02", reason: payload.title, payment_method: "CASH", proposed_by: readSession().name }) }, { resource: "rewards", action: "create" });
   },
 };
