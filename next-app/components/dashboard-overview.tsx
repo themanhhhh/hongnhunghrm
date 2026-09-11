@@ -457,76 +457,7 @@ function Pipeline({
 
   return (
     <Card>
-      <CardHeader className="flex flex-row items-start justify-between gap-4">
-        <div>
-          <div className="mb-2 flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.18em] text-teal-700">
-            <span className="size-1.5 rounded-full bg-teal-500" /> Tuyển dụng
-          </div>
-          <CardTitle>{config.pipelineTitle}</CardTitle>
-          <p className="mt-1 text-xs text-slate-400">
-            {config.pipelineDescription}
-          </p>
-        </div>
-        <Link
-          href="/recruitment?tab=candidates"
-          className="inline-flex shrink-0 items-center gap-1 text-xs font-bold text-teal-700 hover:text-teal-800"
-        >
-          Mở pipeline <ArrowUpRight size={14} />
-        </Link>
-      </CardHeader>
-      {data.pipeline.length === 0 ? (
-        <EmptyPanel
-          icon={BriefcaseBusiness}
-          title="Chưa có dữ liệu pipeline"
-          description="Tạo yêu cầu tuyển dụng và tiếp nhận ứng viên để theo dõi tiến độ tại đây."
-          href="/recruitment?tab=requests"
-          action="Mở tuyển dụng"
-        />
-      ) : (
-        <CardContent className="pt-3">
-          <div className="space-y-4">
-            {data.pipeline.map((stage, index) => (
-              <div key={stage.label}>
-                <div className="mb-1.5 flex items-center justify-between gap-3 text-xs">
-                  <span className="truncate font-semibold text-slate-600">
-                    {stage.label}
-                  </span>
-                  <span className="shrink-0 font-display font-bold text-slate-950">
-                    {formatNumber(stage.count)}
-                  </span>
-                </div>
-                <div className="h-2 overflow-hidden rounded-full bg-slate-100">
-                  <div
-                    className="h-full rounded-full bg-gradient-to-r from-teal-700 to-teal-400 transition-[width] duration-500"
-                    style={{
-                      width: `${Math.max(5, (stage.count / highestCount) * 100)}%`,
-                      opacity: 1 - index * 0.08,
-                    }}
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
-          <div className="mt-6 grid grid-cols-2 gap-3 rounded-2xl bg-[#edf8f6] p-4">
-            <div>
-              <div className="text-[11px] font-bold uppercase tracking-wide text-teal-800">
-                Hồ sơ theo dõi
-              </div>
-              <div className="mt-1 font-display text-2xl font-bold text-teal-950">
-                {formatNumber(totalCandidates)}
-              </div>
-            </div>
-            <div className="border-l border-teal-200 pl-4">
-              <div className="text-[11px] font-bold uppercase tracking-wide text-teal-800">
-                Đã tiếp nhận
-              </div>
-              <div className="mt-1 font-display text-2xl font-bold text-teal-950">
-                {conversionRate}%
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      )}
+      
     </Card>
   );
 }
@@ -591,11 +522,7 @@ function RecruitmentFunnel({
                   {formatNumber(stage.count)}
                 </strong>
                 <span className="text-[11px] font-bold">{stage.label}</span>
-                {stage.description && (
-                  <span className="text-[10px] opacity-80">
-                    ({stage.description})
-                  </span>
-                )}
+                
               </div>
             </div>
           ))
@@ -1183,10 +1110,7 @@ function WorkforceDashboard({
           <h1 className="font-display text-3xl font-bold tracking-tight text-slate-950">
             Tổng quan nhân sự
           </h1>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
-            Dashboard chung cho Admin, Ban Giám Đốc và cấp quản lý. Phạm vi dữ
-            liệu: {workforce.scopeName}.
-          </p>
+          
         </div>
         <button
           type="button"
@@ -1525,14 +1449,7 @@ export function DashboardOverview() {
 
       {role === "HR Staff" && <HRCandidateTables data={data} />}
 
-      {(config.showPipeline || Boolean(config.departmentTitle)) && (
-        <section className="grid gap-5 xl:grid-cols-[1.2fr_0.8fr]">
-          {config.showPipeline && <Pipeline data={data} config={config} />}
-          {config.departmentTitle && (
-            <DepartmentStructure data={data} config={config} />
-          )}
-        </section>
-      )}
+    
 
       <ApprovalQueue data={data} config={config} />
 

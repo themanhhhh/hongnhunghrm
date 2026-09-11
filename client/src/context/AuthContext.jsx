@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState } from 'react';
 import { api } from '../services/api';
+import { clearUserCookie, setUserCookie } from '../services/userCookie';
 
 const AuthContext = createContext();
 
@@ -26,6 +27,7 @@ export const AuthProvider = ({ children }) => {
             if (res.success) {
                 localStorage.setItem('bravo_hrm_token', res.token);
                 localStorage.setItem('bravo_hrm_user', JSON.stringify(res.user));
+                setUserCookie(res.user);
                 setUser(res.user);
                 return { success: true };
             }
@@ -44,6 +46,7 @@ export const AuthProvider = ({ children }) => {
             if (res.success) {
                 localStorage.setItem('bravo_hrm_token', res.token);
                 localStorage.setItem('bravo_hrm_user', JSON.stringify(res.user));
+                setUserCookie(res.user);
                 setUser(res.user);
                 return { success: true, user: res.user };
             }
@@ -58,6 +61,7 @@ export const AuthProvider = ({ children }) => {
     const logout = () => {
         localStorage.removeItem('bravo_hrm_token');
         localStorage.removeItem('bravo_hrm_user');
+        clearUserCookie();
         setUser(null);
     };
 
@@ -65,6 +69,7 @@ export const AuthProvider = ({ children }) => {
         if (!user) return;
         const updated = { ...user, ...newUserData };
         localStorage.setItem('bravo_hrm_user', JSON.stringify(updated));
+        setUserCookie(updated);
         setUser(updated);
     };
 

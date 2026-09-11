@@ -595,14 +595,20 @@ export async function mockApiRequest<T>(path: string, init: RequestInit = {}, se
     return envelope(newUser) as T;
   }
   if (path === "/recruitment/convert-to-employee") {
-    const candidate = store["/recruitment/candidates"].find((row) => row.candidate_id === payload.candidate_id);
+    const requestedCandidateId = String(payload.candidate_id ?? "");
+    const requestedDecisionId = String(payload.decision_id ?? "");
+    const decisionReference = (store["/recruitment/decisions"] ?? []).find(
+      (row) => String(row.decision_id ?? row.id ?? "") === (requestedDecisionId || requestedCandidateId),
+    );
+    const candidateId = decisionReference?.candidate_id ?? requestedCandidateId;
+    const candidate = store["/recruitment/candidates"].find((row) => String(row.candidate_id ?? row.id ?? "") === candidateId);
     if (!candidate) return failure("Không tìm thấy thông tin ứng viên.") as T;
     if (!canConvertCandidate(candidate))
       return failure("Chỉ ứng viên đã trúng tuyển mới được chuyển thành nhân viên.") as T;
-    const decision = (store["/recruitment/decisions"] ?? []).find((row) => row.candidate_id === payload.candidate_id && String(row.result ?? "").trim().toUpperCase() === "ĐẠT" && row.status === "COMPLETED");
+    const decision = (store["/recruitment/decisions"] ?? []).find((row) => row.candidate_id === candidateId && String(row.result ?? "").trim().toUpperCase() === "ĐẠT" && String(row.status ?? "COMPLETED").trim().toUpperCase() === "COMPLETED" && (!requestedDecisionId || String(row.decision_id ?? row.id ?? "") === requestedDecisionId));
     if (!decision)
       return failure("Chỉ ứng viên có quyết định trúng tuyển kết quả Đạt mới được chuyển thành nhân viên.") as T;
-    const existingEmployee = store["/hr/employees"].find((row) => String(row.candidate_id ?? "") === String(payload.candidate_id));
+    const existingEmployee = store["/hr/employees"].find((row) => String(row.candidate_id ?? "") === String(candidateId));
     if (isCandidateWorking(candidate.status) || existingEmployee)
       return failure("Ứng viên này đã được chuyển thành nhân viên.") as T;
 
@@ -641,7 +647,7 @@ export async function mockApiRequest<T>(path: string, init: RequestInit = {}, se
       department_name: department?.department_name,
       position_id: candidate.position_id,
       position_name: candidate.apply_position_name ?? position?.position_name,
-      candidate_id: candidate.candidate_id,
+      candidate_id: candidateId,
       level: "Nhân viên",
       employment_status: "WORKING",
       join_date: joinDate,

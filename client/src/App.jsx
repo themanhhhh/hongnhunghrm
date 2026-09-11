@@ -14,6 +14,7 @@ import { ReportsModule } from './pages/ReportsModule';
 
 import { Login } from './pages/Login';
 import { ShieldAlert } from 'lucide-react';
+import { clearUserCookie } from './services/userCookie';
 
 const MainAppContent = () => {
     const { user } = useAuth();
@@ -189,6 +190,7 @@ class ErrorBoundary extends React.Component {
                         <button
                             onClick={() => {
                                 localStorage.removeItem('bravo_hrm_user');
+                                clearUserCookie();
                                 window.location.reload();
                             }}
                             style={{

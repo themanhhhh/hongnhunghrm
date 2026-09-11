@@ -21,7 +21,7 @@ import {
 } from "lucide-react";
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { canAccess, type Resource, type Session } from "@/lib/permissions";
-import { getStoredSession, subscribeToSession } from "@/lib/session";
+import { clearUserCookie, getStoredSession, subscribeToSession } from "@/lib/session";
 import { workspaceTabs } from "@/lib/workspace-config";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -130,6 +130,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const logout = () => {
     window.localStorage.removeItem("bravo_next_session");
     window.localStorage.removeItem("bravo_next_token");
+    clearUserCookie();
     router.push("/login");
   };
 

@@ -1,6 +1,7 @@
 import { canAccess, defaultSession, DEMO_USERS, type Action, type Resource, type Role, type Session } from "./permissions";
 import { dashboardData, moduleData } from "./mock-data";
 import { isMockMode, mockApiRequest, mockUploadEmployeeAvatar } from "./mock-api";
+import { setUserCookie } from "./session";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5000/api";
 
@@ -148,6 +149,7 @@ function toSession(user: Record<string, unknown>): Session {
 function storeSession(session: Session, token?: string) {
   if (typeof window === "undefined") return;
   window.localStorage.setItem("bravo_next_session", JSON.stringify(session));
+  setUserCookie(session);
   if (token) window.localStorage.setItem("bravo_next_token", token);
   else window.localStorage.removeItem("bravo_next_token");
 }

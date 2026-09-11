@@ -949,7 +949,9 @@ export const getMockResponse = (method, endpoint, body) => {
                 data: decisions.map(decision => ({
                     ...decision,
                     candidate_name: decision.candidate_name || candidates.find(c => c.candidate_id === decision.candidate_id)?.full_name,
-                    candidate_status: candidates.find(c => c.candidate_id === decision.candidate_id)?.status
+                    candidate_status: normalizeCandidateStatus(candidates.find(c => c.candidate_id === decision.candidate_id)?.status),
+                    result: String(decision.result || '').trim().toLocaleUpperCase(),
+                    status: String(decision.status || 'COMPLETED').trim().toLocaleUpperCase()
                 }))
             };
         }
@@ -1120,16 +1122,19 @@ export const getMockResponse = (method, endpoint, body) => {
     }
 
     if (endpoint === '/recruitment/convert-to-employee') {
-        const { candidate_id } = body || {};
+        const requestedCandidateId = String(body?.candidate_id || body?.candidateId || '').trim();
+        const requestedDecisionId = String(body?.decision_id || body?.decisionId || '').trim();
         const cands = getStorageItem('candidates', INITIAL_CANDIDATES);
-        const candidate = cands.find(c => c.id === candidate_id || c.candidate_id === candidate_id);
+        const decisions = getStorageItem('recruitment_decisions', INITIAL_RECRUITMENT_DECISIONS);
+        const decisionReference = decisions.find(d => String(d.decision_id || d.id || '') === (requestedDecisionId || requestedCandidateId));
+        const candidate_id = String(decisionReference?.candidate_id || requestedCandidateId).trim();
+        const candidate = cands.find(c => String(c.id || c.candidate_id || '') === candidate_id);
 
         if (!candidate) {
             return { success: false, message: 'Không tìm thấy ứng viên.' };
         }
 
-        const decisions = getStorageItem('recruitment_decisions', INITIAL_RECRUITMENT_DECISIONS);
-        const hiringDecision = decisions.find(d => d.candidate_id === candidate_id && String(d.result || '').trim().toUpperCase() === 'ĐẠT' && String(d.status || 'COMPLETED').trim().toUpperCase() === 'COMPLETED');
+        const hiringDecision = decisions.find(d => d.candidate_id === candidate_id && String(d.result || '').trim().toUpperCase() === 'ĐẠT' && String(d.status || 'COMPLETED').trim().toUpperCase() === 'COMPLETED' && (!requestedDecisionId || String(d.decision_id || d.id || '') === requestedDecisionId));
         if (!hiringDecision) {
             return { success: false, message: 'Chỉ ứng viên có quyết định trúng tuyển kết quả Đạt mới được chuyển thành nhân viên.' };
         }

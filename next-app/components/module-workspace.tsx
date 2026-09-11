@@ -6836,13 +6836,22 @@ function OperationalWorkspace({
       action: "approve" | "reject" | "convert";
     }) => {
       const id = rowId(tab, row);
-      if (action === "convert")
+      if (action === "convert") {
+        const candidateId = String(
+          row.candidate_id ?? row.candidateId ?? row.id ?? "",
+        ).trim();
+        if (!candidateId) throw new Error("Quyết định chưa có mã ứng viên.");
+
         return api.write(
           "/recruitment/convert-to-employee",
           "POST",
-          { candidate_id: id },
+          {
+            candidate_id: candidateId,
+            decision_id: row.decision_id ?? row.decisionId ?? undefined,
+          },
           { resource, action: "create" },
         );
+      }
       const status = action === "reject" ? "REJECTED" : "APPROVED";
       if (tab.id === "requests")
         return api.write(

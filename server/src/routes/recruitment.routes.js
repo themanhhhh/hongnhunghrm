@@ -1132,7 +1132,15 @@ router.get('/decisions', async (req, res) => {
              LEFT JOIN InterviewEvaluation evaluation ON evaluation.interview_eval_id = decision.interview_eval_id
              ORDER BY decision.decision_date DESC, decision.created_date DESC`
         );
-        res.json({ success: true, data: decisions });
+        res.json({
+            success: true,
+            data: decisions.map((decision) => ({
+                ...decision,
+                result: String(decision.result || '').trim().toLocaleUpperCase(),
+                status: String(decision.status || 'COMPLETED').trim().toLocaleUpperCase(),
+                candidate_status: normalizeCandidateStatus(decision.candidate_status)
+            }))
+        });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }
@@ -1225,14 +1233,50 @@ router.post('/decisions', authorizeRole('Administrator', 'HR Staff'), async (req
 // --- 7. WORKFLOW: CHUYỂN ỨNG VIÊN THÀNH NHÂN VIÊN ---
 router.post('/convert-to-employee', authorizeRole('Administrator', 'HR Staff'), async (req, res) => {
     try {
-        const candidateId = String(req.body?.candidate_id || '').trim();
-        if (!candidateId) {
-            return res.status(400).json({ success: false, message: 'Phải chọn ứng viên cần chuyển đổi.' });
+        const requestedCandidateId = String(req.body?.candidate_id || req.body?.candidateId || '').trim();
+        const requestedDecisionId = String(req.body?.decision_id || req.body?.decisionId || '').trim();
+        if (!requestedCandidateId && !requestedDecisionId) {
+            return res.status(400).json({ success: false, message: 'Phải chọn ứng viên hoặc quyết định tuyển dụng cần chuyển đổi.' });
         }
 
         const conversion = await withTransaction(async ({ queryOne: txQueryOne, run: txRun }) => {
             const now = Date.now();
-            const candidate = await txQueryOne(`SELECT c.*, COALESCE(req_plan.department_id, req_direct.department_id) AS department_id, COALESCE(req_plan.position_id, req_direct.position_id) AS position_id
+            let candidateId = requestedCandidateId;
+            let decisionId = requestedDecisionId;
+
+            if (decisionId) {
+                const decisionReference = await txQueryOne(
+                    `SELECT decision_id, candidate_id FROM RecruitmentDecision WHERE decision_id = ?`,
+                    [decisionId]
+                );
+                if (!decisionReference) {
+                    return { errorStatus: 404, errorMessage: 'Không tìm thấy quyết định tuyển dụng.' };
+                }
+                if (candidateId && candidateId !== String(decisionReference.candidate_id).trim()) {
+                    return { errorStatus: 400, errorMessage: 'Quyết định tuyển dụng không thuộc ứng viên đã chọn.' };
+                }
+                candidateId = String(decisionReference.candidate_id).trim();
+            }
+
+            // Accept an old client payload that accidentally sent decision_id as candidate_id.
+            if (candidateId) {
+                const candidateReference = await txQueryOne(
+                    `SELECT candidate_id FROM Candidate WHERE candidate_id = ?`,
+                    [candidateId]
+                );
+                if (!candidateReference) {
+                    const decisionReference = await txQueryOne(
+                        `SELECT decision_id, candidate_id FROM RecruitmentDecision WHERE decision_id = ?`,
+                        [candidateId]
+                    );
+                    if (decisionReference) {
+                        decisionId = String(decisionReference.decision_id).trim();
+                        candidateId = String(decisionReference.candidate_id).trim();
+                    }
+                }
+            }
+
+            const candidate = await txQueryOne(`SELECT c.*, COALESCE(req_plan.department_id, req_direct.department_id, c.department_id) AS department_id, COALESCE(req_plan.position_id, req_direct.position_id, c.position_id) AS position_id
                     , COALESCE(pos_direct.position_name, pos_request.position_name) AS position_name
                     , COALESCE(dept_direct.department_name, dept_request.department_name) AS department_name
                  FROM Candidate c WITH (UPDLOCK, HOLDLOCK)
@@ -1241,9 +1285,9 @@ router.post('/convert-to-employee', authorizeRole('Administrator', 'HR Staff'), 
                  LEFT JOIN RecruitmentRequest req_direct ON c.recruitment_request_id = req_direct.recruitment_request_id
                  LEFT JOIN Position pos_request ON pos_request.position_id = COALESCE(req_plan.position_id, req_direct.position_id)
                  LEFT JOIN Position pos_direct ON pos_direct.position_id = c.position_id
-                 LEFT JOIN Department dept_request ON dept_request.department_id = COALESCE(req_plan.department_id, req_direct.department_id)
-                 LEFT JOIN Department dept_direct ON dept_direct.department_id = pos_direct.department_id
-                 WHERE c.candidate_id = ?`, [candidateId]);
+                  LEFT JOIN Department dept_request ON dept_request.department_id = COALESCE(req_plan.department_id, req_direct.department_id, c.department_id)
+                  LEFT JOIN Department dept_direct ON dept_direct.department_id = COALESCE(pos_direct.department_id, c.department_id)
+                  WHERE c.candidate_id = ?`, [candidateId]);
             if (!candidate) {
                 return { errorStatus: 404, errorMessage: 'Không tìm thấy thông tin ứng viên.' };
             }
@@ -1257,10 +1301,11 @@ router.post('/convert-to-employee', authorizeRole('Administrator', 'HR Staff'), 
             const hiringDecision = await txQueryOne(
                 `SELECT TOP 1 decision_id FROM RecruitmentDecision
                   WHERE candidate_id = ?
+                    ${decisionId ? 'AND decision_id = ?' : ''}
                     AND UPPER(LTRIM(RTRIM(result))) = N'ĐẠT'
                     AND UPPER(LTRIM(RTRIM(status))) = 'COMPLETED'
                   ORDER BY decision_date DESC, created_date DESC`,
-                [candidateId]
+                decisionId ? [candidateId, decisionId] : [candidateId]
             );
             if (!hiringDecision) {
                 return {
