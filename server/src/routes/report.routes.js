@@ -209,6 +209,119 @@ router.get('/dashboard/employee', authorizeRole('Nhân viên'), async (req, res)
 // Báo cáo thống kê: dành cho Admin/HR/Ban Giám Đốc/Trưởng Khối/Trưởng Phòng.
 router.use(authorizeRole('Administrator', 'HR Staff', 'Ban Giám Đốc', 'Trưởng Khối', 'Trưởng Phòng'));
 
+// Dashboard nhân sự dùng chung cho Admin, Ban Giám Đốc và cấp quản lý.
+router.get('/dashboard/workforce', authorizeRole('Administrator', 'Ban Giám Đốc', 'Trưởng Khối', 'Trưởng Phòng'), async (req, res) => {
+    try {
+        const scopedRole = ['Trưởng Khối', 'Trưởng Phòng'].includes(req.user.roleName);
+        let departmentIds = [];
+        if (scopedRole) {
+            const departments = await query(
+                `SELECT department_id FROM Department
+                 WHERE status = 1 AND (department_id = ? OR parent_department_id = ?)`,
+                [req.user.deptId, req.user.deptId]
+            );
+            departmentIds = departments.map((item) => item.department_id);
+            if (!departmentIds.length && req.user.deptId) departmentIds.push(req.user.deptId);
+            if (!departmentIds.length) departmentIds.push('__NO_DEPARTMENT__');
+        }
+
+        const placeholders = departmentIds.map(() => '?').join(', ');
+        const employeeScope = scopedRole ? ` AND e.department_id IN (${placeholders})` : '';
+        const departmentScope = scopedRole ? ` AND d.department_id IN (${placeholders})` : '';
+        const candidateScope = scopedRole ? ` AND c.department_id IN (${placeholders})` : '';
+        const scopeParams = scopedRole ? departmentIds : [];
+        const now = Date.now();
+        const sixtyDaysLater = now + 60 * 86400000;
+
+        const activeEmployees = Number((await queryOne(
+            `SELECT COUNT(*) as c FROM Employee e
+             WHERE e.is_active = 1 AND e.employment_status = 'WORKING'${employeeScope}`,
+            scopeParams
+        ))?.c || 0);
+        const probationEmployees = Number((await queryOne(
+            `SELECT COUNT(*) as c FROM Employee e
+             WHERE e.is_active = 1 AND e.employment_status = 'WORKING'
+               AND EXISTS (
+                   SELECT 1 FROM EmployeeContract pc
+                   WHERE pc.employee_id = e.employee_id AND pc.status = 'ACTIVE'
+                     AND (pc.has_probation = 1 OR pc.contract_type LIKE N'%thử việc%')
+               )${employeeScope}`,
+            scopeParams
+        ))?.c || 0);
+        const resignedEmployees = Number((await queryOne(
+            `SELECT COUNT(*) as c FROM Employee e
+             WHERE (e.employment_status = 'RESIGNED' OR e.is_active = 0)${employeeScope}`,
+            scopeParams
+        ))?.c || 0);
+        const headcountTarget = Number((await queryOne(
+            `SELECT COALESCE(SUM(d.target_headcount), 0) as c FROM Department d
+             WHERE d.status = 1${departmentScope}`,
+            scopeParams
+        ))?.c || 0);
+        const waitingForWork = Number((await queryOne(
+            `SELECT COUNT(*) as c FROM Candidate c
+             WHERE c.status IN (N'đã quyết định tuyển', N'S5: Trúng tuyển', 'PASSED', 'OFFER_ACCEPTED')
+               AND NOT EXISTS (SELECT 1 FROM Employee ce WHERE ce.candidate_id = c.candidate_id)${candidateScope}`,
+            scopeParams
+        ))?.c || 0);
+        const departmentStructure = await query(
+            `SELECT d.department_name, d.target_headcount as target, COUNT(e.employee_id) as count
+             FROM Department d
+             LEFT JOIN Employee e
+               ON d.department_id = e.department_id
+              AND e.is_active = 1 AND e.employment_status = 'WORKING'
+             WHERE d.status = 1${departmentScope}
+             GROUP BY d.department_id, d.department_name, d.target_headcount
+             ORDER BY count DESC, d.department_name`,
+            scopeParams
+        );
+        const expiringContracts = await query(
+            `SELECT TOP (10) ec.contract_id as id, e.employee_code, e.full_name as employee_name,
+                    p.position_name, ec.contract_type, ec.end_date, ec.status
+             FROM EmployeeContract ec
+             JOIN Employee e ON ec.employee_id = e.employee_id
+             LEFT JOIN Position p ON e.position_id = p.position_id
+             WHERE ec.status = 'ACTIVE' AND ec.end_date IS NOT NULL
+               AND ec.end_date >= ? AND ec.end_date <= ?${employeeScope}
+             ORDER BY ec.end_date ASC`,
+            [now, sixtyDaysLater, ...(scopedRole ? departmentIds : [])]
+        );
+        const contracts = expiringContracts.map((contract) => {
+            const endDate = typeof contract.end_date === 'number'
+                ? contract.end_date
+                : Number(contract.end_date) || new Date(contract.end_date).getTime();
+            const daysRemaining = Math.max(0, Math.ceil((endDate - now) / 86400000));
+            return { ...contract, days_remaining: daysRemaining, status_label: `Còn ${daysRemaining} ngày` };
+        });
+        const departmentNames = scopedRole
+            ? (await query(`SELECT department_name FROM Department WHERE department_id IN (${placeholders})`, departmentIds)).map((item) => item.department_name)
+            : [];
+
+        res.json({
+            success: true,
+            data: {
+                scopeName: scopedRole ? departmentNames.join(' / ') || req.user.deptName : 'Toàn công ty',
+                workforce: {
+                    currentEmployees: activeEmployees,
+                    headcountTarget,
+                    fulfillmentRate: headcountTarget ? Math.round((activeEmployees / headcountTarget) * 100) : 0,
+                    expiringContractsCount: contracts.length,
+                    departments: departmentStructure,
+                    statuses: [
+                        { code: 'WORKING', label: 'Đang làm việc', count: Math.max(0, activeEmployees - probationEmployees) },
+                        { code: 'RESIGNED', label: 'Đã nghỉ việc', count: resignedEmployees },
+                        { code: 'PROBATION', label: 'Đang thử việc', count: probationEmployees },
+                        { code: 'WAITING_FOR_WORK', label: 'Chờ nhận việc', count: waitingForWork }
+                    ],
+                    expiringContracts: contracts
+                }
+            }
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
 const parseReportDate = (value) => {
     if (value === null || value === undefined || value === '') return null;
     if (typeof value === 'number') return value;
@@ -452,6 +565,16 @@ router.get('/dashboard/hr', async (req, res) => {
         const processingCandidates = (await queryOne(`SELECT COUNT(*) as c FROM Candidate WHERE status NOT IN (N'đi làm', N'đã quyết định loại', 'HIRED', 'REJECTED', 'OFFER_REJECTED')`))?.c || 0;
         const upcomingInterviewsCount = (await queryOne(`SELECT COUNT(*) as c FROM InterviewSchedule WHERE status = 'Đã lên lịch'`))?.c || 0;
         const pendingOffersCount = (await queryOne(`SELECT COUNT(*) as c FROM Offer WHERE offer_status IN ('SENT', 'PENDING')`))?.c || 0;
+        const currentEmployees = (await queryOne(`SELECT COUNT(*) as c FROM Employee WHERE is_active = 1 AND employment_status = 'WORKING'`))?.c || 0;
+        const headcountTarget = (await queryOne(`SELECT COALESCE(SUM(target_headcount), 0) as c FROM Position WHERE status = 1`))?.c || 0;
+        const now = Date.now();
+        const sixtyDaysFuture = now + 60 * 86400000;
+        const expiringContractsCount = (await queryOne(
+            `SELECT COUNT(*) as c FROM EmployeeContract
+             WHERE status = 'ACTIVE' AND end_date IS NOT NULL
+               AND end_date >= ? AND end_date <= ?`,
+            [now, sixtyDaysFuture]
+        ))?.c || 0;
 
         // 2. Pipeline Tuyển dụng theo Trạng thái Ứng viên
         const rawPipeline = await query(
@@ -461,6 +584,25 @@ router.get('/dashboard/hr', async (req, res) => {
         rawPipeline.forEach(r => { pipelineMap[r.status] = r.count; });
 
         const pipelineStages = candidatePipelineStages(pipelineMap);
+        const passedInterviewCandidates = (await queryOne(
+            `SELECT COUNT(DISTINCT candidate_id) as c FROM InterviewEvaluation
+             WHERE overall_result IN (N'ĐẠT', 'PASSED')`
+        ))?.c || 0;
+        const receivedCandidates = countStatuses(pipelineMap, CANDIDATE_STATUS_GROUPS.received);
+        const interviewingCandidates = countStatuses(pipelineMap, CANDIDATE_STATUS_GROUPS.scheduled)
+            + countStatuses(pipelineMap, CANDIDATE_STATUS_GROUPS.interviewed)
+            + countStatuses(pipelineMap, CANDIDATE_STATUS_GROUPS.selected)
+            + countStatuses(pipelineMap, CANDIDATE_STATUS_GROUPS.working);
+        const selectedCandidates = countStatuses(pipelineMap, CANDIDATE_STATUS_GROUPS.selected)
+            + countStatuses(pipelineMap, CANDIDATE_STATUS_GROUPS.working);
+        const pipelineFunnel = [
+            { code: 'candidates', label: 'Ứng viên', count: Number(totalCandidates) },
+            { code: 'screened', label: 'Sơ loại', count: Math.max(0, Number(totalCandidates) - Number(receivedCandidates)) },
+            { code: 'interviewing', label: 'Phỏng vấn', description: 'đang phỏng vấn', count: interviewingCandidates },
+            { code: 'passed', label: 'Đạt', count: Math.max(Number(passedInterviewCandidates), selectedCandidates) },
+            { code: 'selected', label: 'Nhận việc', description: 'quyết định tuyển dụng', count: selectedCandidates },
+            { code: 'working', label: 'Chính thức', description: 'đi làm', count: countStatuses(pipelineMap, CANDIDATE_STATUS_GROUPS.working) }
+        ];
 
         // 3. Tuyển dụng theo vị trí
         const recruitmentByPosition = await query(
@@ -496,6 +638,49 @@ router.get('/dashboard/hr', async (req, res) => {
                FROM Candidate WHERE status IN (N'tiếp nhận hồ sơ', N'Đã tiếp nhận hồ sơ', 'SUBMITTED', 'NEW') ORDER BY created_date DESC`
         );
 
+        const hiredCandidates = await query(
+             `SELECT TOP (10) candidate.candidate_id as id, candidate.full_name as candidate_name,
+                     COALESCE(candidate_position.position_name, request_position.position_name, N'-') as position_name,
+                     COALESCE(candidate_department.department_name, request_department.department_name, N'-') as department_name,
+                     decision.decision_date as hired_date,
+                     CASE WHEN employee.employee_id IS NOT NULL OR candidate.status IN (N'đi làm', 'HIRED')
+                          THEN N'Đã nhận việc' ELSE N'Chờ nhận việc' END as status_label
+              FROM RecruitmentDecision decision
+              JOIN Candidate candidate ON candidate.candidate_id = decision.candidate_id
+              LEFT JOIN Employee employee ON employee.candidate_id = candidate.candidate_id
+              LEFT JOIN RecruitmentPlan plan ON plan.recruitment_plan_id = candidate.recruitment_plan_id
+              LEFT JOIN RecruitmentRequest request ON request.recruitment_request_id = COALESCE(candidate.recruitment_request_id, plan.recruitment_request_id)
+              LEFT JOIN Position candidate_position ON candidate_position.position_id = candidate.position_id
+              LEFT JOIN Position request_position ON request_position.position_id = request.position_id
+              LEFT JOIN Department candidate_department ON candidate_department.department_id = candidate.department_id
+              LEFT JOIN Department request_department ON request_department.department_id = request.department_id
+              WHERE decision.result IN (N'ĐẠT', 'PASSED') AND decision.status <> 'CANCELLED'
+              ORDER BY decision.decision_date DESC, decision.created_date DESC`
+        );
+
+        const inProgressCandidates = await query(
+             `SELECT TOP (10) candidate.candidate_id as id, candidate.full_name as candidate_name,
+                     COALESCE(candidate_position.position_name, request_position.position_name, N'-') as position_name,
+                     CASE
+                         WHEN candidate.status IN (N'tiếp nhận hồ sơ', N'Đã tiếp nhận hồ sơ', 'SUBMITTED', 'NEW') THEN N'Sàng lọc'
+                         WHEN candidate.status IN (N'đã sơ loại', N'Đã sơ loại, Đạt', N'Đã sơ loại, Không đạt', 'SCREENED') THEN N'Sơ loại'
+                         WHEN candidate.status IN (N'đã tạo lịch', 'INTERVIEWING') THEN N'Lên lịch phỏng vấn'
+                         WHEN candidate.status IN (N'đã phỏng vấn', N'Đã phỏng vấn, Đạt', N'Đã phỏng vấn, Không đạt', 'INTERVIEWED', 'S2: Phỏng vấn') THEN N'Phỏng vấn'
+                         ELSE candidate.status
+                     END as current_stage,
+                     COALESCE(candidate.last_modified_date, candidate.eval_date, candidate.received_date, candidate.created_date) as updated_date
+              FROM Candidate candidate
+              LEFT JOIN RecruitmentPlan plan ON plan.recruitment_plan_id = candidate.recruitment_plan_id
+              LEFT JOIN RecruitmentRequest request ON request.recruitment_request_id = COALESCE(candidate.recruitment_request_id, plan.recruitment_request_id)
+              LEFT JOIN Position candidate_position ON candidate_position.position_id = candidate.position_id
+              LEFT JOIN Position request_position ON request_position.position_id = request.position_id
+              WHERE candidate.status NOT IN (
+                  N'đi làm', N'đã quyết định loại', N'đã quyết định tuyển',
+                  N'S5: Trúng tuyển', N'S7: Loại', 'HIRED', 'REJECTED', 'OFFER_REJECTED', 'PASSED', 'OFFER_ACCEPTED'
+              )
+              ORDER BY updated_date DESC, candidate.created_date DESC`
+        );
+
         const upcomingInterviewsList = await query(
              `SELECT TOP (5) schedule_id as id, schedule_code as code, round_type as roundType, format_type as formatType, location, start_time
               FROM InterviewSchedule WHERE status = 'Đã lên lịch' ORDER BY start_time ASC`
@@ -508,15 +693,13 @@ router.get('/dashboard/hr', async (req, res) => {
         );
 
         // - Nhân sự
-        const now = Date.now();
-        const thirtyDaysFuture = now + 30 * 86400000;
         const expiringContractsList = await query(
              `SELECT TOP (5) ec.contract_id as id, ec.contract_no as code, e.employee_code as empCode, e.full_name as empName, ec.contract_type as contractType, ec.end_date as endDate
              FROM EmployeeContract ec
              JOIN Employee e ON ec.employee_id = e.employee_id
              WHERE ec.status = 'ACTIVE' AND ec.end_date IS NOT NULL AND ec.end_date >= ? AND ec.end_date <= ?
               ORDER BY ec.end_date ASC`,
-            [now - 7 * 86400000, thirtyDaysFuture]
+            [now, sixtyDaysFuture]
         );
 
         const newHiresIncomplete = await query(
@@ -574,14 +757,21 @@ router.get('/dashboard/hr', async (req, res) => {
                     totalCandidates,
                     processingCandidates,
                     upcomingInterviews: upcomingInterviewsCount,
-                    pendingOffers: pendingOffersCount
+                    pendingOffers: pendingOffersCount,
+                    currentEmployees,
+                    headcountTarget,
+                    fulfillmentRate: headcountTarget ? Math.round((currentEmployees / headcountTarget) * 100) : 0,
+                    expiringContractsCount
                 },
                 pipelineStages,
+                pipelineFunnel,
                 recruitmentByPosition,
                 actionNeeded: {
                     recruitment: {
                         pendingRequests: pendingRecruitmentRequestsList,
                         candidatesToScreen,
+                        hiredCandidates,
+                        inProgressCandidates,
                         upcomingInterviews: upcomingInterviewsList,
                         pendingOffers: pendingOffersList
                     },

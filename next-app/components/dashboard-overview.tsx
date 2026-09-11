@@ -6,6 +6,7 @@ import {
   BarChart3,
   BriefcaseBusiness,
   Building2,
+  CalendarDays,
   CheckCircle2,
   ChevronRight,
   CircleAlert,
@@ -17,7 +18,7 @@ import {
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { useSyncExternalStore } from "react";
-import { api, type DashboardData } from "@/lib/api";
+import { api, type DashboardData, type WorkforceDashboardData } from "@/lib/api";
 import { type Role, type Session } from "@/lib/permissions";
 import { getStoredSession, subscribeToSession } from "@/lib/session";
 import { buttonVariants } from "@/components/ui/button";
@@ -527,6 +528,147 @@ function ApprovalQueue({ data, config }: { data: DashboardData; config: Dashboar
   );
 }
 
+const workforceStatusColors: Record<string, string> = {
+  WORKING: "#0f766e",
+  RESIGNED: "#f43f5e",
+  PROBATION: "#f59e0b",
+  WAITING_FOR_WORK: "#8b5cf6",
+};
+
+function formatWorkforceDate(value: string | number) {
+  const date = typeof value === "number" ? new Date(value) : new Date(String(value));
+  return Number.isNaN(date.getTime()) ? "-" : date.toLocaleDateString("vi-VN");
+}
+
+function WorkforceDashboard({
+  workforce,
+  error,
+  isFetching,
+  refetch,
+  session,
+}: {
+  workforce: WorkforceDashboardData;
+  error: unknown;
+  isFetching: boolean;
+  refetch: () => void;
+  session: Session | null;
+}) {
+  const departmentTotal = workforce.departments.reduce((sum, item) => sum + item.count, 0);
+  const departmentSegments = workforce.departments.map((item, index) => {
+    const previousCount = workforce.departments.slice(0, index).reduce((sum, department) => sum + department.count, 0);
+    const currentCount = previousCount + item.count;
+    const start = departmentTotal ? (previousCount / departmentTotal) * 100 : 0;
+    const end = departmentTotal ? (currentCount / departmentTotal) * 100 : 100;
+    return `${["#0f766e", "#0ea5e9", "#8b5cf6", "#f59e0b", "#f43f5e", "#64748b"][index % 6]} ${start}% ${end}%`;
+  });
+  const maxStatus = Math.max(...workforce.statuses.map((item) => item.count), 1);
+  const cardItems = [
+    { label: "Nhân sự hiện tại", value: workforce.currentEmployees, detail: "Tổng số nhân viên đang làm việc", trend: workforce.scopeName, tone: "teal", icon: UsersRound },
+    { label: "Định biên nhân sự", value: workforce.headcountTarget, detail: "Tổng số nhân sự theo định biên", trend: "Được phê duyệt", tone: "violet", icon: Building2 },
+    { label: "Tỷ lệ đáp ứng định biên", value: `${workforce.fulfillmentRate}%`, detail: "Nhân sự hiện tại / định biên", trend: "Mức độ đáp ứng nguồn lực", tone: "amber", icon: TrendingUp },
+    { label: "HĐLĐ sắp hết hạn", value: workforce.expiringContractsCount, detail: "Cần rà soát trong 60 ngày", trend: "Cảnh báo cần xử lý", tone: "rose", icon: CalendarDays },
+  ] as const;
+
+  return (
+    <div className="space-y-6 lg:space-y-8">
+      {Boolean(error) && (
+        <div className="flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs font-medium text-amber-800">
+          <CircleAlert size={16} /> Đang hiển thị dữ liệu gần nhất. Không thể đồng bộ phiên tải này.
+        </div>
+      )}
+      <section className="flex flex-col justify-between gap-5 lg:flex-row lg:items-end">
+        <div>
+          <div className="mb-3 text-xs font-bold uppercase tracking-[0.2em] text-teal-700">WORKFORCE CONTROL</div>
+          <h1 className="font-display text-3xl font-bold tracking-tight text-slate-950">Tổng quan nhân sự</h1>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">Dashboard chung cho Admin, Ban Giám Đốc và cấp quản lý. Phạm vi dữ liệu: {workforce.scopeName}.</p>
+        </div>
+        <button type="button" className={cn(buttonVariants({ variant: "secondary", size: "sm" }), "shrink-0")} onClick={() => void refetch()} disabled={isFetching}>
+          <RefreshCw size={15} className={isFetching ? "animate-spin" : undefined} /> Cập nhật dữ liệu
+        </button>
+      </section>
+
+      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        {cardItems.map((item) => {
+          const Icon = item.icon;
+          return (
+            <Card key={item.label} className="group relative overflow-hidden">
+              <div className="absolute -right-5 -top-5 size-24 rounded-full bg-slate-50 transition group-hover:scale-125" />
+              <CardContent className="relative p-5">
+                <div className="mb-6 flex items-start justify-between gap-3">
+                  <div className={cn("grid size-10 place-items-center rounded-xl ring-1", tones[item.tone])}><Icon size={18} /></div>
+                  <span className="max-w-36 text-right text-[11px] font-bold leading-4 text-slate-500">{item.trend}</span>
+                </div>
+                <div className="font-display text-3xl font-bold tracking-tight text-slate-950">{typeof item.value === "number" ? formatNumber(item.value) : item.value}</div>
+                <div className="mt-1 text-sm font-semibold text-slate-700">{item.label}</div>
+                <div className="mt-3 text-xs text-slate-400">{item.detail}</div>
+              </CardContent>
+            </Card>
+          );
+        })}
+      </section>
+
+      <section className="grid gap-5 xl:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <div className="mb-2 flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.18em] text-teal-700"><span className="size-1.5 rounded-full bg-teal-500" /> Cơ cấu nhân sự</div>
+            <CardTitle>Nhân sự theo phòng ban</CardTitle>
+            <p className="mt-1 text-xs text-slate-400">Tỷ trọng nhân sự đang làm việc trong từng đơn vị.</p>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-6 p-5 sm:flex-row sm:items-center">
+            <div className="mx-auto grid size-44 shrink-0 place-items-center rounded-full" style={{ background: departmentSegments.length ? `conic-gradient(${departmentSegments.join(", ")})` : "#e2e8f0" }}>
+              <div className="grid size-28 place-items-center rounded-full bg-white text-center shadow-inner"><strong className="font-display text-2xl text-slate-950">{formatNumber(departmentTotal)}</strong><span className="text-[10px] font-bold uppercase tracking-wide text-slate-400">nhân sự</span></div>
+            </div>
+            <div className="min-w-0 flex-1 space-y-3">
+              {workforce.departments.slice(0, 6).map((department, index) => (
+                <div key={department.department_name} className="flex items-center gap-2 text-xs">
+                  <span className="size-2.5 shrink-0 rounded-full" style={{ backgroundColor: ["#0f766e", "#0ea5e9", "#8b5cf6", "#f59e0b", "#f43f5e", "#64748b"][index % 6] }} />
+                  <span className="min-w-0 flex-1 truncate font-semibold text-slate-600">{department.department_name}</span>
+                  <strong className="text-slate-950">{formatNumber(department.count)}</strong>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <div className="mb-2 flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.18em] text-violet-700"><span className="size-1.5 rounded-full bg-violet-500" /> Trạng thái nhân sự</div>
+            <CardTitle>Tình hình nhân sự theo trạng thái</CardTitle>
+            <p className="mt-1 text-xs text-slate-400">Theo dõi lực lượng đang làm việc, nghỉ việc, thử việc và chờ nhận việc.</p>
+          </CardHeader>
+          <CardContent className="space-y-5 p-5">
+            {workforce.statuses.map((status) => (
+              <div key={status.code}>
+                <div className="mb-1.5 flex items-start justify-between gap-3 text-xs"><span className="font-semibold text-slate-600">{status.label}</span><strong className="shrink-0 text-slate-950">{formatNumber(status.count)}</strong></div>
+                <div className="h-2.5 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full transition-[width] duration-500" style={{ width: `${status.count ? Math.max(4, (status.count / maxStatus) * 100) : 0}%`, backgroundColor: workforceStatusColors[status.code] ?? "#64748b" }} /></div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      </section>
+
+      <Card>
+        <CardHeader className="flex flex-row items-start justify-between gap-4">
+          <div>
+            <div className="mb-2 flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.18em] text-rose-700"><span className="size-1.5 rounded-full bg-rose-500" /> Cảnh báo hợp đồng</div>
+            <CardTitle>Hợp đồng lao động sắp hết hạn</CardTitle>
+            <p className="mt-1 text-xs text-slate-400">Danh sách hợp đồng còn thời hạn trong 60 ngày tới.</p>
+          </div>
+          <Link href="/people?tab=expiring-contracts" className="inline-flex shrink-0 items-center gap-1 text-xs font-bold text-teal-700 hover:text-teal-800">Mở danh sách <ArrowUpRight size={14} /></Link>
+        </CardHeader>
+        <CardContent className="p-0">
+          {workforce.expiringContracts.length === 0 ? (
+            <div className="grid min-h-40 place-items-center px-5 py-8 text-center text-sm text-slate-400">Không có hợp đồng hết hạn trong 60 ngày tới.</div>
+          ) : (
+            <div className="overflow-x-auto"><table className="w-full min-w-[760px] text-left text-xs"><thead className="bg-slate-50 text-[10px] uppercase tracking-wider text-slate-400"><tr><th className="px-5 py-3 font-bold">Nhân viên</th><th className="px-5 py-3 font-bold">Vị trí</th><th className="px-5 py-3 font-bold">Loại HĐ</th><th className="px-5 py-3 font-bold">Ngày hết hạn</th><th className="px-5 py-3 font-bold">Trạng thái</th></tr></thead><tbody className="divide-y divide-slate-100">{workforce.expiringContracts.map((contract) => <tr key={contract.id} className="hover:bg-teal-50/30"><td className="px-5 py-4"><div className="font-semibold text-slate-800">{contract.employee_name}</div><div className="mt-1 font-mono text-[10px] text-slate-400">{contract.employee_code ?? "-"}</div></td><td className="px-5 py-4 text-slate-600">{contract.position_name ?? "-"}</td><td className="px-5 py-4 text-slate-600">{contract.contract_type}</td><td className="px-5 py-4 text-slate-600">{formatWorkforceDate(contract.end_date)}</td><td className="px-5 py-4"><span className={cn("inline-flex rounded-full px-2.5 py-1 text-[11px] font-bold", contract.days_remaining <= 7 ? "bg-rose-50 text-rose-700" : contract.days_remaining <= 30 ? "bg-amber-50 text-amber-700" : "bg-teal-50 text-teal-700")}>{contract.status_label}</span></td></tr>)}</tbody></table></div>
+          )}
+        </CardContent>
+      </Card>
+      <div className="text-xs text-slate-400">Đang đăng nhập: {session?.name ?? "Người dùng"} · Dữ liệu được phân quyền theo vai trò.</div>
+    </div>
+  );
+}
+
 export function DashboardOverview() {
   const session = useSyncExternalStore(
     subscribeToSession,
@@ -557,6 +699,10 @@ export function DashboardOverview() {
           : "Không thể tải dữ liệu tổng quan."}
       </div>
     );
+
+  if (["Administrator", "Ban Giám Đốc", "Trưởng Khối", "Trưởng Phòng"].includes(role) && data.workforce) {
+    return <WorkforceDashboard workforce={data.workforce} error={error} isFetching={isFetching} refetch={refetch} session={session} />;
+  }
 
   return (
     <div className="space-y-6 lg:space-y-8">

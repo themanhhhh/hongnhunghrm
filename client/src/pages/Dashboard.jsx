@@ -82,6 +82,144 @@ const CustomBarRow = ({ label, count, max, color = '#2D6F62', subtext }) => (
     </div>
 );
 
+const formatDashboardDate = (value) => {
+    if (!value) return '-';
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? '-' : date.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' });
+};
+
+const DashboardTable = ({ title, icon: Icon, rows = [], columns, emptyMessage, onRowClick }) => (
+    <div className="card" style={{ padding: 0, backgroundColor: '#FFFFFF', overflow: 'hidden' }}>
+        <div style={{ padding: '1.25rem 1.25rem 0.85rem', display: 'flex', alignItems: 'center', gap: '0.5rem', borderBottom: '1px solid #E2E8F0' }}>
+            <Icon size={18} color="var(--bravo-teal-dark)" />
+            <h3 style={{ fontSize: '0.95rem', fontWeight: 700, color: '#0F172A', margin: 0 }}>{title}</h3>
+        </div>
+        <div style={{ overflowX: 'auto' }}>
+            <table className="erp-table">
+                <thead>
+                    <tr>{columns.map((column) => <th key={column.key}>{column.label}</th>)}</tr>
+                </thead>
+                <tbody>
+                    {rows.length === 0 ? (
+                        <tr><td colSpan={columns.length} style={{ textAlign: 'center', color: '#94A3B8' }}>{emptyMessage}</td></tr>
+                    ) : rows.map((row, index) => (
+                        <tr key={row.id || `${row.candidate_name}-${index}`} onClick={onRowClick ? () => onRowClick(row) : undefined} style={{ cursor: onRowClick ? 'pointer' : 'default' }}>
+                            {columns.map((column) => <td key={column.key}>{column.render ? column.render(row) : row[column.key] || '-'}</td>)}
+                        </tr>
+                    ))}
+                </tbody>
+            </table>
+        </div>
+    </div>
+);
+
+const RecruitmentComboChart = ({ rows = [] }) => {
+    const chartRows = rows.slice(0, 8).map((row) => ({
+        label: row.position_name || 'Chưa xác định',
+        target: Number(row.target_headcount || 0),
+        hired: Number(row.hired_count || 0),
+    }));
+    const maxValue = Math.max(...chartRows.flatMap((row) => [row.target, row.hired]), 1);
+    const axisMax = Math.max(1, Math.ceil(maxValue / 5) * 5);
+    const chart = { width: 760, height: 300, left: 46, right: 20, top: 18, bottom: 64 };
+    const plotWidth = chart.width - chart.left - chart.right;
+    const plotHeight = chart.height - chart.top - chart.bottom;
+    const groupWidth = chartRows.length ? plotWidth / chartRows.length : plotWidth;
+    const getX = (index) => chart.left + groupWidth * (index + 0.5);
+    const getY = (value) => chart.top + plotHeight - (value / axisMax) * plotHeight;
+    const linePoints = chartRows.map((row, index) => `${getX(index)},${getY(row.hired)}`).join(' ');
+
+    return (
+        <div className="card" style={{ padding: '1.25rem', backgroundColor: '#FFFFFF' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem', flexWrap: 'wrap', marginBottom: '0.75rem' }}>
+                <div>
+                    <h3 style={{ fontSize: '0.95rem', fontWeight: 700, color: '#0F172A', margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <BarChart3 size={18} color="#0F766E" />
+                        <span>Số lượng cần tuyển vs đã tuyển</span>
+                    </h3>
+                    <p style={{ margin: '0.25rem 0 0', color: '#64748B', fontSize: '0.78rem' }}>So sánh nhu cầu tuyển dụng và kết quả đã tuyển theo vị trí.</p>
+                </div>
+                <div style={{ display: 'flex', gap: '0.9rem', alignItems: 'center', color: '#64748B', fontSize: '0.75rem', fontWeight: 600 }}>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}><span style={{ width: 10, height: 10, borderRadius: 2, background: '#B8DDD5' }} /> Cần tuyển</span>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}><span style={{ width: 18, height: 3, borderRadius: 2, background: '#0F766E' }} /> Đã tuyển</span>
+                </div>
+            </div>
+            {chartRows.length === 0 ? (
+                <div style={{ minHeight: 220, display: 'grid', placeItems: 'center', color: '#94A3B8', fontSize: '0.85rem' }}>Chưa có dữ liệu tuyển dụng theo vị trí.</div>
+            ) : (
+                <div style={{ width: '100%', overflowX: 'auto' }}>
+                    <svg viewBox={`0 0 ${chart.width} ${chart.height}`} role="img" aria-label="Biểu đồ số lượng cần tuyển và đã tuyển theo vị trí" style={{ display: 'block', width: '100%', minWidth: 620, height: 'auto' }}>
+                        {Array.from({ length: 5 }, (_, index) => {
+                            const value = Math.round((axisMax / 4) * index);
+                            const y = getY(value);
+                            return (
+                                <g key={value}>
+                                    <line x1={chart.left} x2={chart.width - chart.right} y1={y} y2={y} stroke="#E2E8F0" strokeDasharray="3 4" />
+                                    <text x={chart.left - 10} y={y + 4} textAnchor="end" fill="#94A3B8" fontSize="11">{value}</text>
+                                </g>
+                            );
+                        })}
+                        <line x1={chart.left} x2={chart.left} y1={chart.top} y2={chart.top + plotHeight} stroke="#CBD5E1" />
+                        <line x1={chart.left} x2={chart.width - chart.right} y1={chart.top + plotHeight} y2={chart.top + plotHeight} stroke="#CBD5E1" />
+                        {chartRows.map((row, index) => {
+                            const centerX = getX(index);
+                            const targetHeight = plotHeight - (getY(row.target) - chart.top);
+                            const hiredHeight = plotHeight - (getY(row.hired) - chart.top);
+                            const targetX = centerX - 19;
+                            const hiredX = centerX + 3;
+                            const shortLabel = row.label.length > 16 ? `${row.label.slice(0, 15)}…` : row.label;
+                            return (
+                                <g key={`${row.label}-${index}`}>
+                                    <title>{`${row.label}: Cần tuyển ${row.target}, đã tuyển ${row.hired}`}</title>
+                                    <rect x={targetX} y={getY(row.target)} width={18} height={Math.max(0, targetHeight)} rx={3} fill="#B8DDD5" />
+                                    <text x={targetX + 9} y={getY(row.target) - 6} textAnchor="middle" fill="#0F766E" fontSize="10" fontWeight="700">{row.target}</text>
+                                    <rect x={hiredX} y={getY(row.hired)} width={18} height={Math.max(0, hiredHeight)} rx={3} fill="#E2E8F0" />
+                                    <text x={hiredX + 9} y={getY(row.hired) - 6} textAnchor="middle" fill="#475569" fontSize="10" fontWeight="700">{row.hired}</text>
+                                    <text x={centerX} y={chart.top + plotHeight + 20} textAnchor="middle" fill="#475569" fontSize="10">{shortLabel}</text>
+                                </g>
+                            );
+                        })}
+                        <polyline points={linePoints} fill="none" stroke="#0F766E" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+                        {chartRows.map((row, index) => <circle key={`point-${row.label}-${index}`} cx={getX(index)} cy={getY(row.hired)} r="4.5" fill="#FFFFFF" stroke="#0F766E" strokeWidth="3"><title>{`${row.label}: đã tuyển ${row.hired}`}</title></circle>)}
+                    </svg>
+                </div>
+            )}
+        </div>
+    );
+};
+
+const RecruitmentFunnel = ({ stages = [] }) => {
+    const funnelColors = ['#0F766E', '#168F80', '#2CA58D', '#55BBA4', '#83CDBA', '#B5DED2'];
+
+    return (
+        <div className="card" style={{ padding: '1.25rem', backgroundColor: '#FFFFFF' }}>
+            <div style={{ marginBottom: '1rem' }}>
+                <h3 style={{ fontSize: '0.95rem', fontWeight: 700, color: '#0F172A', margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <Layers size={18} color="#0F766E" />
+                    <span>Phễu định biên</span>
+                </h3>
+                <p style={{ margin: '0.25rem 0 0', color: '#64748B', fontSize: '0.78rem' }}>Theo dõi tỷ lệ chuyển đổi từ ứng viên đến nhân sự chính thức.</p>
+            </div>
+            {stages.length === 0 ? (
+                <div style={{ minHeight: 220, display: 'grid', placeItems: 'center', color: '#94A3B8', fontSize: '0.85rem' }}>Chưa có dữ liệu phễu tuyển dụng.</div>
+            ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '0.25rem 0 0.5rem' }}>
+                    {stages.map((stage, index) => (
+                        <React.Fragment key={stage.code || stage.label}>
+                            <div style={{ width: `${Math.max(50, 100 - index * 10)}%`, minHeight: 54, padding: '0.55rem 1rem', borderRadius: '8px', background: funnelColors[index % funnelColors.length], color: index < 3 ? '#FFFFFF' : '#0F4F47', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.45rem', textAlign: 'center', boxShadow: '0 3px 8px rgba(15, 118, 110, 0.12)' }}>
+                                <strong style={{ fontSize: '1.2rem', lineHeight: 1 }}>{Number(stage.count || 0).toLocaleString('vi-VN')}</strong>
+                                <span style={{ fontSize: '0.8rem', fontWeight: 700 }}>{stage.label}</span>
+                                {stage.description && <span style={{ fontSize: '0.7rem', fontWeight: 500, opacity: 0.85 }}>({stage.description})</span>}
+                            </div>
+                            {index < stages.length - 1 && <div aria-hidden="true" style={{ height: 25, display: 'grid', placeItems: 'center', color: '#0F766E', fontSize: '1.35rem', fontWeight: 700 }}>↓</div>}
+                        </React.Fragment>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+};
+
 const ADMIN_ROLE_COLORS = {
     'Administrator': '#7C3AED',
     'Ban Giám Đốc': '#0369A1',
@@ -89,6 +227,80 @@ const ADMIN_ROLE_COLORS = {
     'Trưởng Khối': '#D97706',
     'Trưởng Phòng': '#DB2777',
     'Nhân viên': '#64748B'
+};
+
+const WorkforceDashboard = ({ setCurrentTab, setActiveSubTab }) => {
+    const [dashboardData, setDashboardData] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState('');
+
+    useEffect(() => {
+        let mounted = true;
+        api.get('/reports/dashboard/workforce')
+            .then((res) => {
+                if (!mounted) return;
+                if (res.success) setDashboardData(res.data);
+                else setError(res.message || 'Không thể tải dashboard nhân sự.');
+            })
+            .catch(() => mounted && setError('Không thể tải dashboard nhân sự.'))
+            .finally(() => mounted && setLoading(false));
+        return () => { mounted = false; };
+    }, []);
+
+    if (loading) return <div style={{ padding: '3rem', textAlign: 'center', color: '#64748B' }}><Clock size={32} className="animate-spin" style={{ margin: '0 auto 1rem', color: 'var(--bravo-teal)' }} /><div style={{ fontWeight: 600 }}>Đang tải dashboard nhân sự...</div></div>;
+    if (!dashboardData?.workforce) return <div className="card" style={{ padding: '2rem', color: '#B91C1C', backgroundColor: '#FEF2F2' }}>{error || 'Chưa có dữ liệu dashboard nhân sự.'}</div>;
+
+    const { workforce, scopeName } = dashboardData;
+    const totalDepartmentEmployees = workforce.departments.reduce((sum, item) => sum + Number(item.count || 0), 0);
+    const maxStatus = Math.max(...workforce.statuses.map((item) => Number(item.count || 0)), 1);
+    let cursor = 0;
+    const donutSegments = workforce.departments.map((item, index) => {
+        const start = totalDepartmentEmployees ? cursor / totalDepartmentEmployees * 100 : 0;
+        cursor += Number(item.count || 0);
+        const end = totalDepartmentEmployees ? cursor / totalDepartmentEmployees * 100 : 100;
+        return `${['#0F766E', '#0284C7', '#7C3AED', '#D97706', '#E11D48', '#64748B'][index % 6]} ${start}% ${end}%`;
+    });
+    const formatDate = (value) => {
+        const date = new Date(value);
+        return Number.isNaN(date.getTime()) ? '—' : date.toLocaleDateString('vi-VN');
+    };
+    const openContracts = () => { setCurrentTab('HRModule'); setActiveSubTab('Hợp đồng lao động'); };
+
+    return (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+            {error && <div className="card" style={{ padding: '0.85rem 1rem', color: '#92400E', backgroundColor: '#FFFBEB', borderColor: '#FDE68A' }}>{error}</div>}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: '1rem', flexWrap: 'wrap' }}>
+                <div><div style={{ fontSize: '0.7rem', fontWeight: 800, letterSpacing: '0.18em', color: 'var(--bravo-teal)', textTransform: 'uppercase' }}>WORKFORCE CONTROL</div><h1 style={{ margin: '0.35rem 0 0', color: '#0F172A', fontSize: '1.75rem' }}>Tổng quan nhân sự</h1><p style={{ margin: '0.4rem 0 0', color: '#64748B', fontSize: '0.85rem' }}>Dashboard chung cho Admin, Ban Giám Đốc và cấp quản lý. Phạm vi: {scopeName}.</p></div>
+                <button className="btn btn-secondary" onClick={openContracts}><FileText size={15} /> Mở quản lý hợp đồng</button>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: '1rem' }}>
+                <MetricCard icon={Users} label="Nhân sự hiện tại" value={Number(workforce.currentEmployees).toLocaleString('vi-VN')} subtext="Tổng số nhân viên đang làm việc" color="#0F766E" />
+                <MetricCard icon={Building2} label="Định biên nhân sự" value={Number(workforce.headcountTarget).toLocaleString('vi-VN')} subtext="Tổng số nhân sự theo định biên" color="#7C3AED" />
+                <MetricCard icon={TrendingUp} label="Tỷ lệ đáp ứng định biên" value={`${workforce.fulfillmentRate}%`} subtext="Nhân sự hiện tại / Định biên × 100%" color="#D97706" />
+                <MetricCard icon={Calendar} label="HĐLĐ sắp hết hạn" value={Number(workforce.expiringContractsCount).toLocaleString('vi-VN')} subtext="Trong 60 ngày tới" color="#E11D48" onClick={openContracts} />
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1rem' }}>
+                <div className="card" style={{ padding: '1.25rem' }}>
+                    <div style={{ color: '#0F766E', fontSize: '0.7rem', fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase' }}>Cơ cấu nhân sự</div><h3 style={{ margin: '0.4rem 0 0.2rem', color: '#0F172A' }}>Nhân sự theo phòng ban</h3><p style={{ margin: 0, color: '#64748B', fontSize: '0.78rem' }}>Phân bổ nhân sự đang làm việc theo đơn vị.</p>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', marginTop: '1.25rem', flexWrap: 'wrap' }}>
+                        <div style={{ width: 160, height: 160, borderRadius: '50%', background: donutSegments.length ? `conic-gradient(${donutSegments.join(', ')})` : '#E2E8F0', display: 'grid', placeItems: 'center', flexShrink: 0 }}><div style={{ width: 102, height: 102, borderRadius: '50%', background: '#FFFFFF', display: 'grid', placeItems: 'center', alignContent: 'center', boxShadow: 'inset 0 0 0 1px #E2E8F0' }}><b style={{ fontSize: '1.5rem', color: '#0F172A' }}>{totalDepartmentEmployees.toLocaleString('vi-VN')}</b><span style={{ color: '#94A3B8', fontSize: '0.65rem', fontWeight: 700 }}>NHÂN SỰ</span></div></div>
+                        <div style={{ flex: 1, minWidth: 190, display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>{workforce.departments.slice(0, 6).map((item, index) => <div key={item.department_name} style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', fontSize: '0.78rem' }}><span style={{ width: 9, height: 9, borderRadius: '50%', background: ['#0F766E', '#0284C7', '#7C3AED', '#D97706', '#E11D48', '#64748B'][index % 6], flexShrink: 0 }} /><span style={{ flex: 1, color: '#475569', fontWeight: 600 }}>{item.department_name}</span><b style={{ color: '#0F172A' }}>{item.count}</b></div>)}</div>
+                    </div>
+                </div>
+                <div className="card" style={{ padding: '1.25rem' }}>
+                    <div style={{ color: '#7C3AED', fontSize: '0.7rem', fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase' }}>Trạng thái nhân sự</div><h3 style={{ margin: '0.4rem 0 0.2rem', color: '#0F172A' }}>Tình hình nhân sự theo trạng thái</h3><p style={{ margin: 0, color: '#64748B', fontSize: '0.78rem' }}>Theo dõi lực lượng đang làm việc, nghỉ việc, thử việc và chờ nhận việc.</p>
+                    <div style={{ marginTop: '1.25rem' }}>{workforce.statuses.map((item) => <CustomBarRow key={item.code} label={item.label} count={Number(item.count || 0)} max={maxStatus} color={{ WORKING: '#0F766E', RESIGNED: '#E11D48', PROBATION: '#D97706', WAITING_FOR_WORK: '#7C3AED' }[item.code] || '#64748B'} />)}</div>
+                </div>
+            </div>
+
+            <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+                <div style={{ padding: '1.25rem 1.25rem 0.85rem', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem' }}><div><div style={{ color: '#E11D48', fontSize: '0.7rem', fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase' }}>CẢNH BÁO HỢP ĐỒNG</div><h3 style={{ margin: '0.4rem 0 0.2rem', color: '#0F172A' }}>Hợp đồng lao động sắp hết hạn</h3><p style={{ margin: 0, color: '#64748B', fontSize: '0.78rem' }}>Danh sách hợp đồng còn thời hạn trong 60 ngày tới.</p></div><button className="btn btn-secondary" onClick={openContracts} style={{ whiteSpace: 'nowrap' }}>Mở danh sách <ChevronRight size={14} /></button></div>
+                {workforce.expiringContracts.length === 0 ? <div style={{ padding: '2rem', textAlign: 'center', color: '#94A3B8', fontSize: '0.85rem' }}>Không có hợp đồng hết hạn trong 60 ngày tới.</div> : <div style={{ overflowX: 'auto' }}><table style={{ width: '100%', minWidth: 720, borderCollapse: 'collapse', fontSize: '0.8rem' }}><thead><tr style={{ background: '#F8FAFC', color: '#64748B' }}>{['Nhân viên', 'Vị trí', 'Loại HĐ', 'Ngày hết hạn', 'Trạng thái'].map((label) => <th key={label} style={{ textAlign: 'left', padding: '0.75rem 1.25rem', fontSize: '0.68rem', textTransform: 'uppercase' }}>{label}</th>)}</tr></thead><tbody>{workforce.expiringContracts.map((contract) => <tr key={contract.id} style={{ borderTop: '1px solid #E2E8F0' }}><td style={{ padding: '0.85rem 1.25rem', color: '#0F172A', fontWeight: 700 }}>{contract.employee_name}<div style={{ color: '#94A3B8', fontSize: '0.68rem', fontWeight: 500, marginTop: 3 }}>{contract.employee_code || '—'}</div></td><td style={{ padding: '0.85rem 1.25rem', color: '#475569' }}>{contract.position_name || '—'}</td><td style={{ padding: '0.85rem 1.25rem', color: '#475569' }}>{contract.contract_type}</td><td style={{ padding: '0.85rem 1.25rem', color: '#475569' }}>{formatDate(contract.end_date)}</td><td style={{ padding: '0.85rem 1.25rem' }}><span style={{ display: 'inline-flex', borderRadius: 999, padding: '0.35rem 0.6rem', fontWeight: 700, fontSize: '0.7rem', color: contract.days_remaining <= 7 ? '#BE123C' : '#B45309', background: contract.days_remaining <= 7 ? '#FFF1F2' : '#FFFBEB' }}>{contract.status_label}</span></td></tr>)}</tbody></table></div>}
+            </div>
+        </div>
+    );
 };
 
 // =========================================================================
@@ -300,26 +512,44 @@ const HrDashboard = ({ setCurrentTab, setActiveSubTab }) => {
     }
 
     const { kpi, pipelineStages, recruitmentByPosition, actionNeeded, charts } = hrData;
+    const currentEmployees = Number(kpi.currentEmployees ?? charts?.deptStructure?.reduce((total, item) => total + Number(item.count || 0), 0) ?? 0);
+    const headcountTarget = Number(kpi.headcountTarget ?? recruitmentByPosition?.reduce((total, item) => total + Number(item.target_headcount || 0), 0) ?? 0);
+    const fulfillmentRate = Number(kpi.fulfillmentRate ?? (headcountTarget ? Math.round((currentEmployees / headcountTarget) * 100) : 0));
+    const headcountDifference = headcountTarget - currentEmployees;
+    const expiringContractsCount = Number(kpi.expiringContractsCount ?? actionNeeded?.hr?.expiringContracts?.length ?? 0);
+    const hiredCandidates = actionNeeded?.recruitment?.hiredCandidates || [];
+    const inProgressCandidates = actionNeeded?.recruitment?.inProgressCandidates || [];
+    const pipelineCount = (code) => Number(pipelineStages.find((stage) => stage.code === code)?.count || 0);
+    const receivedCandidates = pipelineCount('tiếp nhận hồ sơ');
+    const interviewingCandidates = pipelineCount('đã tạo lịch') + pipelineCount('đã phỏng vấn') + pipelineCount('đã quyết định tuyển') + pipelineCount('đi làm');
+    const selectedCandidates = pipelineCount('đã quyết định tuyển') + pipelineCount('đi làm');
+    const funnelStages = hrData.pipelineFunnel?.length ? hrData.pipelineFunnel : [
+        { code: 'candidates', label: 'Ứng viên', count: Number(kpi.totalCandidates || 0) },
+        { code: 'screened', label: 'Sơ loại', count: Math.max(0, Number(kpi.totalCandidates || 0) - receivedCandidates) },
+        { code: 'interviewing', label: 'Phỏng vấn', description: 'đang phỏng vấn', count: interviewingCandidates },
+        { code: 'passed', label: 'Đạt', count: selectedCandidates },
+        { code: 'selected', label: 'Nhận việc', description: 'quyết định tuyển dụng', count: selectedCandidates },
+        { code: 'working', label: 'Chính thức', description: 'đi làm', count: pipelineCount('đi làm') },
+    ];
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
             <div>
                 <h2 style={{ margin: 0, fontSize: '1.35rem', fontWeight: 800, color: '#0F172A' }}>
-                    Dashboard Nghiệp vụ Nhân sự & Tuyển dụng
+                    Dashboard HR
                 </h2>
                 <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.85rem', color: '#64748B' }}>
-                    Theo dõi toàn bộ quy trình tuyển dụng, quản lý hồ sơ nhân sự, hợp đồng và công việc chờ xử lý của phòng HR
+                    Theo dõi định biên, nhân sự hiện tại, tuyển dụng và hợp đồng lao động của phòng HR
                 </p>
             </div>
 
-            {/* Khu vực KPI Tuyển dụng */}
+            {/* Các card tổng quan HR theo đặc tả dashboard */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem' }}>
-                <MetricCard icon={ClipboardList} label="Tổng số YCTD" value={kpi.totalRequests} subtext={`${kpi.pendingRequests} chờ duyệt`} color="#0369A1" onClick={() => goTo('RecruitmentModule', 'Yêu cầu tuyển dụng')} />
-                <MetricCard icon={Clock} label="Yêu cầu đang tuyển" value={kpi.recruitingRequests} color="#D97706" onClick={() => goTo('RecruitmentModule', 'Yêu cầu tuyển dụng')} />
-                <MetricCard icon={Users} label="Tổng số ứng viên" value={kpi.totalCandidates} color="#7C3AED" onClick={() => goTo('RecruitmentModule', 'Hồ sơ ứng viên')} />
-                <MetricCard icon={UserCheck} label="Ứng viên đang xử lý" value={kpi.processingCandidates} color="#059669" onClick={() => goTo('RecruitmentModule', 'Hồ sơ ứng viên')} />
-                <MetricCard icon={Calendar} label="Lịch phỏng vấn sắp tới" value={kpi.upcomingInterviews} color="#0284C7" onClick={() => goTo('RecruitmentModule', 'Lịch Phỏng vấn')} />
-                <MetricCard icon={FileText} label="Offer đang chờ xử lý" value={kpi.pendingOffers} color="#DB2777" onClick={() => goTo('RecruitmentModule', 'Offer')} />
+                <MetricCard icon={Users} label="Định biên" value={headcountTarget.toLocaleString('vi-VN')} subtext="Tổng số định biên theo các vị trí" color="#7C3AED" onClick={() => goTo('HRModule', 'Định biên nhân sự')} />
+                <MetricCard icon={UserCheck} label="Nhân sự hiện tại" value={currentEmployees.toLocaleString('vi-VN')} subtext="Tổng số nhân viên đang làm việc" color="#0F766E" onClick={() => goTo('HRModule', 'Hồ sơ nhân sự')} />
+                <MetricCard icon={TrendingUp} label="Số lượng cần tuyển" value={`${fulfillmentRate}%`} subtext={`Nhân sự hiện tại / Định biên × 100% · ${headcountDifference > 0 ? `Thiếu ${headcountDifference}` : headcountDifference < 0 ? `Thừa ${Math.abs(headcountDifference)}` : 'Đủ nhân sự'}`} color="#D97706" onClick={() => goTo('RecruitmentModule', 'Yêu cầu tuyển dụng')} />
+                <MetricCard icon={Users} label="Ứng viên đang tuyển" value={Number(kpi.processingCandidates || 0).toLocaleString('vi-VN')} subtext="Ứng viên đang trong quy trình tuyển dụng" color="#0369A1" onClick={() => goTo('RecruitmentModule', 'Hồ sơ ứng viên')} />
+                <MetricCard icon={Calendar} label="HĐLĐ sắp hết hạn" value={expiringContractsCount.toLocaleString('vi-VN')} subtext="Số HĐLĐ hết hạn trong 60 ngày · Cảnh báo cần xử lý" color="#E11D48" onClick={() => goTo('HRModule', 'Hợp đồng lao động')} />
             </div>
 
             {/* Biểu đồ tình hình tuyển dụng (Pipeline 10 giai đoạn) */}
@@ -359,6 +589,40 @@ const HrDashboard = ({ setCurrentTab, setActiveSubTab }) => {
                     ))}
                 </div>
             </div>
+
+            <RecruitmentFunnel stages={funnelStages} />
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(420px, 1fr))', gap: '1.25rem' }}>
+                <DashboardTable
+                    title="Danh sách ứng viên trúng tuyển"
+                    icon={UserCheck}
+                    rows={hiredCandidates}
+                    emptyMessage="Chưa có ứng viên trúng tuyển."
+                    onRowClick={() => goTo('RecruitmentModule', 'Quyết định trúng tuyển')}
+                    columns={[
+                        { key: 'candidate_name', label: 'Ứng viên', render: (row) => <strong style={{ color: '#0F172A' }}>{row.candidate_name || '-'}</strong> },
+                        { key: 'position_name', label: 'Vị trí' },
+                        { key: 'department_name', label: 'Phòng ban' },
+                        { key: 'hired_date', label: 'Ngày trúng tuyển', render: (row) => formatDashboardDate(row.hired_date) },
+                        { key: 'status_label', label: 'Trạng thái', render: (row) => <span className={`badge ${row.status_label === 'Đã nhận việc' ? 'badge-green' : 'badge-yellow'}`}>{row.status_label || '-'}</span> },
+                    ]}
+                />
+                <DashboardTable
+                    title="Ứng viên đang trong quá trình tuyển dụng"
+                    icon={TrendingUp}
+                    rows={inProgressCandidates}
+                    emptyMessage="Không có ứng viên đang trong quá trình tuyển dụng."
+                    onRowClick={() => goTo('RecruitmentModule', 'Hồ sơ ứng viên')}
+                    columns={[
+                        { key: 'candidate_name', label: 'Ứng viên', render: (row) => <strong style={{ color: '#0F172A' }}>{row.candidate_name || '-'}</strong> },
+                        { key: 'position_name', label: 'Vị trí' },
+                        { key: 'current_stage', label: 'Vòng hiện tại', render: (row) => <span className="badge badge-blue">{row.current_stage || '-'}</span> },
+                        { key: 'updated_date', label: 'Ngày cập nhật', render: (row) => formatDashboardDate(row.updated_date) },
+                    ]}
+                />
+            </div>
+
+            <RecruitmentComboChart rows={recruitmentByPosition} />
 
             {/* Biểu đồ/Bảng tuyển dụng theo vị trí & Khu vực công việc cần xử lý */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '1.25rem' }}>
@@ -478,7 +742,7 @@ const HrDashboard = ({ setCurrentTab, setActiveSubTab }) => {
 
                         {actionTab === 'HR' && (
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
-                                <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#64748B' }}>HỢP ĐỒNG SẮP HẾT HẠN (30 NGÀY TỚI)</div>
+                                 <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#64748B' }}>HỢP ĐỒNG SẮP HẾT HẠN (60 NGÀY TỚI)</div>
                                 {actionNeeded.hr.expiringContracts.length === 0 ? (
                                     <div style={{ fontSize: '0.8rem', color: '#94A3B8' }}>Không có hợp đồng nào sắp hết hạn.</div>
                                 ) : (
@@ -1135,27 +1399,17 @@ const ManagerDashboard = ({ setCurrentTab, setActiveSubTab }) => {
 export const Dashboard = ({ setCurrentTab, setActiveSubTab }) => {
     const { user } = useAuth();
 
-    // 1. ADMIN ROLE -> Dashboard Admin
-    if (user?.roleName === 'Administrator') {
-        return <AdminDashboard setCurrentTab={setCurrentTab} setActiveSubTab={setActiveSubTab} />;
+    // Admin, Ban Giám Đốc và cấp quản lý dùng chung một dashboard nhân sự.
+    if (['Administrator', 'Ban Giám Đốc', 'Trưởng Phòng', 'Trưởng Khối'].includes(user?.roleName)) {
+        return <WorkforceDashboard setCurrentTab={setCurrentTab} setActiveSubTab={setActiveSubTab} />;
     }
 
-    // 2. HR STAFF ROLE -> Dashboard HR
+    // HR STAFF ROLE -> Dashboard HR
     if (user?.roleName === 'HR Staff') {
         return <HrDashboard setCurrentTab={setCurrentTab} setActiveSubTab={setActiveSubTab} />;
     }
 
-    // 3. BAN GIÁM ĐỐC ROLE -> Dashboard Ban Giám Đốc
-    if (user?.roleName === 'Ban Giám Đốc') {
-        return <BgdDashboard setCurrentTab={setCurrentTab} setActiveSubTab={setActiveSubTab} />;
-    }
-
-    // 4. TRƯỜNG PHÒNG / TRƯỜNG KHỐI ROLE -> Dashboard Quản lý Đơn vị
-    if (user?.roleName === 'Trưởng Phòng' || user?.roleName === 'Trưởng Khối') {
-        return <ManagerDashboard setCurrentTab={setCurrentTab} setActiveSubTab={setActiveSubTab} />;
-    }
-
-    // 5. NHÂN VIÊN THÔNG THƯỜNG -> KHÔNG CÓ DASHBOARD
+    // NHÂN VIÊN THÔNG THƯỜNG -> KHÔNG CÓ DASHBOARD
     // Trả về thông báo chuyển hướng (mặc dù App.jsx đã tự động điều hướng sang Hồ sơ cá nhân)
     return (
         <div style={{ padding: '3rem 2rem', textAlign: 'center', backgroundColor: '#FFFFFF', borderRadius: '12px', border: '1px solid #E2E8F0', marginTop: '1rem' }}>

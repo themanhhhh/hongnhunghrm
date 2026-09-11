@@ -1223,6 +1223,163 @@ export const getMockResponse = (method, endpoint, body) => {
     }
 
     // 11. Reports & Dashboard Summary
+    if (endpoint === '/reports/dashboard/hr') {
+        const emps = getStorageItem('employees', INITIAL_EMPLOYEES);
+        const depts = getStorageItem('departments', INITIAL_DEPARTMENTS);
+        const positions = getStorageItem('positions', INITIAL_POSITIONS);
+        const reqs = getStorageItem('requests', INITIAL_REQUESTS);
+        const cands = getStorageItem('candidates', INITIAL_CANDIDATES);
+        const ints = getStorageItem('interviews', INITIAL_INTERVIEWS);
+        const evaluations = getStorageItem('interview_evaluations', INITIAL_INTERVIEW_EVALUATIONS);
+        const decisions = getStorageItem('recruitment_decisions', INITIAL_RECRUITMENT_DECISIONS);
+        const requestById = new Map(reqs.map((request) => [request.id || request.recruitment_request_id, request]));
+        const planById = new Map(getStorageItem('plans', INITIAL_PLANS).map((plan) => [plan.id || plan.recruitment_plan_id, plan]));
+        const positionById = new Map(positions.map((position) => [position.id || position.position_id, position]));
+        const departmentById = new Map(depts.map((department) => [department.id || department.department_id, department]));
+        const resolveCandidateContext = (candidate) => {
+            const request = requestById.get(candidate.recruitment_request_id) || requestById.get(planById.get(candidate.recruitment_plan_id)?.recruitment_request_id);
+            const position = positionById.get(candidate.position_id) || positionById.get(request?.position_id);
+            const department = departmentById.get(candidate.department_id) || departmentById.get(request?.department_id) || departmentById.get(position?.department_id);
+            return { position, department };
+        };
+        const currentEmployees = emps.filter((employee) => employee.employment_status === 'WORKING' && employee.is_active !== 0).length;
+        const headcountTarget = positions.filter((position) => position.status !== 0).reduce((sum, position) => sum + Number(position.target_headcount || 0), 0);
+        const processingCandidates = cands.filter((candidate) => !['đi làm', 'đã quyết định loại', 'HIRED', 'REJECTED', 'OFFER_REJECTED'].includes(candidate.status)).length;
+        const pipelineStages = [
+            { code: 'RECEIVED', label: 'Tiếp nhận hồ sơ', count: cands.filter((candidate) => ['tiếp nhận hồ sơ', 'SUBMITTED', 'NEW'].includes(candidate.status)).length },
+            { code: 'INTERVIEWED', label: 'Đã phỏng vấn', count: cands.filter((candidate) => candidate.status === 'đã phỏng vấn').length },
+            { code: 'SELECTED', label: 'Đã quyết định tuyển', count: cands.filter((candidate) => ['đã quyết định tuyển', 'PASSED'].includes(candidate.status)).length },
+            { code: 'WORKING', label: 'Đã đi làm', count: cands.filter((candidate) => ['đi làm', 'HIRED'].includes(candidate.status)).length },
+        ];
+        const passedInterviewCandidates = new Set(evaluations
+            .filter((evaluation) => ['ĐẠT', 'PASSED'].includes(String(evaluation.overall_result || '').trim().toUpperCase()))
+            .map((evaluation) => evaluation.candidate_id));
+        const receivedCandidates = cands.filter((candidate) => ['tiếp nhận hồ sơ', 'Đã tiếp nhận hồ sơ', 'SUBMITTED', 'NEW'].includes(candidate.status)).length;
+        const interviewingCandidates = cands.filter((candidate) => ['đã tạo lịch', 'INTERVIEWING', 'đã phỏng vấn', 'Đã phỏng vấn, Đạt', 'Đã phỏng vấn, Không đạt', 'INTERVIEWED', 'S2: Phỏng vấn', 'đã quyết định tuyển', 'S5: Trúng tuyển', 'PASSED', 'OFFER_ACCEPTED', 'đi làm', 'HIRED'].includes(candidate.status)).length;
+        const selectedCandidates = cands.filter((candidate) => ['đã quyết định tuyển', 'S5: Trúng tuyển', 'PASSED', 'OFFER_ACCEPTED', 'đi làm', 'HIRED'].includes(candidate.status)).length;
+        const pipelineFunnel = [
+            { code: 'candidates', label: 'Ứng viên', count: cands.length },
+            { code: 'screened', label: 'Sơ loại', count: Math.max(0, cands.length - receivedCandidates) },
+            { code: 'interviewing', label: 'Phỏng vấn', description: 'đang phỏng vấn', count: interviewingCandidates },
+            { code: 'passed', label: 'Đạt', count: Math.max(passedInterviewCandidates.size, selectedCandidates) },
+            { code: 'selected', label: 'Nhận việc', description: 'quyết định tuyển dụng', count: selectedCandidates },
+            { code: 'working', label: 'Chính thức', description: 'đi làm', count: cands.filter((candidate) => ['đi làm', 'HIRED'].includes(candidate.status)).length },
+        ];
+        const expiringContracts = getStorageItem('employee_contracts', []).filter((contract) => contract.status === 'ACTIVE' && contract.end_date);
+        const deptStructure = depts.filter((department) => department.status !== 0).map((department) => ({
+            department_name: department.department_name,
+            count: emps.filter((employee) => employee.department_id === department.department_id && employee.employment_status === 'WORKING' && employee.is_active !== 0).length,
+        }));
+        const positionStructure = positions.filter((position) => position.status !== 0).map((position) => ({
+            position_name: position.position_name,
+            count: emps.filter((employee) => employee.position_id === position.position_id && employee.employment_status === 'WORKING' && employee.is_active !== 0).length,
+        })).sort((first, second) => second.count - first.count).slice(0, 8);
+        const hiredCandidates = decisions
+            .filter((decision) => String(decision.result || '').trim().toUpperCase() === 'ĐẠT' && String(decision.status || 'COMPLETED').trim().toUpperCase() !== 'CANCELLED')
+            .map((decision) => {
+                const candidate = cands.find((item) => item.id === decision.candidate_id || item.candidate_id === decision.candidate_id);
+                const context = candidate ? resolveCandidateContext(candidate) : {};
+                const employee = emps.find((item) => item.candidate_id === decision.candidate_id);
+                return {
+                    id: decision.id || decision.decision_id,
+                    candidate_name: candidate?.full_name || decision.candidate_name || '-',
+                    position_name: context.position?.position_name || '-',
+                    department_name: context.department?.department_name || '-',
+                    hired_date: decision.decision_date,
+                    status_label: employee || ['đi làm', 'HIRED'].includes(candidate?.status) ? 'Đã nhận việc' : 'Chờ nhận việc',
+                };
+            });
+        const inProgressCandidates = cands
+            .filter((candidate) => !['đi làm', 'đã quyết định loại', 'đã quyết định tuyển', 'S5: Trúng tuyển', 'S7: Loại', 'HIRED', 'REJECTED', 'OFFER_REJECTED', 'PASSED', 'OFFER_ACCEPTED'].includes(candidate.status))
+            .map((candidate) => {
+                const context = resolveCandidateContext(candidate);
+                const currentStage = {
+                    'tiếp nhận hồ sơ': 'Sàng lọc',
+                    'Đã tiếp nhận hồ sơ': 'Sàng lọc',
+                    'đã sơ loại': 'Sơ loại',
+                    'đã tạo lịch': 'Lên lịch phỏng vấn',
+                    'đã phỏng vấn': 'Phỏng vấn',
+                    SUBMITTED: 'Sàng lọc',
+                    NEW: 'Sàng lọc',
+                    SCREENED: 'Sơ loại',
+                    INTERVIEWING: 'Lên lịch phỏng vấn',
+                    INTERVIEWED: 'Phỏng vấn',
+                }[candidate.status] || candidate.status;
+                return {
+                    id: candidate.id || candidate.candidate_id,
+                    candidate_name: candidate.full_name,
+                    position_name: context.position?.position_name || '-',
+                    current_stage: currentStage,
+                    updated_date: candidate.last_modified_date || candidate.eval_date || candidate.received_date || candidate.created_date,
+                };
+            });
+        return {
+            success: true,
+            data: {
+                kpi: {
+                    totalRequests: reqs.length,
+                    pendingRequests: reqs.filter((request) => request.status === 'PENDING').length,
+                    recruitingRequests: reqs.filter((request) => ['APPROVED', 'IN_PROGRESS', 'RECRUITING'].includes(request.status)).length,
+                    totalCandidates: cands.length,
+                    processingCandidates,
+                    upcomingInterviews: ints.filter((interview) => interview.status === 'Đã lên lịch').length,
+                    pendingOffers: 0,
+                    currentEmployees,
+                    headcountTarget,
+                    fulfillmentRate: headcountTarget ? Math.round((currentEmployees / headcountTarget) * 100) : 0,
+                    expiringContractsCount: expiringContracts.length,
+                },
+                pipelineStages,
+                pipelineFunnel,
+                recruitmentByPosition: reqs.map((request) => ({
+                    position_id: request.position_id,
+                    position_name: request.position_name,
+                    department_name: request.department_name,
+                    target_headcount: Number(request.quantity || 0),
+                    hired_count: 0,
+                    shortfall: Number(request.quantity || 0),
+                })),
+                actionNeeded: {
+                    recruitment: { pendingRequests: [], candidatesToScreen: [], hiredCandidates, inProgressCandidates, upcomingInterviews: [], pendingOffers: [] },
+                    hr: { expiringContracts: [], newHiresIncomplete: [], pendingProposals: [] },
+                    leaves: { pendingLeaves: [] },
+                },
+                charts: { deptStructure, positionStructure, movementStats: { newHires: 0, resignations: 0, transfers: 0, promotions: 0 } },
+            },
+        };
+    }
+
+    if (endpoint === '/reports/dashboard/workforce') {
+        const emps = getStorageItem('employees', INITIAL_EMPLOYEES);
+        const depts = getStorageItem('departments', INITIAL_DEPARTMENTS);
+        const currentEmployees = emps.filter((employee) => employee.employment_status === 'WORKING' && employee.is_active !== 0).length;
+        const headcountTarget = depts.reduce((sum, department) => sum + Number(department.target_headcount || 0), 0);
+        const expiringContracts = [
+            { id: 'contract-mock-01', employee_code: 'NV-2024-027', employee_name: 'Phạm Quốc Tuấn', position_name: 'Trưởng phòng Kinh doanh', contract_type: 'HĐLĐ xác định thời hạn', end_date: '2026-09-15', days_remaining: 4, status_label: 'Còn 4 ngày' },
+            { id: 'contract-mock-02', employee_code: 'NV-2024-005', employee_name: 'Nguyễn Thùy Linh', position_name: 'Nhân viên Nhân sự', contract_type: 'HĐLĐ xác định thời hạn', end_date: '2026-09-28', days_remaining: 17, status_label: 'Còn 17 ngày' }
+        ];
+        return {
+            success: true,
+            data: {
+                scopeName: 'Toàn công ty',
+                workforce: {
+                    currentEmployees,
+                    headcountTarget,
+                    fulfillmentRate: headcountTarget ? Math.round(currentEmployees / headcountTarget * 100) : 0,
+                    expiringContractsCount: expiringContracts.length,
+                    departments: depts.map((department) => ({ department_name: department.department_name, count: emps.filter((employee) => employee.department_id === department.department_id && employee.employment_status === 'WORKING').length, target: department.target_headcount })),
+                    statuses: [
+                        { code: 'WORKING', label: 'Đang làm việc', count: Math.max(0, currentEmployees - 5) },
+                        { code: 'RESIGNED', label: 'Đã nghỉ việc', count: emps.filter((employee) => employee.employment_status === 'RESIGNED' || employee.is_active === 0).length },
+                        { code: 'PROBATION', label: 'Đang thử việc', count: 5 },
+                        { code: 'WAITING_FOR_WORK', label: 'Chờ nhận việc', count: 3 }
+                    ],
+                    expiringContracts
+                }
+            }
+        };
+    }
+
     if (endpoint === '/reports/dashboard/summary') {
         const emps = getStorageItem('employees', INITIAL_EMPLOYEES);
         const reqs = getStorageItem('requests', INITIAL_REQUESTS);

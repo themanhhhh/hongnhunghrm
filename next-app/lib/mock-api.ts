@@ -229,6 +229,7 @@ const initialStore: MockStore = {
   ],
   "/hr/contracts": [
     { contract_id: "contract-demo-01", contract_no: "HDLD/2026/001", contract_date: "2026-01-14", sign_date: "2026-01-14", employee_id: "emp-hr-02", employee_name: "Nguyễn Thùy Linh", employee_position: "Nhân viên Nhân sự", signer_id: "emp-hr-01", signer_name: "Trần Thị Thu Hà", signer_position: "Trưởng phòng Nhân sự", contract_type: "HĐLĐ Xác định thời hạn 12 tháng", start_date: "2026-01-15", end_date: "2027-01-14", has_probation: 0, base_salary: 18000000, social_insurance_salary: 18000000, salary: 18000000, salary_scale: "BRAVO-05", salary_grade: "Bậc 2", allowance_details: [{ allowance_type: "Ăn trưa", amount: 730000 }, { allowance_type: "Điện thoại", amount: 300000 }], job_description: "Thực hiện công tác tuyển dụng, hồ sơ và chính sách nhân sự.", status: "ACTIVE", note: "Hợp đồng đang có hiệu lực." },
+    { contract_id: "contract-demo-02", contract_no: "HDTV/2026/014", employee_id: "emp-kd-03", employee_name: "Nguyễn Minh Anh", employee_position: "Nhân viên Kinh doanh", contract_type: "Hợp đồng thử việc", start_date: "2026-08-15", end_date: "2026-10-15", has_probation: 1, status: "ACTIVE", note: "Đang trong thời gian thử việc." },
   ],
   "/hr/contract-appendices": [{ appendix_id: "appendix-demo-01", contract_id: "contract-demo-01", appendix_no: "PLHD/2026/001", appendix_type: "Điều chỉnh phụ cấp", signed_date: "2026-06-30", effective_date: "2026-07-01", changed_content: "Bổ sung phụ cấp điện thoại.", note: "" }],
   "/hr/expiring-contracts": [
@@ -983,8 +984,49 @@ function dashboardResponse(session?: Session) {
   const countByDepartment = store["/admin/departments"].map((department) => ({
     department_name: department.department_name,
     count: employees.filter((employee) => employee.department_id === department.department_id && employee.employment_status === "WORKING").length,
+    target: Number(department.target_headcount ?? 0),
   }));
   const role = session?.role;
+  if (["Administrator", "Ban Giám Đốc", "Trưởng Khối", "Trưởng Phòng"].includes(String(role))) {
+    const manager = ["Trưởng Khối", "Trưởng Phòng"].includes(String(role))
+      ? employees.find((item) => String(item.employee_id) === String(session?.employeeId)) ?? employees.find((item) => item.department_id === "dept-cloud")
+      : undefined;
+    const scopeDepartmentIds = manager ? [String(manager.department_id)] : store["/admin/departments"].map((item) => String(item.department_id));
+    const scopeEmployees = employees.filter((item) => scopeDepartmentIds.includes(String(item.department_id)));
+    const workingEmployees = scopeEmployees.filter((item) => item.employment_status === "WORKING" && item.is_active !== 0);
+    const scopedContracts = store["/hr/contracts"].filter((item) => scopeDepartmentIds.includes(String(employees.find((employee) => String(employee.employee_id) === String(item.employee_id))?.department_id)));
+    const now = Date.now();
+    const expiringContracts = scopedContracts.filter((item) => {
+      const endDate = new Date(String(item.end_date)).getTime();
+      return item.status === "ACTIVE" && Number.isFinite(endDate) && endDate >= now && endDate <= now + 60 * 86400000;
+    }).map((item) => {
+      const endDate = new Date(String(item.end_date)).getTime();
+      const daysRemaining = Math.max(0, Math.ceil((endDate - now) / 86400000));
+      const employee = employees.find((row) => String(row.employee_id) === String(item.employee_id));
+      return { id: String(item.contract_id), employee_code: employee?.employee_code, employee_name: String(item.employee_name ?? employee?.full_name ?? "-"), position_name: String(employee?.position_name ?? item.employee_position ?? "-"), contract_type: String(item.contract_type ?? "-"), end_date: String(item.end_date), days_remaining: daysRemaining, status_label: `Còn ${daysRemaining} ngày` };
+    });
+    const probationEmployees = workingEmployees.filter((employee) => scopedContracts.some((contract) => String(contract.employee_id) === String(employee.employee_id) && (Number(contract.has_probation) === 1 || String(contract.contract_type ?? "").toLocaleLowerCase().includes("thử việc"))));
+    const waitingForWork = candidates.filter((candidate) => scopeDepartmentIds.includes(String(candidate.department_id)) && ["đã quyết định tuyển", "S5: Trúng tuyển", "PASSED", "OFFER_ACCEPTED"].includes(String(candidate.status)) && !employees.some((employee) => String(employee.candidate_id) === String(candidate.candidate_id))).length;
+    const departments = countByDepartment.filter((item) => scopeDepartmentIds.includes(String(store["/admin/departments"].find((department) => department.department_name === item.department_name)?.department_id)));
+    const headcountTarget = departments.reduce((sum, department) => sum + Number(department.target ?? 0), 0);
+    return {
+      scopeName: manager?.department_name ?? "Toàn công ty",
+      workforce: {
+        currentEmployees: workingEmployees.length,
+        headcountTarget,
+        fulfillmentRate: headcountTarget ? Math.round((workingEmployees.length / headcountTarget) * 100) : 0,
+        expiringContractsCount: expiringContracts.length,
+        departments,
+        statuses: [
+          { code: "WORKING", label: "Đang làm việc", count: Math.max(0, workingEmployees.length - probationEmployees.length) },
+          { code: "RESIGNED", label: "Đã nghỉ việc", count: scopeEmployees.filter((item) => item.employment_status === "RESIGNED" || item.is_active === 0).length },
+          { code: "PROBATION", label: "Đang thử việc", count: probationEmployees.length },
+          { code: "WAITING_FOR_WORK", label: "Chờ nhận việc", count: waitingForWork },
+        ],
+        expiringContracts,
+      },
+    };
+  }
   if (role === "Administrator") {
     return {
       kpi: { totalUsers: 24, activeUsers: 22, lockedUsers: 2, totalDepartments: store["/admin/departments"].length, totalEmployees: employees.length, totalPositions: store["/admin/positions"].length },

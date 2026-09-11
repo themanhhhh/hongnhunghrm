@@ -34,6 +34,27 @@ export type DashboardData = {
       tone: "teal" | "amber" | "violet" | "rose";
     }>;
   };
+  workforce?: WorkforceDashboardData;
+};
+
+export type WorkforceDashboardData = {
+  scopeName: string;
+  currentEmployees: number;
+  headcountTarget: number;
+  fulfillmentRate: number;
+  expiringContractsCount: number;
+  departments: Array<{ department_name: string; count: number; target?: number }>;
+  statuses: Array<{ code: string; label: string; count: number }>;
+  expiringContracts: Array<{
+    id: string;
+    employee_code?: string;
+    employee_name: string;
+    position_name?: string;
+    contract_type: string;
+    end_date: string | number;
+    days_remaining: number;
+    status_label: string;
+  }>;
 };
 
 export type ReportQueryResult = {
@@ -42,6 +63,30 @@ export type ReportQueryResult = {
   filters: Record<string, string>;
   data: Array<Record<string, unknown>>;
   summary: Record<string, unknown>;
+};
+
+const fallbackWorkforce: WorkforceDashboardData = {
+  scopeName: "Toàn công ty",
+  currentEmployees: 146,
+  headcountTarget: 175,
+  fulfillmentRate: 83,
+  expiringContractsCount: 2,
+  departments: [
+    { department_name: "Khối Kỹ thuật triển khai", count: 42, target: 48 },
+    { department_name: "Phòng Kinh doanh", count: 31, target: 36 },
+    { department_name: "Phòng Nhân sự", count: 8, target: 8 },
+    { department_name: "Phòng Phát triển sản phẩm", count: 27, target: 30 },
+  ],
+  statuses: [
+    { code: "WORKING", label: "Đang làm việc", count: 85 },
+    { code: "RESIGNED", label: "Đã nghỉ việc", count: 12 },
+    { code: "PROBATION", label: "Đang thử việc", count: 5 },
+    { code: "WAITING_FOR_WORK", label: "Chờ nhận việc", count: 3 },
+  ],
+  expiringContracts: [
+    { id: "contract-fallback-01", employee_code: "NV-2024-027", employee_name: "Phạm Quốc Tuấn", position_name: "Trưởng phòng Kinh doanh", contract_type: "HĐLĐ xác định thời hạn", end_date: "2026-09-15", days_remaining: 4, status_label: "Còn 4 ngày" },
+    { id: "contract-fallback-02", employee_code: "NV-2024-005", employee_name: "Nguyễn Thùy Linh", position_name: "Nhân viên Nhân sự", contract_type: "HĐLĐ xác định thời hạn", end_date: "2026-09-28", days_remaining: 17, status_label: "Còn 17 ngày" },
+  ],
 };
 
 export class ApiError extends Error {
@@ -98,15 +143,16 @@ function roleResource(name: keyof typeof moduleData): Resource {
 
 function fallbackDashboard(role: Role): DashboardData {
   const base = dashboardData as DashboardData;
-  if (role === "Administrator") {
+  if (["Administrator", "Ban Giám Đốc", "Trưởng Khối", "Trưởng Phòng"].includes(role)) {
     return {
       ...base,
       kpis: [
-        { label: "Tổng số tài khoản", value: 24, trend: "22 hoạt động", tone: "teal", detail: "Quản trị hệ thống" },
-        { label: "Tài khoản bị khóa", value: 2, trend: "Cần theo dõi", tone: "rose", detail: "Bảo mật tài khoản" },
-        { label: "Tổng số phòng ban", value: 14, trend: "Sơ đồ tổ chức", tone: "violet", detail: "Danh mục hệ thống" },
-        { label: "Tổng số vị trí", value: 38, trend: "Danh mục dùng chung", tone: "amber", detail: "Định biên nhân sự" },
+        { label: "Nhân sự hiện tại", value: fallbackWorkforce.currentEmployees, trend: fallbackWorkforce.scopeName, tone: "teal", detail: "Tổng số nhân viên đang làm việc" },
+        { label: "Định biên nhân sự", value: fallbackWorkforce.headcountTarget, trend: "Được phê duyệt", tone: "violet", detail: "Tổng số nhân sự theo định biên" },
+        { label: "Tỷ lệ đáp ứng định biên", value: `${fallbackWorkforce.fulfillmentRate}%`, trend: "Nhân sự hiện tại / định biên", tone: "amber", detail: "Mức độ đáp ứng nguồn lực" },
+        { label: "HĐLĐ sắp hết hạn", value: fallbackWorkforce.expiringContractsCount, trend: "Trong 60 ngày", tone: "rose", detail: "Cần rà soát và xử lý" },
       ],
+      workforce: fallbackWorkforce,
     };
   }
   if (role === "HR Staff") {
@@ -117,17 +163,6 @@ function fallbackDashboard(role: Role): DashboardData {
         { label: "Ứng viên đang xử lý", value: 64, trend: "12 lịch phỏng vấn", tone: "violet", detail: "Theo pipeline tuyển dụng" },
         { label: "Offer cần theo dõi", value: 4, trend: "Trong tháng này", tone: "amber", detail: "Chờ ứng viên phản hồi" },
         { label: "Hồ sơ cần xử lý", value: 9, trend: "Cần ưu tiên", tone: "rose", detail: "Các tác vụ nghiệp vụ HR" },
-      ],
-    };
-  }
-  if (role === "Ban Giám Đốc") {
-    return {
-      ...base,
-      kpis: [
-        { label: "Nhân sự đang làm việc", value: 146, trend: "+9 từ đầu năm", tone: "teal", detail: "Toàn doanh nghiệp" },
-        { label: "Tuyển dụng đang mở", value: 18, trend: "6 yêu cầu chờ duyệt", tone: "amber", detail: "Theo kế hoạch nhân sự" },
-        { label: "Nghỉ việc từ đầu năm", value: 3, trend: "Cần theo dõi", tone: "rose", detail: "Biến động nhân sự" },
-        { label: "Phiếu chờ phê duyệt", value: 9, trend: "Cấp Ban Giám Đốc", tone: "violet", detail: "Quyết định cần xem xét" },
       ],
     };
   }
@@ -183,11 +218,34 @@ export const api = {
   },
   async dashboard(): Promise<DashboardData> {
     const session = readSession();
-    const endpoint = session.role === "Administrator" ? "/reports/dashboard/admin" : session.role === "HR Staff" ? "/reports/dashboard/hr" : session.role === "Ban Giám Đốc" ? "/reports/dashboard/bgd" : session.role === "Nhân viên" ? "/reports/dashboard/employee" : ["Trưởng Khối", "Trưởng Phòng"].includes(session.role) ? "/reports/dashboard/manager" : "/reports/dashboard/summary";
+    const endpoint = ["Administrator", "Ban Giám Đốc", "Trưởng Khối", "Trưởng Phòng"].includes(session.role) ? "/reports/dashboard/workforce" : session.role === "HR Staff" ? "/reports/dashboard/hr" : session.role === "Nhân viên" ? "/reports/dashboard/employee" : "/reports/dashboard/summary";
     const result = await this.request<ApiEnvelope<Record<string, unknown>>>(endpoint, {}, { resource: "dashboard" });
     const source = unwrap<Record<string, unknown>>(result);
     if (!source) return fallbackDashboard(session.role);
     const sourceKpi = (source.kpi ?? source) as Record<string, number>;
+    if (source.workforce && typeof source.workforce === "object") {
+      const raw = source.workforce as Record<string, unknown>;
+      const departments = Array.isArray(raw.departments)
+        ? raw.departments.map((item) => {
+            const row = item as Record<string, unknown>;
+            return { department_name: String(row.department_name ?? "Chưa phân loại"), count: Number(row.count ?? 0), target: row.target === undefined ? undefined : Number(row.target ?? 0) };
+          })
+        : [];
+      const statuses = Array.isArray(raw.statuses)
+        ? raw.statuses.map((item) => {
+            const row = item as Record<string, unknown>;
+            return { code: String(row.code ?? ""), label: String(row.label ?? "Trạng thái"), count: Number(row.count ?? 0) };
+          })
+        : [];
+      const expiringContracts = Array.isArray(raw.expiringContracts)
+        ? raw.expiringContracts.map((item) => {
+            const row = item as Record<string, unknown>;
+            return { id: String(row.id ?? ""), employee_code: row.employee_code ? String(row.employee_code) : undefined, employee_name: String(row.employee_name ?? "-"), position_name: row.position_name ? String(row.position_name) : undefined, contract_type: String(row.contract_type ?? "-"), end_date: (row.end_date ?? "") as string | number, days_remaining: Number(row.days_remaining ?? 0), status_label: String(row.status_label ?? "") };
+          })
+        : [];
+      const workforce: WorkforceDashboardData = { scopeName: String(source.scopeName ?? "Toàn công ty"), currentEmployees: Number(raw.currentEmployees ?? 0), headcountTarget: Number(raw.headcountTarget ?? 0), fulfillmentRate: Number(raw.fulfillmentRate ?? 0), expiringContractsCount: Number(raw.expiringContractsCount ?? expiringContracts.length), departments, statuses, expiringContracts };
+      return { kpis: [{ label: "Nhân sự hiện tại", value: workforce.currentEmployees, trend: workforce.scopeName, tone: "teal", detail: "Tổng số nhân viên đang làm việc" }, { label: "Định biên nhân sự", value: workforce.headcountTarget, trend: "Được phê duyệt", tone: "violet", detail: "Tổng số nhân sự theo định biên" }, { label: "Tỷ lệ đáp ứng định biên", value: `${workforce.fulfillmentRate}%`, trend: "Nhân sự hiện tại / định biên", tone: "amber", detail: "Mức độ đáp ứng nguồn lực" }, { label: "HĐLĐ sắp hết hạn", value: workforce.expiringContractsCount, trend: "Trong 60 ngày", tone: "rose", detail: "Cần rà soát và xử lý" }], departments: workforce.departments.map((item) => ({ name: item.department_name, count: item.count, target: item.target })), approvals: [], pipeline: [], workforce };
+    }
     if (sourceKpi && "totalUsers" in sourceKpi) {
       return { kpis: [{ label: "Tổng số tài khoản", value: sourceKpi.totalUsers ?? 0, trend: `${sourceKpi.activeUsers ?? 0} hoạt động`, tone: "teal", detail: "Quản trị hệ thống" }, { label: "Tài khoản bị khóa", value: sourceKpi.lockedUsers ?? 0, trend: "Cần theo dõi", tone: "rose", detail: "Bảo mật tài khoản" }, { label: "Tổng số phòng ban", value: sourceKpi.totalDepartments ?? 0, trend: `${sourceKpi.totalEmployees ?? 0} nhân sự`, tone: "violet", detail: "Sơ đồ tổ chức" }, { label: "Tổng số vị trí", value: sourceKpi.totalPositions ?? 0, trend: "Danh mục dùng chung", tone: "amber", detail: "Vị trí công việc" }], departments: ((source.employeesByDept ?? []) as Array<Record<string, unknown>>).map((item) => ({ name: String(item.department_name ?? "Chưa phân loại"), count: Number(item.count ?? 0) })), approvals: [], pipeline: [], focus: { eyebrow: "SYSTEM CONTROL", title: "Sức khỏe hệ thống", description: "Theo dõi người dùng, danh mục và cấu trúc tổ chức trong một màn hình quản trị.", items: [{ label: "Tài khoản hoạt động", value: sourceKpi.activeUsers ?? 0, detail: `Trên ${sourceKpi.totalUsers ?? 0} tài khoản`, tone: "teal" }, { label: "Tài khoản bị khóa", value: sourceKpi.lockedUsers ?? 0, detail: "Cần rà soát bảo mật", tone: "rose" }, { label: "Phòng ban", value: sourceKpi.totalDepartments ?? 0, detail: "Đang hoạt động", tone: "violet" }, { label: "Vị trí công việc", value: sourceKpi.totalPositions ?? 0, detail: "Danh mục dùng chung", tone: "amber" }] } };
     }
