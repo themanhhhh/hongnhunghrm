@@ -431,11 +431,13 @@ const detailTermLabels: Record<string, string> = {
   avatar: "ảnh hồ sơ",
 };
 
-function detailLabel(tab: WorkspaceTab, key: string) {
-  const configuredField = tab.fields.find((field) => field.name === key);
-  if (configuredField) return configuredField.label.replace(/\s+\(JSON\)$/, "");
-  const configuredColumn = tab.columns.find((column) => column.key === key);
-  if (configuredColumn) return configuredColumn.label;
+function detailLabel(tab: WorkspaceTab, key: string, useTabConfig = true) {
+  if (useTabConfig) {
+    const configuredField = tab.fields.find((field) => field.name === key);
+    if (configuredField) return configuredField.label.replace(/\s+\(JSON\)$/, "");
+    const configuredColumn = tab.columns.find((column) => column.key === key);
+    if (configuredColumn) return configuredColumn.label;
+  }
   if (detailLabels[key]) return detailLabels[key];
   return key
     .replace(/([a-z])([A-Z])/g, "$1_$2")
@@ -469,27 +471,28 @@ function localizeDetailObject(
   value: unknown,
   tab: WorkspaceTab,
   key = "",
+  nested = false,
 ): unknown {
   if (Array.isArray(value))
-    return value.map((item) => localizeDetailObject(item, tab));
+    return value.map((item) => localizeDetailObject(item, tab, key, true));
   if (
     typeof value === "string" &&
     isJsonDetailKey(key)
   ) {
     try {
-      return localizeDetailObject(JSON.parse(value), tab, key);
+      return localizeDetailObject(JSON.parse(value), tab, key, nested);
     } catch {
       return value;
     }
   }
   if (value && typeof value === "object")
     return Object.fromEntries(
-      Object.entries(value).map(([key, item]) => [
-        detailLabel(tab, key),
-        localizeDetailObject(item, tab, key),
+      Object.entries(value).map(([entryKey, item]) => [
+        detailLabel(tab, entryKey, !nested),
+        localizeDetailObject(item, tab, entryKey, true),
       ]),
     );
-  return key ? displayCell(key, value) : value;
+  return value;
 }
 
 function displayDetailValue(tab: WorkspaceTab, key: string, value: unknown) {
