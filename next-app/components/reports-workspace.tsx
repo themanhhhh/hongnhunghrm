@@ -12,8 +12,9 @@ import {
   Printer,
   Search,
   SlidersHorizontal,
+  X,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import {
@@ -214,7 +215,7 @@ export function ReportsWorkspace() {
     },
   );
   const [search, setSearch] = useState("");
-  const [showFilters, setShowFilters] = useState(true);
+  const [showFilters, setShowFilters] = useState(false);
   const [hasRun, setHasRun] = useState(false);
   const departmentsQuery = useQuery({
     queryKey: ["report-departments"],
@@ -226,13 +227,11 @@ export function ReportsWorkspace() {
   });
   const reportMutation = useMutation({
     mutationFn: () => api.queryReport(selectedReport.id, filters),
-    onSuccess: () => setHasRun(true),
+    onSuccess: () => {
+      setHasRun(true);
+      setShowFilters(false);
+    },
   });
-  useEffect(() => {
-    reportMutation.mutate();
-    // Load the selected report immediately; the run button still applies filter changes.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedReport.id]);
   const reportData = reportMutation.data;
   const departments =
     departmentsQuery.data
@@ -247,6 +246,7 @@ export function ReportsWorkspace() {
     setSelectedReport(report);
     setFilters(filtersForReport(report.id));
     setHasRun(false);
+    setShowFilters(false);
     reportMutation.reset();
   };
 
@@ -320,12 +320,11 @@ export function ReportsWorkspace() {
           
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button
-            variant="secondary"
-            onClick={() => setShowFilters((visible) => !visible)}
-          >
-            <SlidersHorizontal size={16} /> Bộ lọc
-          </Button>
+           {hasRun && (
+             <Button variant="secondary" onClick={() => setShowFilters(true)}>
+               <SlidersHorizontal size={16} /> Bộ lọc
+             </Button>
+           )}
           <Button
             variant="secondary"
             onClick={() => window.print()}
@@ -413,19 +412,62 @@ export function ReportsWorkspace() {
                     {selectedReport.title}
                   </h2>
                 </div>
-                <Button onClick={runReport} disabled={reportMutation.isPending}>
-                  <Play size={16} />{" "}
-                  {reportMutation.isPending
-                    ? "Đang kết xuất..."
-                    : "Chạy báo cáo"}
-                </Button>
+                 {!hasRun && (
+                   <Button onClick={() => setShowFilters(true)}>
+                     <Play size={16} /> Chạy báo cáo
+                   </Button>
+                 )}
+                 {hasRun && !showFilters && (
+                   <Button onClick={() => setShowFilters(true)}>
+                     <SlidersHorizontal size={16} /> Đổi bộ lọc
+                   </Button>
+                 )}
               </div>
-              {showFilters && (
-                <div className="mt-5 grid gap-3 border-t border-slate-100 pt-5 md:grid-cols-2 xl:grid-cols-5">
-                  <label className="text-xs font-bold text-slate-600">
-                    Từ ngày
-                    <Input
-                      className="mt-1.5 h-10"
+            </CardContent>
+          </Card>
+
+          {showFilters && (
+            <div
+              className="fixed inset-0 z-50 grid place-items-center bg-slate-950/50 p-4 backdrop-blur-sm"
+              role="presentation"
+              onMouseDown={(event) => {
+                if (event.target === event.currentTarget) setShowFilters(false);
+              }}
+            >
+              <Card
+                className="max-h-[92vh] w-full max-w-4xl overflow-hidden shadow-2xl"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="report-filter-title"
+              >
+                <div className="flex items-start justify-between gap-4 border-b border-slate-100 bg-slate-50/80 p-6">
+                  <div className="flex items-start gap-3">
+                    <div className="grid size-11 shrink-0 place-items-center rounded-xl bg-teal-100 text-teal-700">
+                      <Filter size={20} />
+                    </div>
+                    <div>
+                      <h2 id="report-filter-title" className="font-display text-xl font-bold text-slate-950">
+                        Điều kiện lọc báo cáo
+                      </h2>
+                      <div className="mt-1 text-sm text-slate-500">{selectedReport.title}</div>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowFilters(false)}
+                    className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-800"
+                    aria-label="Đóng bộ lọc"
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
+                <div className="max-h-[calc(92vh-125px)] overflow-y-auto p-6 sm:p-8">
+                 
+                  <div className="grid gap-5 sm:grid-cols-2">
+                   <label className="order-1 text-sm font-bold text-slate-700">
+                     Từ ngày
+                     <Input
+                       className="mt-2 h-11"
                       type="date"
                       value={filters.startDate}
                       onChange={(event) =>
@@ -436,10 +478,10 @@ export function ReportsWorkspace() {
                       }
                     />
                   </label>
-                  <label className="text-xs font-bold text-slate-600">
-                    Vị trí
-                    <select
-                      className="mt-1.5 h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-normal outline-none focus:border-teal-500"
+                   <label className="order-4 text-sm font-bold text-slate-700">
+                     Vị trí
+                     <select
+                       className="mt-2 h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-sm font-normal outline-none transition focus:border-teal-500 focus:ring-4 focus:ring-teal-500/10"
                       value={filters.position}
                       onChange={(event) =>
                         setFilters((current) => ({
@@ -456,10 +498,10 @@ export function ReportsWorkspace() {
                       ))}
                     </select>
                   </label>
-                  <label className="text-xs font-bold text-slate-600">
-                    Đến ngày
-                    <Input
-                      className="mt-1.5 h-10"
+                   <label className="order-2 text-sm font-bold text-slate-700">
+                     Đến ngày
+                     <Input
+                       className="mt-2 h-11"
                       type="date"
                       value={filters.endDate}
                       onChange={(event) =>
@@ -470,10 +512,10 @@ export function ReportsWorkspace() {
                       }
                     />
                   </label>
-                  <label className="text-xs font-bold text-slate-600">
-                    Phòng ban
-                    <select
-                      className="mt-1.5 h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-normal outline-none focus:border-teal-500"
+                   <label className="order-3 text-sm font-bold text-slate-700">
+                     Phòng ban
+                     <select
+                       className="mt-2 h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-sm font-normal outline-none transition focus:border-teal-500 focus:ring-4 focus:ring-teal-500/10"
                       value={filters.department}
                       onChange={(event) =>
                         setFilters((current) => ({
@@ -490,10 +532,10 @@ export function ReportsWorkspace() {
                       ))}
                     </select>
                   </label>
-                  <label className="text-xs font-bold text-slate-600">
-                    Kỳ báo cáo
-                    <select
-                      className="mt-1.5 h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-normal outline-none focus:border-teal-500"
+                   <label className="order-5 text-sm font-bold text-slate-700 sm:col-span-2">
+                     Kỳ báo cáo
+                     <select
+                       className="mt-2 h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-sm font-normal outline-none transition focus:border-teal-500 focus:ring-4 focus:ring-teal-500/10"
                       value={filters.period}
                       onChange={(event) =>
                         setFilters((current) =>
@@ -508,10 +550,20 @@ export function ReportsWorkspace() {
                       <option>Tháng 08/2026</option>
                     </select>
                   </label>
+                  </div>
+                  <div className="mt-8 flex flex-col-reverse justify-end gap-3 border-t border-slate-100 pt-5 sm:flex-row">
+                    <Button size="lg" variant="secondary" onClick={() => setShowFilters(false)}>
+                      Hủy
+                    </Button>
+                    <Button size="lg" onClick={runReport} disabled={reportMutation.isPending}>
+                      <Play size={16} />{" "}
+                      {reportMutation.isPending ? "Đang kết xuất..." : "Xem báo cáo"}
+                    </Button>
+                  </div>
                 </div>
-              )}
-            </CardContent>
-          </Card>
+              </Card>
+            </div>
+          )}
 
           {reportMutation.error && (
             <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
