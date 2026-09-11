@@ -82,8 +82,7 @@ export const Sidebar = ({ currentTab, setCurrentTab, activeSubTab, setActiveSubT
                         'Tiêu chí đánh giá nhân viên',
                         'Phiếu đánh giá nhân viên',
                         'Đề xuất khen thưởng/kỷ luật',
-                        'Quyết định khen thưởng kỷ luật',
-                        'Tra cứu lịch sử'
+                        'Quyết định khen thưởng kỷ luật'
                     ]
                 }
             ]

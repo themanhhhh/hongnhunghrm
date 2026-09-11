@@ -56,7 +56,7 @@ export const moduleData = {
     title: "Khen thưởng & Kỷ luật",
     eyebrow: "PERFORMANCE & RECOGNITION",
     description: "Đánh giá minh bạch, ghi nhận đúng lúc và quản lý lịch sử quyết định tập trung.",
-    tabs: ["Tiêu chí đánh giá", "Phiếu đánh giá", "Đề xuất thưởng phạt", "Quyết định", "Tra cứu lịch sử"],
+    tabs: ["Tiêu chí đánh giá", "Phiếu đánh giá", "Đề xuất thưởng phạt", "Quyết định"],
     stats: [{ label: "Phiếu đánh giá", value: "142", meta: "Năm 2026" }, { label: "Xếp loại A/A+", value: "48", meta: "33.8% tổng số" }, { label: "Đề xuất chờ duyệt", value: "7", meta: "4 khen thưởng" }, { label: "Quyết định trong kỳ", value: "29", meta: "8.4 triệu đồng" }],
     rows: [
       ["PĐG-2026-089", "Nguyễn Thu Trang", "Phân tích nghiệp vụ", "9.2 / 10", "A+ Xuất sắc", "Đã hoàn tất"],

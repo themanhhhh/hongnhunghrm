@@ -24,7 +24,6 @@ export type WorkspaceTab = {
   columns: WorkspaceColumn[];
   fields: WorkspaceField[];
   readOnly?: boolean;
-  query?: "history";
   approve?: boolean;
 };
 
@@ -198,11 +197,6 @@ const rewardTabs: WorkspaceTab[] = [
     id: "decisions", label: "Quyết định", endpoint: "/reward-discipline", idField: "reward_discipline_id",
     columns: [{ key: "decision_no", label: "Số quyết định" }, { key: "decision_type", label: "Loại quyết định" }, { key: "employee_name", label: "Nhân viên" }, { key: "decision_date", label: "Ngày ban hành" }, { key: "amount", label: "Số tiền" }, { key: "decision_by", label: "Người ký" }, { key: "status", label: "Trạng thái" }],
     fields: [select("decision_type", "Loại quyết định", [{ value: "KHEN_THUONG", label: "Khen thưởng" }, { value: "KY_LUAT", label: "Kỷ luật" }], true), text("proposal_id", "Đề xuất đã duyệt", undefined, true), text("employee_id", "Mã nhân viên", undefined, true), number("amount", "Số tiền"), date("decision_date", "Ngày ban hành", true), date("effective_date", "Ngày hiệu lực"), text("decision_by", "Người ký"), text("attachment_url", "Tệp đính kèm"), text("reason", "Lý do", undefined, true, 2), area("content", "Nội dung quyết định", undefined, 2)],
-  },
-  {
-    id: "history", label: "Tra cứu lịch sử", endpoint: "/reward-discipline", idField: "reward_discipline_id", query: "history", readOnly: true,
-    columns: [{ key: "kind", label: "Loại hồ sơ" }, { key: "code", label: "Mã / Số" }, { key: "employee_name", label: "Nhân viên" }, { key: "score", label: "Điểm / Xếp loại" }, { key: "reason", label: "Nội dung" }, { key: "date", label: "Ngày" }],
-    fields: [],
   },
 ];
 

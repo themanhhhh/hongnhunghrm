@@ -13,7 +13,6 @@ import {
     FileCheck,
     CheckSquare,
     Layers,
-    Star,
     Eye,
     Trash2,
     FileText
@@ -33,7 +32,6 @@ export const RewardDisciplineModule = ({ activeSubTab }) => {
     // Modal states
     const [modalType, setModalType] = useState(null); // 'add_criteria' | 'add_eval' | 'add_proposal' | 'add_decision' | 'detail_eval'
     const [selectedEval, setSelectedEval] = useState(null);
-    const [selectedEmpId, setSelectedEmpId] = useState('');
     const [formData, setFormData] = useState({});
 
     // Dynamic Scale Rows in Criteria Form
@@ -89,7 +87,7 @@ export const RewardDisciplineModule = ({ activeSubTab }) => {
             } else if (activeSubTab === 'Đề xuất khen thưởng/kỷ luật') {
                 const res = await api.get('/reward-discipline/proposals');
                 if (res.success && Array.isArray(res.data)) setProposals(res.data);
-            } else if (activeSubTab === 'Quyết định khen thưởng kỷ luật' || activeSubTab === 'Danh sách quyết định' || activeSubTab === 'Tra cứu lịch sử') {
+            } else if (activeSubTab === 'Quyết định khen thưởng kỷ luật' || activeSubTab === 'Danh sách quyết định') {
                 const resR = await api.get('/reward-discipline');
                 const resE = await api.get('/reward-discipline/evaluations');
                 if (resR.success && Array.isArray(resR.data)) setRecords(resR.data);
@@ -202,20 +200,11 @@ export const RewardDisciplineModule = ({ activeSubTab }) => {
         }
     };
 
-    // Filtered lists for History Tab
     const safeRecords = Array.isArray(records) ? records : [];
     const safeEvaluations = Array.isArray(evaluations) ? evaluations : [];
     const safeProposals = Array.isArray(proposals) ? proposals : [];
     const safeEmployees = Array.isArray(employees) ? employees : [];
     const safeCriteria = Array.isArray(criteriaList) ? criteriaList : [];
-
-    const filteredRecords = selectedEmpId
-        ? safeRecords.filter((r) => r && (r.employee_id === selectedEmpId || r.emp_id === selectedEmpId))
-        : safeRecords;
-
-    const filteredEvaluations = selectedEmpId
-        ? safeEvaluations.filter((ev) => ev && ev.employee_id === selectedEmpId)
-        : safeEvaluations;
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
@@ -422,80 +411,6 @@ export const RewardDisciplineModule = ({ activeSubTab }) => {
                     ]}
                     data={safeRecords}
                 />
-            )}
-
-            {/* 5. TRA CỨU LỊCH SỬ KHEN THƯỞNG, KỶ LUẬT & ĐÁNH GIÁ */}
-            {activeSubTab === 'Tra cứu lịch sử' && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-                    <div className="card" style={{ backgroundColor: '#FFFFFF' }}>
-                        <label className="form-label" style={{ fontWeight: 700 }}>Chọn nhân viên tra cứu tổng hợp:</label>
-                        <select
-                            className="form-select"
-                            style={{ maxWidth: '450px' }}
-                            value={selectedEmpId}
-                            onChange={(e) => setSelectedEmpId(e.target.value)}
-                        >
-                            <option value="">-- Tất cả nhân viên toàn hệ thống --</option>
-                            {safeEmployees.map((e) => (
-                                <option key={e.employee_id} value={e.employee_id}>
-                                    {e.employee_code} - {e.full_name} ({e.department_name})
-                                </option>
-                            ))}
-                        </select>
-                    </div>
-
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.25rem' }}>
-                        {/* Left Box: Evaluation tickets history */}
-                        <div className="card">
-                            <h4 style={{ fontSize: '0.95rem', color: '#0F172A', marginBottom: '0.75rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                <Star size={18} color="var(--bravo-teal)" />
-                                <span>Lịch sử Phiếu Đánh giá Nhân viên ({filteredEvaluations.length})</span>
-                            </h4>
-                            {filteredEvaluations.length > 0 ? (
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                                    {filteredEvaluations.map((ev, idx) => (
-                                        <div key={idx} style={{ padding: '0.75rem', background: '#F8FAFC', borderRadius: '6px', border: '1px solid #E2E8F0', fontSize: '0.825rem' }}>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
-                                                <b>{ev.evaluation_code}</b>
-                                                <span style={{ color: 'var(--bravo-teal-dark)', fontWeight: 700 }}>{ev.grade_result} ({ev.total_score} điểm)</span>
-                                            </div>
-                                            <div>Nhân viên: <b>{ev.employee_name}</b> • Người đánh giá: {ev.evaluator_name}</div>
-                                            <div style={{ fontSize: '0.75rem', color: '#64748B', marginTop: '0.2rem' }}>
-                                                Ngày lập: {ev.evaluation_date ? new Date(ev.evaluation_date).toLocaleDateString('vi-VN') : '—'}
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            ) : (
-                                <div style={{ color: '#94A3B8', fontSize: '0.85rem', textAlign: 'center', padding: '1.5rem' }}>Chưa có phiếu đánh giá.</div>
-                            )}
-                        </div>
-
-                        {/* Right Box: Reward & Discipline Decisions history */}
-                        <div className="card">
-                            <h4 style={{ fontSize: '0.95rem', color: '#0F172A', marginBottom: '0.75rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                <Award size={18} color="#059669" />
-                                <span>Lịch sử Quyết định Khen thưởng / Kỷ luật ({filteredRecords.length})</span>
-                            </h4>
-                            {filteredRecords.length > 0 ? (
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                                    {filteredRecords.map((rd, idx) => (
-                                        <div key={idx} style={{ padding: '0.75rem', background: '#F8FAFC', borderRadius: '6px', border: '1px solid #E2E8F0', fontSize: '0.825rem' }}>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
-                                                <b>{rd.decision_no || rd.decision_number}</b>
-                                                <StatusChip status={rd.decision_type} />
-                                            </div>
-                                            <div>Nhân viên: <b>{rd.employee_name}</b></div>
-                                            <div style={{ color: '#0F172A', fontWeight: 600, marginTop: '0.2rem' }}>{rd.reason}</div>
-                                        </div>
-                                    ))}
-                                </div>
-                            ) : (
-                                <div style={{ color: '#94A3B8', fontSize: '0.85rem', textAlign: 'center', padding: '1.5rem' }}>Chưa có lịch sử quyết định.</div>
-                            )}
-                        </div>
-                    </div>
-                </div>
             )}
 
             {/* ---------------------------------------------------- */}

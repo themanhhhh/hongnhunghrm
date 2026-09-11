@@ -132,7 +132,6 @@ const workspaceTitles: Record<WorkspaceName, Record<string, string>> = {
     evaluations: "Quản lý phiếu đánh giá",
     proposals: "Quản lý đề xuất thưởng phạt",
     decisions: "Quản lý quyết định khen thưởng, kỷ luật",
-    history: "Tra cứu lịch sử đánh giá và ghi nhận",
   },
 };
 
@@ -6601,7 +6600,6 @@ function OperationalWorkspace({
   );
   const [popup, setPopup] = useState<PopupState | null>(null);
   const [dismissedQueryError, setDismissedQueryError] = useState<unknown>(null);
-  const [historyEmployeeId, setHistoryEmployeeId] = useState("");
   const [showFilters, setShowFilters] = useState(false);
   const [statusFilter, setStatusFilter] = useState("");
   const [departmentFilter, setDepartmentFilter] = useState("");
@@ -6646,39 +6644,6 @@ function OperationalWorkspace({
     queryKey: ["workspace", name, tab.id],
     enabled: Boolean(session),
     queryFn: async () => {
-      if (tab.query === "history") {
-        const [records, evaluations, proposals] = await Promise.all([
-          api.list("/reward-discipline", { resource }),
-          api.list("/reward-discipline/evaluations", { resource }),
-          api.list("/reward-discipline/proposals", { resource }),
-        ]);
-        return [
-          ...evaluations.map((item) => ({
-            ...item,
-            kind: "Đánh giá",
-            code: item.evaluation_code,
-            score: `${item.total_score ?? 0} / 10 - ${item.grade_result ?? ""}`,
-            reason: item.description,
-            date: item.evaluation_date,
-          })),
-          ...records.map((item) => ({
-            ...item,
-            kind: item.decision_type === "KY_LUAT" ? "Kỷ luật" : "Khen thưởng",
-            code: item.decision_no,
-            score: "-",
-            reason: item.reason ?? item.content,
-            date: item.decision_date,
-          })),
-          ...proposals.map((item) => ({
-            ...item,
-            kind: "Đề xuất",
-            code: item.proposal_code,
-            score: item.proposed_amount ?? 0,
-            reason: item.reason ?? item.content,
-            date: item.proposal_date ?? item.created_date,
-          })),
-        ] as Row[];
-      }
       const endpoint =
         name === "people" &&
         tab.id === "employees" &&
@@ -7055,9 +7020,6 @@ function OperationalWorkspace({
       !isProposalTab || !proposalDateTo || proposalDate <= proposalDateTo;
     return (
       rowText.includes(search.toLowerCase()) &&
-      (!historyEmployeeId ||
-        tab.id !== "history" ||
-        String(row.employee_id) === historyEmployeeId) &&
       (!statusFilter || String(row.status ?? "") === statusFilter) &&
       departmentMatches &&
       positionMatches &&
@@ -8199,27 +8161,6 @@ function OperationalWorkspace({
                   }}
                 />
               </div>
-              {tab.id === "history" && (
-                <select
-                  className="h-10 max-w-xs rounded-xl border border-slate-200 bg-white px-3 text-xs text-slate-600"
-                  value={historyEmployeeId}
-                  onChange={(event) => {
-                    setHistoryEmployeeId(event.target.value);
-                    setPage(1);
-                  }}
-                >
-                  <option value="">Tất cả nhân viên</option>
-                  {lookupQuery.data?.employees.map((employee) => (
-                    <option
-                      key={String(employee.employee_id)}
-                      value={String(employee.employee_id)}
-                    >
-                      {String(employee.employee_code ?? "")} -{" "}
-                      {String(employee.full_name ?? "")}
-                    </option>
-                  ))}
-                </select>
-              )}
               <Button
                 type="button"
                 variant={showFilters ? "soft" : "secondary"}
