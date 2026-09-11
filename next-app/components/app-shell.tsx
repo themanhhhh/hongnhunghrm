@@ -107,12 +107,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     session?.name
       .split(/\s+/)
       .filter(Boolean)
-      .slice(-2)
-      .map((part) => part[0])
-      .join("")
-      .toUpperCase() ?? "HR";
+       .slice(-2)
+       .map((part) => part[0])
+       .join("")
+       .toUpperCase() ?? "HR";
   useEffect(() => {
-    if (!session) router.replace("/login");
+    if (session) return;
+    const redirectTimer = window.setTimeout(() => {
+      if (!getStoredSession()) router.replace("/login");
+    }, 0);
+    return () => window.clearTimeout(redirectTimer);
   }, [router, session]);
   const visibleNav = navItems.filter((item) =>
     canAccess(session, item.resource),

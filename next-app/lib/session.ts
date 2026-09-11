@@ -57,7 +57,8 @@ export function getStoredSession(): Session | null {
   try {
     cachedSession = JSON.parse(raw) as Session;
   } catch {
-    cachedSession = null;
+    cachedSession = getUserCookie() as Session | null;
+    if (cachedSession) window.localStorage.setItem("bravo_next_session", JSON.stringify(cachedSession));
   }
   return cachedSession;
 }

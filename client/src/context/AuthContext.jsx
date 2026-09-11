@@ -10,17 +10,19 @@ export const AuthProvider = ({ children }) => {
     // làm Administrator, màn hình Login không bao giờ hiện ra. Đã bỏ để phải
     // đăng nhập thật (qua /api/auth/login) mới có quyền truy cập.
     const [user, setUser] = useState(() => {
-        try {
-            const savedUser = localStorage.getItem('bravo_hrm_user');
-            if (savedUser && savedUser !== 'undefined') return JSON.parse(savedUser);
-
-            const cookieUser = getUserCookie();
-            if (!cookieUser) return null;
-            localStorage.setItem('bravo_hrm_user', JSON.stringify(cookieUser));
-            return cookieUser;
-        } catch (e) {
-            return null;
+        const savedUser = localStorage.getItem('bravo_hrm_user');
+        if (savedUser && savedUser !== 'undefined') {
+            try {
+                return JSON.parse(savedUser);
+            } catch {
+                // Fall through to the cookie when an older session is corrupted.
+            }
         }
+
+        const cookieUser = getUserCookie();
+        if (!cookieUser) return null;
+        localStorage.setItem('bravo_hrm_user', JSON.stringify(cookieUser));
+        return cookieUser;
     });
 
     const [loading, setLoading] = useState(false);
