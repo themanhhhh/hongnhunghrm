@@ -29,6 +29,120 @@ import {
     Plus
 } from 'lucide-react';
 
+const EmployeeConversionModal = ({ data, departments, positions, onChange, onClose, onSubmit, isSubmitting }) => {
+    const [activeStep, setActiveStep] = useState('employee');
+    if (!data) return null;
+
+    const employee = data.employee;
+    const contract = data.contract;
+    const update = (section, field, value) => onChange({
+        ...data,
+        [section]: { ...data[section], [field]: value }
+    });
+    const positionOptions = positions.filter((item) => !employee.department_id || String(item.department_id || '') === String(employee.department_id));
+    const input = (section, field, label, type = 'text', required = false, disabled = false, full = false) => (
+        <div className="form-group" style={full ? { gridColumn: '1 / -1' } : undefined}>
+            <label className="form-label">{label}{required ? ' *' : ''}</label>
+            {type === 'textarea' ? (
+                <textarea className="form-textarea" rows={3} value={data[section][field] || ''} required={required} disabled={disabled} onChange={(event) => update(section, field, event.target.value)} />
+            ) : (
+                <input type={type} className="form-input" value={data[section][field] || ''} required={required} disabled={disabled} onChange={(event) => update(section, field, event.target.value)} />
+            )}
+        </div>
+    );
+
+    return (
+        <Modal
+            isOpen={true}
+            onClose={isSubmitting ? () => {} : onClose}
+            title="Tạo hồ sơ nhân viên và hợp đồng"
+            maxWidth="1180px"
+            footer={(
+                <>
+                    <button className="btn btn-secondary" onClick={onClose} disabled={isSubmitting}>Hủy</button>
+                    {activeStep === 'contract' && <button className="btn btn-secondary" onClick={() => setActiveStep('employee')} disabled={isSubmitting}>Quay lại hồ sơ</button>}
+                    {activeStep === 'employee' ? (
+                        <button className="btn btn-primary" onClick={() => setActiveStep('contract')}>Tiếp tục nhập hợp đồng</button>
+                    ) : (
+                        <button className="btn btn-primary" onClick={onSubmit} disabled={isSubmitting}>{isSubmitting ? 'Đang tạo...' : 'Tạo hồ sơ & hợp đồng'}</button>
+                    )}
+                </>
+            )}
+        >
+            <div style={{ maxHeight: 'calc(90vh - 150px)', overflowY: 'auto' }}>
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem', padding: '0.9rem 1rem', marginBottom: '1.25rem', backgroundColor: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: '8px', color: '#92400E', fontSize: '0.875rem', lineHeight: 1.6 }}>
+                    <span>⚠️</span>
+                    <span>Kiểm tra và bổ sung thông tin. Hệ thống chỉ tạo nhân viên và hợp đồng sau khi bạn bấm <b>“Tạo hồ sơ & hợp đồng”</b>.</span>
+                </div>
+                <div style={{ display: 'flex', gap: '0.5rem', borderBottom: '1px solid #E2E8F0', marginBottom: '1.25rem' }}>
+                    <button type="button" onClick={() => setActiveStep('employee')} style={{ padding: '0.75rem 1rem', border: 'none', borderBottom: activeStep === 'employee' ? '2px solid var(--bravo-teal)' : '2px solid transparent', background: 'transparent', color: activeStep === 'employee' ? 'var(--bravo-teal-dark)' : '#64748B', fontWeight: 700, cursor: 'pointer' }}>1. Hồ sơ nhân viên</button>
+                    <button type="button" onClick={() => setActiveStep('contract')} style={{ padding: '0.75rem 1rem', border: 'none', borderBottom: activeStep === 'contract' ? '2px solid var(--bravo-teal)' : '2px solid transparent', background: 'transparent', color: activeStep === 'contract' ? 'var(--bravo-teal-dark)' : '#64748B', fontWeight: 700, cursor: 'pointer' }}>2. Hợp đồng lao động</button>
+                </div>
+
+                {activeStep === 'employee' ? (
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '0.25rem 1rem' }}>
+                        {input('employee', 'full_name', 'Họ và tên', 'text', true)}
+                        {input('employee', 'short_name', 'Tên viết tắt')}
+                        <div className="form-group"><label className="form-label">Giới tính</label><select className="form-select" value={employee.gender || 'Nam'} onChange={(event) => update('employee', 'gender', event.target.value)}><option>Nam</option><option>Nữ</option></select></div>
+                        {input('employee', 'date_of_birth', 'Ngày sinh', 'date')}
+                        {input('employee', 'citizen_id', 'Số CCCD')}
+                        {input('employee', 'phone', 'Số điện thoại', 'tel', true)}
+                        {input('employee', 'email', 'Email công ty', 'email', true)}
+                        {input('employee', 'personal_email', 'Email cá nhân', 'email')}
+                        {input('employee', 'company_email', 'Email cơ quan', 'email')}
+                        {input('employee', 'address', 'Địa chỉ hiện tại', 'text', false, false, true)}
+                        <div className="form-group"><label className="form-label">Phòng ban *</label><select className="form-select" value={employee.department_id || ''} required onChange={(event) => update('employee', 'department_id', event.target.value)}><option value="">-- Chọn phòng ban --</option>{departments.map((item) => <option key={item.department_id || item.id} value={item.department_id || item.id}>{item.department_code || item.department_id} - {item.department_name}</option>)}</select></div>
+                        <div className="form-group"><label className="form-label">Vị trí *</label><select className="form-select" value={employee.position_id || ''} required onChange={(event) => update('employee', 'position_id', event.target.value)}><option value="">-- Chọn vị trí --</option>{positionOptions.map((item) => <option key={item.position_id || item.id} value={item.position_id || item.id}>{item.position_code || item.position_id} - {item.position_name}</option>)}</select></div>
+                        <div className="form-group"><label className="form-label">Cấp bậc</label><select className="form-select" value={employee.level || 'Nhân viên'} onChange={(event) => update('employee', 'level', event.target.value)}><option>Nhân viên</option><option>Trưởng nhóm</option><option>Trưởng phòng</option><option>Ban Giám Đốc</option></select></div>
+                        {input('employee', 'join_date', 'Ngày vào làm', 'date', true)}
+                        {input('employee', 'official_date', 'Ngày chính thức', 'date')}
+                        <div className="form-group"><label className="form-label">Trạng thái</label><select className="form-select" value={employee.employment_status || 'WORKING'} onChange={(event) => update('employee', 'employment_status', event.target.value)}><option value="WORKING">Đang làm việc</option><option value="RESIGNED">Nghỉ việc</option></select></div>
+                        {input('employee', 'nationality', 'Quốc tịch')}
+                        {input('employee', 'ethnicity', 'Dân tộc')}
+                        {input('employee', 'religion', 'Tôn giáo')}
+                        {input('employee', 'marital_status', 'Tình trạng hôn nhân')}
+                        {input('employee', 'emergency_contact_name', 'Người liên hệ khẩn cấp')}
+                        {input('employee', 'emergency_contact_relationship', 'Quan hệ')}
+                        {input('employee', 'emergency_contact_phone', 'SĐT liên hệ khẩn cấp')}
+                        {input('employee', 'note', 'Ghi chú', 'textarea', false, false, true)}
+                    </div>
+                ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                        <section style={{ backgroundColor: '#F8FAFC', padding: '1rem', border: '1px solid #E2E8F0', borderRadius: '8px' }}>
+                            <h4 style={{ margin: '0 0 0.85rem', color: '#0F172A', fontSize: '0.95rem' }}>Thông tin chung</h4>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '0.25rem 1rem' }}>
+                                {input('contract', 'contract_no', 'Số hợp đồng')}
+                                {input('contract', 'contract_date', 'Ngày hợp đồng', 'date', true)}
+                                {input('contract', 'sign_date', 'Ngày ký', 'date', true)}
+                                {input('contract', 'employee_position', 'Vị trí nhân viên', 'text', false, true)}
+                                <div className="form-group"><label className="form-label">Loại hợp đồng *</label><select className="form-select" value={contract.contract_type || ''} required onChange={(event) => update('contract', 'contract_type', event.target.value)}><option value="">-- Chọn loại hợp đồng --</option><option>Hợp đồng thử việc</option><option>Hợp đồng lao động xác định thời hạn</option><option>Hợp đồng lao động không xác định thời hạn</option></select></div>
+                                {input('contract', 'start_date', 'Ngày bắt đầu', 'date', true)}
+                                {input('contract', 'end_date', 'Ngày kết thúc', 'date')}
+                                {input('contract', 'signer_name', 'Người ký')}
+                                {input('contract', 'signer_position', 'Chức vụ người ký')}
+                            </div>
+                        </section>
+                        <section style={{ backgroundColor: '#F8FAFC', padding: '1rem', border: '1px solid #E2E8F0', borderRadius: '8px' }}>
+                            <h4 style={{ margin: '0 0 0.85rem', color: '#0F172A', fontSize: '0.95rem' }}>Thông tin thử việc và lương</h4>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '0.25rem 1rem' }}>
+                                <div className="form-group"><label className="form-label">Có thử việc</label><select className="form-select" value={contract.has_probation || '0'} onChange={(event) => update('contract', 'has_probation', event.target.value)}><option value="1">Có</option><option value="0">Không</option></select></div>
+                                {input('contract', 'probation_from_date', 'Thử việc từ ngày', 'date', contract.has_probation === '1')}
+                                {input('contract', 'probation_to_date', 'Thử việc đến ngày', 'date', contract.has_probation === '1')}
+                                {input('contract', 'probation_salary_rate', 'Tỷ lệ lương thử việc (%)', 'number', contract.has_probation === '1')}
+                                {input('contract', 'base_salary', 'Lương thử việc', 'number', true)}
+                                {input('contract', 'social_insurance_salary', 'Lương đóng bảo hiểm', 'number', true)}
+                                {input('contract', 'salary', 'Lương chính thức', 'number', true)}
+                                {input('contract', 'job_description', 'Mô tả công việc', 'textarea', false, false, true)}
+                                {input('contract', 'note', 'Ghi chú hợp đồng', 'textarea', false, false, true)}
+                            </div>
+                        </section>
+                    </div>
+                )}
+            </div>
+        </Modal>
+    );
+};
+
 export const RecruitmentModule = ({ activeSubTab }) => {
     const { user, hasPermission } = useAuth();
     const { addToast } = useNotification();
@@ -57,6 +171,8 @@ export const RecruitmentModule = ({ activeSubTab }) => {
     const [activeIevTab, setActiveIevTab] = useState('general');
     const [selectedCandidate, setSelectedCandidate] = useState(null);
     const [formData, setFormData] = useState({});
+    const [conversionFormData, setConversionFormData] = useState(null);
+    const [isConverting, setIsConverting] = useState(false);
 
     // --- States for Định biên nhân sự (Headcount Quota Management) ---
     const [quotas, setQuotas] = useState([]);
@@ -734,7 +850,8 @@ export const RecruitmentModule = ({ activeSubTab }) => {
 
     const formatDateForInput = (ts) => {
         if (!ts) return '';
-        const date = typeof ts === 'number' ? new Date(ts) : new Date(ts);
+        const text = String(ts).trim();
+        const date = typeof ts === 'number' || /^\d+$/.test(text) ? new Date(Number(ts)) : new Date(ts);
         if (isNaN(date.getTime())) return '';
         return date.toISOString().split('T')[0];
     };
@@ -1901,7 +2018,7 @@ export const RecruitmentModule = ({ activeSubTab }) => {
         );
     };
 
-    const handleConvertToEmployee = async (candId) => {
+    const handleConvertToEmployee = (candId) => {
         if (!hasPermission('CREATE', 'EMPLOYEE')) {
             addToast('Tài khoản của bạn không có quyền chuyển ứng viên thành nhân viên chính thức!', 'error');
             return;
@@ -1911,14 +2028,93 @@ export const RecruitmentModule = ({ activeSubTab }) => {
             addToast('Chỉ ứng viên có quyết định tuyển dụng kết quả Đạt mới được chuyển thành nhân viên.', 'error');
             return;
         }
-        if (!window.confirm(`Bạn có chắc chắn muốn chuyển ứng viên ${candidate?.full_name || ''} thành nhân viên và tạo hợp đồng thử việc không?`)) return;
-        const res = await api.post('/recruitment/convert-to-employee', { candidate_id: candId });
-        if (res.success) {
-            addToast(res.message, 'success', '🎉 Tuyển dụng thành công!');
-            setModalType(null);
-            fetchData();
-        } else {
-            addToast(res.message, 'error');
+        const offer = offers.find((item) => String(item.candidate_id || '') === String(candId));
+        const position = positions.find((item) => String(item.position_id || item.id || '') === String(candidate.position_id || ''));
+        const joinDate = formatDateForInput(offer?.expected_start_date);
+        const today = new Date().toISOString().split('T')[0];
+        const contractStartDate = joinDate || today;
+        const probationEndDate = new Date(`${contractStartDate}T12:00:00`);
+        probationEndDate.setMonth(probationEndDate.getMonth() + 2);
+        const officialSalary = Number(offer?.official_salary || offer?.salary_offer || 0);
+        const probationSalary = Number(offer?.probation_salary || (officialSalary ? Math.round(officialSalary * 0.85) : 0));
+        setConversionFormData({
+            candidate_id: candId,
+            candidate,
+            employee: {
+                full_name: candidate.full_name || '',
+                short_name: '',
+                gender: candidate.gender || 'Nam',
+                date_of_birth: formatDateForInput(candidate.date_of_birth),
+                citizen_id: candidate.citizen_id || '',
+                phone: candidate.phone || '',
+                email: candidate.email || '',
+                personal_email: candidate.email || '',
+                company_email: candidate.email || '',
+                address: candidate.address || '',
+                department_id: candidate.department_id || position?.department_id || '',
+                position_id: candidate.position_id || '',
+                level: 'Nhân viên',
+                join_date: joinDate,
+                official_date: '',
+                employment_status: 'WORKING',
+                nationality: 'Việt Nam',
+                ethnicity: 'Kinh',
+                religion: 'Không',
+                marital_status: 'Độc thân',
+                emergency_contact_name: '',
+                emergency_contact_relationship: '',
+                emergency_contact_phone: '',
+                note: ''
+            },
+            contract: {
+                contract_no: '',
+                contract_date: today,
+                sign_date: today,
+                signer_name: user?.fullName || user?.full_name || '',
+                signer_position: '',
+                contract_type: 'Hợp đồng thử việc',
+                employee_position: candidate.apply_position_name || position?.position_name || '',
+                start_date: contractStartDate,
+                end_date: probationEndDate.toISOString().split('T')[0],
+                has_probation: '1',
+                probation_from_date: contractStartDate,
+                probation_to_date: probationEndDate.toISOString().split('T')[0],
+                probation_salary_rate: officialSalary ? String(Number(((probationSalary / officialSalary) * 100).toFixed(2))) : '85',
+                base_salary: probationSalary || '',
+                social_insurance_salary: officialSalary || '',
+                salary: officialSalary || '',
+                job_description: '',
+                note: 'Tạo trong quy trình tiếp nhận nhân viên.'
+            }
+        });
+    };
+
+    const handleSubmitConversion = async () => {
+        if (!conversionFormData) return;
+        const { employee, contract } = conversionFormData;
+        const required = [employee.full_name, employee.department_id, employee.position_id, employee.join_date, contract.contract_date, contract.sign_date, contract.contract_type, contract.start_date, contract.base_salary, contract.social_insurance_salary, contract.salary];
+        if (required.some((value) => !String(value || '').trim()) || (contract.has_probation === '1' && (!contract.probation_from_date || !contract.probation_to_date || !contract.probation_salary_rate))) {
+            addToast('Vui lòng hoàn thiện các trường bắt buộc trong hồ sơ nhân viên và hợp đồng.', 'error');
+            return;
+        }
+        setIsConverting(true);
+        try {
+            const res = await api.post('/recruitment/convert-to-employee', {
+                candidate_id: conversionFormData.candidate_id,
+                employee,
+                contract
+            });
+            if (res.success) {
+                addToast(res.message, 'success', '🎉 Tuyển dụng thành công!');
+                setConversionFormData(null);
+                fetchData();
+            } else {
+                addToast(res.message, 'error');
+            }
+        } catch (error) {
+            addToast(error?.message || 'Đã xảy ra lỗi khi tạo hồ sơ nhân viên.', 'error');
+        } finally {
+            setIsConverting(false);
         }
     };
 
@@ -5392,6 +5588,18 @@ export const RecruitmentModule = ({ activeSubTab }) => {
                         <div style={{ gridColumn: 'span 2', padding: '0.65rem 0.75rem', borderRadius: '6px', backgroundColor: '#F8FAFC', border: '1px solid #E2E8F0' }}><div style={{ color: '#64748B', fontSize: '0.72rem', fontWeight: 700 }}>Địa chỉ</div><div style={{ marginTop: '0.2rem', color: '#0F172A', fontWeight: 600 }}>{selectedCandidate.address || '—'}</div></div>
                     </div>
                 </Modal>
+            )}
+
+            {conversionFormData && (
+                <EmployeeConversionModal
+                    data={conversionFormData}
+                    departments={departments}
+                    positions={positions}
+                    onChange={setConversionFormData}
+                    onClose={() => setConversionFormData(null)}
+                    onSubmit={handleSubmitConversion}
+                    isSubmitting={isConverting}
+                />
             )}
 
             {/* MODAL XÁC NHẬN XÓA PHIẾU ĐỊNH BIÊN */}

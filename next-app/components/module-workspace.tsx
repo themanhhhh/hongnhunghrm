@@ -7,6 +7,7 @@ import {
   Download,
   Eye,
   Filter,
+  FileText,
   ImageUp,
   Pencil,
   Plus,
@@ -63,6 +64,12 @@ type PopupState = {
   confirmLabel?: string;
   cancelLabel?: string;
   resolve?: (confirmed: boolean) => void;
+};
+type EmployeeConversionState = {
+  row: Row;
+  employee: Record<string, string>;
+  contract: Record<string, string>;
+  avatarFile: File | null;
 };
 
 const editableTabs = new Set([
@@ -439,6 +446,25 @@ function detailLabel(tab: WorkspaceTab, key: string) {
     .replace(/^./, (value) => value.toUpperCase());
 }
 
+function isJsonDetailKey(key: string) {
+  return (
+    key.endsWith("_json") ||
+    key.endsWith("_details") ||
+    [
+      "details",
+      "detail_items",
+      "script",
+      "criteria",
+      "offer",
+      "appendices",
+      "attachments",
+      "candidates",
+      "council",
+      "tests",
+    ].includes(key)
+  );
+}
+
 function localizeDetailObject(
   value: unknown,
   tab: WorkspaceTab,
@@ -448,7 +474,7 @@ function localizeDetailObject(
     return value.map((item) => localizeDetailObject(item, tab));
   if (
     typeof value === "string" &&
-    (key.endsWith("_json") || key.endsWith("_details"))
+    isJsonDetailKey(key)
   ) {
     try {
       return localizeDetailObject(JSON.parse(value), tab, key);
@@ -467,9 +493,23 @@ function localizeDetailObject(
 }
 
 function displayDetailValue(tab: WorkspaceTab, key: string, value: unknown) {
-  if (value && typeof value === "object")
-    return JSON.stringify(localizeDetailObject(value, tab), null, 2);
+  if (value === null || value === undefined || value === "") return displayCell(key, value);
+  if (isStructuredDetailValue(key, value)) {
+    const structuredValue =
+      typeof value === "string" ? JSON.parse(value) : value;
+    return JSON.stringify(localizeDetailObject(structuredValue, tab, key), null, 2);
+  }
   return displayCell(key, value);
+}
+
+function isStructuredDetailValue(key: string, value: unknown) {
+  if (value && typeof value === "object") return true;
+  if (!isJsonDetailKey(key) || typeof value !== "string") return false;
+  try {
+    return Boolean(JSON.parse(value));
+  } catch {
+    return false;
+  }
 }
 
 function displayValue(value: unknown) {
@@ -3946,6 +3986,7 @@ function EmployeeForm({
   avatarUrl,
   avatarFile,
   onAvatarChange,
+  candidateLocked = false,
 }: {
   values: Record<string, string>;
   setValues: (
@@ -3955,6 +3996,7 @@ function EmployeeForm({
   avatarUrl?: string;
   avatarFile: File | null;
   onAvatarChange: (file: File | null) => void;
+  candidateLocked?: boolean;
 }) {
   const [activeTab, setActiveTab] = useState<
     "general" | "contact" | "onboarding" | "additional"
@@ -4079,8 +4121,9 @@ function EmployeeForm({
                 Mã ứng viên
               </label>
               <select
-                className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm"
+                className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500"
                 value={values.candidate_id ?? ""}
+                disabled={candidateLocked}
                 onChange={(event) => selectCandidate(event.target.value)}
               >
                 <option value="">-- Chọn ứng viên --</option>
@@ -4270,6 +4313,255 @@ function EmployeeForm({
           </section>
         </div>
       )}
+    </div>
+  );
+}
+
+type ConversionLookups = EmployeeLookups & ContractLookups;
+
+function dateAfterMonths(value: string, months: number) {
+  if (!value) return "";
+  const date = new Date(`${value}T12:00:00`);
+  if (Number.isNaN(date.getTime())) return "";
+  date.setMonth(date.getMonth() + months);
+  return formatDateValue(date.getTime());
+}
+
+function EmployeeConversionForm({
+  candidate,
+  employeeValues,
+  setEmployeeValues,
+  contractValues,
+  setContractValues,
+  lookups,
+  avatarFile,
+  onAvatarChange,
+  onClose,
+  onSubmit,
+  isPending,
+}: {
+  candidate: Row;
+  employeeValues: Record<string, string>;
+  setEmployeeValues: (
+    updater: (current: Record<string, string>) => Record<string, string>,
+  ) => void;
+  contractValues: Record<string, string>;
+  setContractValues: (
+    updater: (current: Record<string, string>) => Record<string, string>,
+  ) => void;
+  lookups: ConversionLookups;
+  avatarFile: File | null;
+  onAvatarChange: (file: File | null) => void;
+  onClose: () => void;
+  onSubmit: () => void;
+  isPending: boolean;
+}) {
+  const [activeSection, setActiveSection] = useState<"profile" | "contract">("profile");
+  const setContract = (name: string, value: string) =>
+    setContractValues((current) => ({ ...current, [name]: value }));
+  const contractTypeOptions = Array.from(
+    new Map(
+      [
+        { value: "Hợp đồng thử việc", label: "Hợp đồng thử việc" },
+        ...lookups.contractTypes.map((item) => ({
+          value: String(item.contract_type_code ?? item.contract_type_name ?? ""),
+          label: `${String(item.contract_type_code ?? "")} - ${String(item.contract_type_name ?? "")}`,
+        })),
+      ].map((option) => [option.value, option]),
+    ).values(),
+  );
+  const field = (
+    name: string,
+    label: string,
+    type: WorkspaceField["type"] = "text",
+    required = false,
+    disabled = false,
+  ) => (
+    <WorkspaceInput
+      field={{ name, label, type, required, disabled }}
+      tabId="contracts"
+      value={contractValues[name] ?? ""}
+      onChange={(value) => setContract(name, value)}
+    />
+  );
+  const selectedCandidateName = String(candidate.full_name ?? employeeValues.full_name ?? "Ứng viên");
+
+  return (
+    <div
+      className="fixed inset-0 z-50 grid place-items-center bg-slate-950/60 p-3 backdrop-blur-sm sm:p-5"
+      role="presentation"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget && !isPending) onClose();
+      }}
+    >
+      <Card
+        className="flex max-h-[94vh] w-full max-w-6xl flex-col overflow-hidden shadow-2xl"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="employee-conversion-title"
+      >
+        <div className="flex items-start justify-between gap-4 border-b border-slate-100 bg-slate-50/80 p-5 sm:p-6">
+          <div className="flex min-w-0 items-start gap-3">
+            <div className="grid size-11 shrink-0 place-items-center rounded-xl bg-teal-100 text-teal-700">
+              <UserRoundCheck size={21} />
+            </div>
+            <div className="min-w-0">
+              <h2 id="employee-conversion-title" className="font-display text-lg font-bold text-slate-950 sm:text-xl">
+                Tạo hồ sơ nhân viên và hợp đồng
+              </h2>
+              <p className="mt-1 truncate text-sm text-slate-500">
+                Ứng viên: <b className="text-slate-700">{selectedCandidateName}</b>
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={isPending}
+            className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-800 disabled:opacity-50"
+            aria-label="Đóng màn hình chuyển đổi"
+          >
+            <X size={19} />
+          </button>
+        </div>
+
+        <form
+          className="flex min-h-0 flex-1 flex-col"
+          onSubmit={(event) => {
+            event.preventDefault();
+            onSubmit();
+          }}
+        >
+          <div className="min-h-0 flex-1 overflow-y-auto p-5 sm:p-7">
+            <div className="mb-6 grid gap-3 rounded-xl border border-amber-100 bg-amber-50 p-4 text-sm leading-6 text-amber-900 sm:grid-cols-[auto_1fr]">
+              <span className="font-bold">Lưu ý:</span>
+              <span>Kiểm tra và bổ sung đầy đủ thông tin. Dữ liệu chỉ được tạo thành nhân viên sau khi bấm “Tạo hồ sơ & hợp đồng”.</span>
+            </div>
+            <div className="mb-6 flex flex-wrap gap-2 border-b border-slate-200">
+              <button
+                type="button"
+                onClick={() => setActiveSection("profile")}
+                className={`rounded-t-lg border-b-2 px-4 py-3 text-sm font-bold ${activeSection === "profile" ? "border-teal-600 text-teal-700" : "border-transparent text-slate-400 hover:text-slate-700"}`}
+              >
+                1. Hồ sơ nhân viên
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveSection("contract")}
+                className={`rounded-t-lg border-b-2 px-4 py-3 text-sm font-bold ${activeSection === "contract" ? "border-teal-600 text-teal-700" : "border-transparent text-slate-400 hover:text-slate-700"}`}
+              >
+                2. Hợp đồng lao động
+              </button>
+            </div>
+
+            {activeSection === "profile" ? (
+              <EmployeeForm
+                values={employeeValues}
+                setValues={setEmployeeValues}
+                lookups={lookups}
+                avatarFile={avatarFile}
+                onAvatarChange={onAvatarChange}
+                candidateLocked
+              />
+            ) : (
+              <div className="space-y-6">
+                <section>
+                  <h3 className="mb-4 flex items-center gap-2 font-display text-base font-bold text-slate-900">
+                    <FileText size={17} className="text-teal-700" /> Thông tin chung
+                  </h3>
+                  <div className="grid gap-4 md:grid-cols-2">
+                    {field("contract_no", "Số hợp đồng")}
+                    {field("contract_date", "Ngày hợp đồng", "date", true)}
+                    {field("sign_date", "Ngày ký", "date", true)}
+                    {field("employee_position", "Vị trí nhân viên", "text", false, true)}
+                    <div>
+                      <label className="mb-1.5 block text-xs font-bold text-slate-600">Loại hợp đồng *</label>
+                      <select
+                        required
+                        value={contractValues.contract_type ?? ""}
+                        onChange={(event) => setContract("contract_type", event.target.value)}
+                        className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-100"
+                      >
+                        <option value="">-- Chọn loại hợp đồng --</option>
+                        {contractTypeOptions.map((option) => (
+                          <option key={option.value} value={option.value}>{option.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                    {field("start_date", "Ngày bắt đầu", "date", true)}
+                    {field("end_date", "Ngày kết thúc")}
+                    <div>
+                      <label className="mb-1.5 block text-xs font-bold text-slate-600">Người ký</label>
+                      <select
+                        value={contractValues.signer_id ?? ""}
+                        onChange={(event) => {
+                          const signer = lookups.employees.find((item) => String(item.employee_id ?? "") === event.target.value);
+                          setContractValues((current) => ({
+                            ...current,
+                            signer_id: event.target.value,
+                            signer_name: String(signer?.full_name ?? current.signer_name ?? ""),
+                            signer_position: String(signer?.position_name ?? current.signer_position ?? ""),
+                          }));
+                        }}
+                        className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-100"
+                      >
+                        <option value="">-- Chọn người ký --</option>
+                        {lookups.employees.map((item) => (
+                          <option key={String(item.employee_id)} value={String(item.employee_id)}>
+                            {String(item.employee_code ?? item.employee_id)} - {String(item.full_name ?? "")}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    {field("signer_name", "Tên người ký")}
+                    {field("signer_position", "Chức vụ người ký")}
+                  </div>
+                </section>
+                <section>
+                  <h3 className="mb-4 font-display text-base font-bold text-slate-900">Thông tin thử việc và lương</h3>
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div>
+                      <label className="mb-1.5 block text-xs font-bold text-slate-600">Có thử việc</label>
+                      <select
+                        value={contractValues.has_probation ?? "0"}
+                        onChange={(event) => setContract("has_probation", event.target.value)}
+                        className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-100"
+                      >
+                        <option value="1">Có</option>
+                        <option value="0">Không</option>
+                      </select>
+                    </div>
+                    {field("probation_salary_rate", "Tỷ lệ lương thử việc (%)", "number", contractValues.has_probation === "1")}
+                    {contractValues.has_probation === "1" && field("probation_from_date", "Thử việc từ ngày", "date", true)}
+                    {contractValues.has_probation === "1" && field("probation_to_date", "Thử việc đến ngày", "date", true)}
+                    {field("base_salary", "Lương thử việc", "number", true)}
+                    {field("social_insurance_salary", "Lương đóng bảo hiểm", "number", true)}
+                    {field("salary", "Lương chính thức", "number", true)}
+                    <p className="text-xs leading-5 text-slate-400 md:col-span-2">Nhập số tiền VND, không nhập số lẻ.</p>
+                  </div>
+                </section>
+                <section className="grid gap-4 md:grid-cols-2">
+                  {field("job_description", "Mô tả công việc", "textarea")}
+                  {field("note", "Ghi chú", "textarea")}
+                </section>
+              </div>
+            )}
+          </div>
+          <div className="flex flex-col-reverse gap-3 border-t border-slate-100 bg-slate-50/80 p-5 sm:flex-row sm:justify-end sm:p-6">
+            <Button type="button" variant="secondary" size="lg" onClick={onClose} disabled={isPending}>Hủy</Button>
+            {activeSection === "contract" && (
+              <Button type="button" variant="secondary" size="lg" onClick={() => setActiveSection("profile")} disabled={isPending}>Quay lại hồ sơ</Button>
+            )}
+            {activeSection === "profile" ? (
+              <Button type="button" size="lg" onClick={() => setActiveSection("contract")}>Tiếp tục nhập hợp đồng</Button>
+            ) : (
+              <Button type="submit" size="lg" disabled={isPending}>
+                {isPending ? "Đang tạo..." : "Tạo hồ sơ & hợp đồng"}
+              </Button>
+            )}
+          </div>
+        </form>
+      </Card>
     </div>
   );
 }
@@ -6593,6 +6885,7 @@ function OperationalWorkspace({
   const [formValues, setFormValues] = useState<Record<string, string>>(() =>
     defaultForm(firstTab),
   );
+  const [conversionForm, setConversionForm] = useState<EmployeeConversionState | null>(null);
   const [popup, setPopup] = useState<PopupState | null>(null);
   const [dismissedQueryError, setDismissedQueryError] = useState<unknown>(null);
   const [showFilters, setShowFilters] = useState(false);
@@ -6834,9 +7127,11 @@ function OperationalWorkspace({
     mutationFn: async ({
       row,
       action,
+      conversion,
     }: {
       row: Row;
       action: "approve" | "reject" | "convert";
+      conversion?: EmployeeConversionState;
     }) => {
       const id = rowId(tab, row);
       if (action === "convert") {
@@ -6851,6 +7146,8 @@ function OperationalWorkspace({
           {
             candidate_id: candidateId,
             decision_id: row.decision_id ?? row.decisionId ?? undefined,
+            employee: conversion?.employee,
+            contract: conversion?.contract,
           },
           { resource, action: "create" },
         );
@@ -6917,12 +7214,37 @@ function OperationalWorkspace({
         { resource, action: "approve" },
       );
     },
-    onSuccess: (_, variables) => {
+    onSuccess: async (response, variables) => {
+      if (variables.action === "convert") {
+        const responseData =
+          response && typeof response === "object" && "data" in response
+            ? response.data
+            : response;
+        const employeeId = String(
+          (responseData as Row | null)?.empId ??
+            (responseData as Row | null)?.employee_id ??
+            "",
+        );
+        if (employeeId && variables.conversion?.avatarFile) {
+          try {
+            await api.uploadEmployeeAvatar(employeeId, variables.conversion.avatarFile);
+          } catch (error) {
+            showPopup(
+              "warning",
+              "Đã tạo hồ sơ",
+              error instanceof Error
+                ? `Hồ sơ và hợp đồng đã tạo nhưng chưa tải được ảnh: ${error.message}`
+                : "Hồ sơ và hợp đồng đã tạo nhưng chưa tải được ảnh.",
+            );
+          }
+        }
+        setConversionForm(null);
+      }
       showPopup(
         "success",
         "Thành công",
         variables.action === "convert"
-          ? "Đã chuyển ứng viên thành nhân viên và tạo hợp đồng thử việc."
+          ? "Đã tạo hồ sơ và hợp đồng cho ứng viên."
           : variables.action === "reject"
             ? "Đã từ chối bản ghi."
             : "Đã thực hiện phê duyệt.",
@@ -6941,6 +7263,123 @@ function OperationalWorkspace({
   });
 
   const lookupData = lookupQuery.data;
+  const openConversionForm = (row: Row) => {
+    const candidateId = String(
+      row.candidate_id ?? row.candidateId ?? row.id ?? "",
+    ).trim();
+    const candidateRecord = (lookupData?.candidates ?? []).find(
+      (item) => String(item.candidate_id ?? item.id ?? "") === candidateId,
+    );
+    const candidate = { ...(candidateRecord ?? {}), ...row };
+    const offer = (lookupData?.offers ?? []).find(
+      (item) => String(item.candidate_id ?? "") === candidateId,
+    );
+    const position = (lookupData?.positions ?? []).find(
+      (item) => String(item.position_id ?? "") === String(candidate.position_id ?? ""),
+    );
+    const departmentId = String(
+      candidate.department_id ?? candidate.req_dept_id ?? position?.department_id ?? "",
+    );
+    const positionId = String(candidate.position_id ?? candidate.req_pos_id ?? "");
+    const positionName = String(
+      candidate.apply_position_name ?? candidate.position_name ?? position?.position_name ?? "",
+    );
+    const joinDate = formatDateValue(offer?.expected_start_date);
+    const today = formatDateValue(Date.now());
+    const contractStartDate = joinDate || today;
+    const probationToDate = dateAfterMonths(contractStartDate, 2);
+    const officialSalary = String(offer?.official_salary ?? offer?.salary_offer ?? "");
+    const probationSalary = String(
+      offer?.probation_salary ?? (officialSalary ? Math.round(Number(officialSalary) * 0.85) : ""),
+    );
+    const probationRate = officialSalary && Number(officialSalary)
+      ? String(Number(((Number(probationSalary) / Number(officialSalary)) * 100).toFixed(2)))
+      : "85";
+    const employeeTab = getWorkspaceTab("people", "employees");
+    const contractTab = getWorkspaceTab("people", "contracts");
+    const employee = {
+      ...defaultForm(employeeTab),
+      candidate_id: candidateId,
+      full_name: String(candidate.full_name ?? ""),
+      gender: String(candidate.gender ?? "Nam"),
+      date_of_birth: formatDateValue(candidate.date_of_birth),
+      citizen_id: String(candidate.citizen_id ?? ""),
+      phone: String(candidate.phone ?? ""),
+      email: String(candidate.email ?? ""),
+      personal_email: String(candidate.email ?? ""),
+      department_id: departmentId,
+      position_id: positionId,
+      address: String(candidate.address ?? ""),
+      culture_level: String(candidate.culture_level ?? ""),
+      education_level: String(candidate.education_level ?? ""),
+      education_school: String(candidate.education_school ?? ""),
+      major: String(candidate.major ?? ""),
+      nationality: "Việt Nam",
+      ethnicity: "Kinh",
+      religion: "Không",
+      marital_status: "Độc thân",
+      level: "Nhân viên",
+      employment_status: "WORKING",
+      join_date: joinDate,
+      initial_contract_date: joinDate,
+    };
+    const contract = {
+      ...defaultForm(contractTab),
+      contract_date: today,
+      sign_date: today,
+      employee_position: positionName,
+      contract_type: "Hợp đồng thử việc",
+      start_date: contractStartDate,
+      end_date: probationToDate,
+      has_probation: "1",
+      probation_from_date: contractStartDate,
+      probation_to_date: probationToDate,
+      probation_salary_rate: probationRate,
+      base_salary: probationSalary,
+      social_insurance_salary: officialSalary,
+      salary: officialSalary,
+      signer_id: session?.employeeId ?? "",
+      signer_name: session?.name ?? "",
+      status: "ACTIVE",
+      note: "Tạo trong quy trình tiếp nhận nhân viên.",
+    };
+    setConversionForm({
+      row,
+      employee,
+      contract,
+      avatarFile: null,
+    });
+  };
+  const submitConversion = () => {
+    if (!conversionForm) return;
+    const { employee, contract } = conversionForm;
+    const requiredValues = [
+      employee.full_name,
+      employee.department_id,
+      employee.position_id,
+      employee.join_date,
+      contract.contract_type,
+      contract.start_date,
+      contract.base_salary,
+      contract.social_insurance_salary,
+      contract.salary,
+    ];
+    if (
+      requiredValues.some((value) => !String(value ?? "").trim()) ||
+      (contract.has_probation === "1" &&
+        (!contract.probation_from_date ||
+          !contract.probation_to_date ||
+          !contract.probation_salary_rate))
+    ) {
+      showPopup(
+        "warning",
+        "Chưa đủ thông tin",
+        "Vui lòng hoàn thiện các trường bắt buộc trong hồ sơ nhân viên và hợp đồng.",
+      );
+      return;
+    }
+    actionMutation.mutate({ row: conversionForm.row, action: "convert", conversion: conversionForm });
+  };
   const statusField = tab.fields.find((field) => field.name === "status");
   const statusOptions = Array.from(
     new Set([
@@ -8500,8 +8939,8 @@ function OperationalWorkspace({
                             canAccess(session, resource, "create") &&
                             !isCandidateWorking(row.status) &&
                             !isCandidateWorking(row.candidate_status) &&
-                            (lookupQuery.data?.decisions ?? []).some(
-                              (decision) =>
+                             (lookupQuery.data?.decisions ?? []).some(
+                               (decision) =>
                                 String(decision.candidate_id ?? "") ===
                                   String(row.candidate_id ?? "") &&
                                 String(decision.result ?? "")
@@ -8509,24 +8948,14 @@ function OperationalWorkspace({
                                   .toUpperCase() === "ĐẠT" &&
                                 String(decision.status ?? "COMPLETED") ===
                                   "COMPLETED",
-                            ) && (
-                              <Button
-                                variant="soft"
-                                size="sm"
-                                onClick={() =>
-                                  requestConfirmation(
-                                    "Bạn có chắc chắn muốn chuyển ứng viên này thành nhân viên?",
-                                  ).then((confirmed) => {
-                                    if (confirmed)
-                                      actionMutation.mutate({
-                                        row,
-                                        action: "convert",
-                                      });
-                                  })
-                                }
-                                disabled={actionMutation.isPending}
-                                title="Chuyển thành nhân viên"
-                              >
+                             ) && (
+                               <Button
+                                 variant="soft"
+                                 size="sm"
+                                 onClick={() => openConversionForm(row)}
+                                 disabled={actionMutation.isPending}
+                                 title="Chuyển thành nhân viên"
+                               >
                                 <UserRoundCheck size={15} />
                               </Button>
                             )}
@@ -9008,8 +9437,8 @@ function OperationalWorkspace({
                         {detailLabel(tab, key)}
                       </div>
                       <div className="mt-1 break-words text-sm text-slate-700">
-                        {typeof value === "object" ? (
-                          <pre className="whitespace-pre-wrap text-xs">
+                        {isStructuredDetailValue(key, value) ? (
+                          <pre className="max-h-80 overflow-auto whitespace-pre-wrap rounded-lg bg-slate-950/[0.03] p-3 text-xs leading-5">
                             {displayDetailValue(tab, key, value)}
                           </pre>
                         ) : (
@@ -9023,6 +9452,37 @@ function OperationalWorkspace({
             </div>
           </Card>
         </div>
+      )}
+      {conversionForm && lookupData && (
+        <EmployeeConversionForm
+          candidate={conversionForm.row}
+          employeeValues={conversionForm.employee}
+          setEmployeeValues={(updater) =>
+            setConversionForm((current) =>
+              current
+                ? { ...current, employee: updater(current.employee) }
+                : current,
+            )
+          }
+          contractValues={conversionForm.contract}
+          setContractValues={(updater) =>
+            setConversionForm((current) =>
+              current
+                ? { ...current, contract: updater(current.contract) }
+                : current,
+            )
+          }
+          lookups={lookupData as ConversionLookups}
+          avatarFile={conversionForm.avatarFile}
+          onAvatarChange={(file) =>
+            setConversionForm((current) =>
+              current ? { ...current, avatarFile: file } : current,
+            )
+          }
+          onClose={() => setConversionForm(null)}
+          onSubmit={submitConversion}
+          isPending={actionMutation.isPending}
+        />
       )}
       {popup && (
         <Popup

@@ -597,6 +597,10 @@ export async function mockApiRequest<T>(path: string, init: RequestInit = {}, se
   if (path === "/recruitment/convert-to-employee") {
     const requestedCandidateId = String(payload.candidate_id ?? "");
     const requestedDecisionId = String(payload.decision_id ?? "");
+    const employeeInput = payload.employee && typeof payload.employee === "object" ? payload.employee as MockRow : null;
+    const contractInput = payload.contract && typeof payload.contract === "object" ? payload.contract as MockRow : null;
+    if (!employeeInput || !contractInput)
+      return failure("Vui lòng hoàn thiện hồ sơ nhân viên và hợp đồng trước khi chuyển đổi.") as T;
     const decisionReference = (store["/recruitment/decisions"] ?? []).find(
       (row) => String(row.decision_id ?? row.id ?? "") === (requestedDecisionId || requestedCandidateId),
     );
@@ -617,35 +621,35 @@ export async function mockApiRequest<T>(path: string, init: RequestInit = {}, se
     const offer = store["/recruitment/offers"].find(
       (item) => item.candidate_id === candidate.candidate_id,
     );
-    const joinDate = String(
-      offer?.expected_start_date ?? now.toISOString().slice(0, 10),
-    );
+    const joinDate = String(employeeInput.join_date ?? "");
     const position = store["/admin/positions"].find(
-      (item) => item.position_id === candidate.position_id,
+      (item) => item.position_id === String(employeeInput.position_id ?? candidate.position_id ?? ""),
     );
     const department = store["/admin/departments"].find(
-      (item) => item.department_id === position?.department_id,
+      (item) => item.department_id === String(employeeInput.department_id ?? position?.department_id ?? ""),
     );
+    if (!String(employeeInput.full_name ?? "").trim() || !joinDate || !String(employeeInput.department_id ?? department?.department_id ?? "").trim() || !String(employeeInput.position_id ?? position?.position_id ?? "").trim() || !String(contractInput.contract_type ?? "").trim() || !String(contractInput.start_date ?? "").trim())
+      return failure("Vui lòng nhập đầy đủ thông tin hồ sơ và hợp đồng bắt buộc.") as T;
     const employeeId = `emp-${timestamp}`;
     const contractId = `contract-${timestamp}`;
-    const officialSalary = Number(offer?.official_salary ?? offer?.salary_offer ?? 0);
-    const probationSalary = Number(offer?.probation_salary ?? (officialSalary || 15000000));
-    const probationFrom = new Date(joinDate);
-    const probationTo = new Date(probationFrom);
-    probationTo.setMonth(probationTo.getMonth() + 2);
-    const probationRate = officialSalary > 0 ? Number(((probationSalary / officialSalary) * 100).toFixed(2)) : 100;
+    const officialSalary = Number(contractInput.salary ?? offer?.official_salary ?? offer?.salary_offer ?? 0);
+    const probationSalary = Number(contractInput.base_salary ?? offer?.probation_salary ?? (officialSalary || 15000000));
+    const probationFrom = new Date(`${String(contractInput.probation_from_date ?? contractInput.start_date)}T12:00:00`);
+    const probationTo = new Date(`${String(contractInput.probation_to_date ?? contractInput.end_date ?? contractInput.start_date)}T12:00:00`);
+    const probationRate = Number(contractInput.probation_salary_rate ?? (officialSalary > 0 ? ((probationSalary / officialSalary) * 100).toFixed(2) : 100));
 
     candidate.status = "đi làm";
     store["/hr/employees"].unshift({
+      ...employeeInput,
       employee_id: employeeId,
-      employee_code: `NV-${String(timestamp).slice(-6)}`,
-      full_name: candidate.full_name,
-      citizen_id: candidate.citizen_id,
-      phone: candidate.phone,
-      email: candidate.email,
-      department_id: position?.department_id,
+      employee_code: String(employeeInput.employee_code ?? `NV-${String(timestamp).slice(-6)}`),
+      full_name: String(employeeInput.full_name ?? candidate.full_name),
+      citizen_id: String(employeeInput.citizen_id ?? candidate.citizen_id ?? ""),
+      phone: String(employeeInput.phone ?? candidate.phone ?? ""),
+      email: String(employeeInput.email ?? candidate.email ?? ""),
+      department_id: String(employeeInput.department_id ?? position?.department_id ?? ""),
       department_name: department?.department_name,
-      position_id: candidate.position_id,
+      position_id: String(employeeInput.position_id ?? candidate.position_id ?? ""),
       position_name: candidate.apply_position_name ?? position?.position_name,
       candidate_id: candidateId,
       level: "Nhân viên",
@@ -653,27 +657,28 @@ export async function mockApiRequest<T>(path: string, init: RequestInit = {}, se
       join_date: joinDate,
     });
     store["/hr/contracts"].unshift({
+      ...contractInput,
       contract_id: contractId,
-      contract_no: `HDTV/${now.getFullYear()}/${String(timestamp).slice(-6)}`,
+      contract_no: String(contractInput.contract_no ?? `HDTV/${now.getFullYear()}/${String(timestamp).slice(-6)}`),
       employee_id: employeeId,
       employee_name: candidate.full_name,
-      employee_position: candidate.apply_position_name ?? position?.position_name,
-      contract_type: "Hợp đồng thử việc",
-      contract_date: joinDate,
-      sign_date: now.toISOString().slice(0, 10),
-      start_date: joinDate,
-      end_date: probationTo.toISOString().slice(0, 10),
-      has_probation: 1,
-      probation_from_date: probationFrom.toISOString().slice(0, 10),
-      probation_to_date: probationTo.toISOString().slice(0, 10),
+      employee_position: String(contractInput.employee_position ?? candidate.apply_position_name ?? position?.position_name ?? ""),
+      contract_type: String(contractInput.contract_type),
+      contract_date: String(contractInput.contract_date ?? joinDate),
+      sign_date: String(contractInput.sign_date ?? now.toISOString().slice(0, 10)),
+      start_date: String(contractInput.start_date),
+      end_date: String(contractInput.end_date ?? ""),
+      has_probation: Number(contractInput.has_probation ?? 0),
+      probation_from_date: String(contractInput.probation_from_date ?? probationFrom.toISOString().slice(0, 10)),
+      probation_to_date: String(contractInput.probation_to_date ?? probationTo.toISOString().slice(0, 10)),
       probation_salary_rate: probationRate,
       base_salary: probationSalary,
       salary: probationSalary,
       status: "ACTIVE",
-      note: "Tự động tạo khi chuyển từ ứng viên.",
+      note: String(contractInput.note ?? ""),
     });
     saveStore(store);
-    return envelope({ candidate, employee_id: employeeId, contract_id: contractId }) as T;
+    return envelope({ candidate, empId: employeeId, employee_id: employeeId, contract_id: contractId }) as T;
   }
 
   if (route === "/recruitment/candidates" && (method === "POST" || method === "PUT")) {

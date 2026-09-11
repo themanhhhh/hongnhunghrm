@@ -1124,6 +1124,11 @@ export const getMockResponse = (method, endpoint, body) => {
     if (endpoint === '/recruitment/convert-to-employee') {
         const requestedCandidateId = String(body?.candidate_id || body?.candidateId || '').trim();
         const requestedDecisionId = String(body?.decision_id || body?.decisionId || '').trim();
+        const employeeInput = body?.employee;
+        const contractInput = body?.contract;
+        if (!employeeInput || !contractInput) {
+            return { success: false, message: 'Vui lòng hoàn thiện hồ sơ nhân viên và hợp đồng trước khi chuyển đổi.' };
+        }
         const cands = getStorageItem('candidates', INITIAL_CANDIDATES);
         const decisions = getStorageItem('recruitment_decisions', INITIAL_RECRUITMENT_DECISIONS);
         const decisionReference = decisions.find(d => String(d.decision_id || d.id || '') === (requestedDecisionId || requestedCandidateId));
@@ -1144,19 +1149,20 @@ export const getMockResponse = (method, endpoint, body) => {
         if (candidate.status === 'đi làm' || candidate.status === 'HIRED' || existingEmployee) {
             return { success: false, message: 'Ứng viên này đã được chuyển thành nhân viên.' };
         }
-        const newEmpCode = `NV-${new Date().getFullYear()}-${Math.floor(100 + Math.random() * 900)}`;
+        const newEmpCode = employeeInput.employee_code || `NV-${new Date().getFullYear()}-${Math.floor(100 + Math.random() * 900)}`;
         const employeeId = `emp-${Date.now()}`;
         const newEmp = {
+            ...employeeInput,
             id: employeeId,
             employee_id: employeeId,
             employee_code: newEmpCode,
             candidate_id,
-            full_name: candidate.full_name,
-            gender: candidate.gender || 'Nam',
-            phone: candidate.phone,
-            email: candidate.email,
+            full_name: employeeInput.full_name || candidate.full_name,
+            gender: employeeInput.gender || candidate.gender || 'Nam',
+            phone: employeeInput.phone || candidate.phone,
+            email: employeeInput.email || candidate.email,
             department_name: candidate.department_name || 'Phòng Nhân sự',
-            position_name: candidate.position_name || 'Chuyên viên ERP',
+            position_name: contractInput.employee_position || candidate.position_name || 'Chuyên viên ERP',
             employment_status: 'WORKING',
             is_active: 1
         };
@@ -1165,32 +1171,31 @@ export const getMockResponse = (method, endpoint, body) => {
 
         const offers = getStorageItem('offers', INITIAL_OFFERS);
         const offer = offers.find(item => item.candidate_id === candidate_id);
-        const startDate = offer?.expected_start_date || offer?.start_date || new Date().toISOString().split('T')[0];
-        const probationTo = new Date(startDate);
-        probationTo.setMonth(probationTo.getMonth() + 2);
-        const officialSalary = Number(offer?.official_salary || offer?.salary_offer || 0);
-        const probationSalary = Number(offer?.probation_salary || officialSalary || 15000000);
+        const startDate = contractInput.start_date || employeeInput.join_date;
+        const officialSalary = Number(contractInput.salary || offer?.official_salary || offer?.salary_offer || 0);
+        const probationSalary = Number(contractInput.base_salary || offer?.probation_salary || officialSalary || 15000000);
         const contractId = `contract-${Date.now()}`;
         const newContract = {
+            ...contractInput,
             id: contractId,
             contract_id: contractId,
-            contract_no: `HDTV/${new Date().getFullYear()}/${String(Date.now()).slice(-6)}`,
+            contract_no: contractInput.contract_no || `HDTV/${new Date().getFullYear()}/${String(Date.now()).slice(-6)}`,
             employee_id: employeeId,
-            employee_name: candidate.full_name,
-            employee_position: candidate.position_name || 'Nhân viên',
-            contract_type: 'Hợp đồng thử việc',
-            contract_date: startDate,
-            sign_date: new Date().toISOString().split('T')[0],
+            employee_name: employeeInput.full_name || candidate.full_name,
+            employee_position: contractInput.employee_position || candidate.position_name || 'Nhân viên',
+            contract_type: contractInput.contract_type || 'Hợp đồng thử việc',
+            contract_date: contractInput.contract_date || startDate,
+            sign_date: contractInput.sign_date || new Date().toISOString().split('T')[0],
             start_date: startDate,
-            end_date: probationTo.toISOString().split('T')[0],
-            has_probation: 1,
-            probation_from_date: startDate,
-            probation_to_date: probationTo.toISOString().split('T')[0],
-            probation_salary_rate: officialSalary > 0 ? Number(((probationSalary / officialSalary) * 100).toFixed(2)) : 100,
-            salary: probationSalary,
+            end_date: contractInput.end_date || '',
+            has_probation: Number(contractInput.has_probation || 0),
+            probation_from_date: contractInput.probation_from_date || startDate,
+            probation_to_date: contractInput.probation_to_date || '',
+            probation_salary_rate: Number(contractInput.probation_salary_rate || (officialSalary > 0 ? ((probationSalary / officialSalary) * 100).toFixed(2) : 100)),
+            salary: officialSalary,
             base_salary: probationSalary,
             status: 'ACTIVE',
-            note: 'Tự động tạo khi chuyển từ ứng viên có quyết định tuyển dụng Đạt.'
+            note: contractInput.note || ''
         };
         const contracts = getStorageItem('employee_contracts', []);
         setStorageItem('employee_contracts', [newContract, ...contracts]);
@@ -1201,7 +1206,7 @@ export const getMockResponse = (method, endpoint, body) => {
 
         return {
             success: true,
-            message: `Chuyển ứng viên ${candidate.full_name} thành Nhân viên thành công! Mã NV mới: ${newEmpCode}`,
+            message: `Đã tạo hồ sơ và hợp đồng cho ${employeeInput.full_name || candidate.full_name} thành công! Mã NV: ${newEmpCode}`,
             data: { ...newEmp, contract_id: contractId }
         };
     }

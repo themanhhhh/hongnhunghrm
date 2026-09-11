@@ -1251,6 +1251,9 @@ router.post('/decisions', authorizeRole('Administrator', 'HR Staff'), async (req
 // --- 7. WORKFLOW: CHUYỂN ỨNG VIÊN THÀNH NHÂN VIÊN ---
 router.post('/convert-to-employee', authorizeRole('Administrator', 'HR Staff'), async (req, res) => {
     try {
+        if (!req.body?.employee || !req.body?.contract) {
+            return res.status(400).json({ success: false, message: 'Vui lòng hoàn thiện hồ sơ nhân viên và hợp đồng trước khi chuyển đổi.' });
+        }
         const requestedCandidateId = String(req.body?.candidate_id || req.body?.candidateId || '').trim();
         const requestedDecisionId = String(req.body?.decision_id || req.body?.decisionId || '').trim();
         if (!requestedCandidateId && !requestedDecisionId) {
@@ -1333,49 +1336,102 @@ router.post('/convert-to-employee', authorizeRole('Administrator', 'HR Staff'), 
             }
 
             const offer = await txQueryOne(`SELECT TOP 1 * FROM Offer WHERE candidate_id = ? ORDER BY created_date DESC`, [candidateId]);
+            const employeeInput = req.body.employee;
+            const contractInput = req.body.contract;
             const empId = crypto.randomUUID();
-            const empCode = 'NV-' + new Date().getFullYear() + '-' + Math.floor(100 + Math.random() * 900);
-            const joinDate = toDateTimestamp(offer?.expected_start_date, now);
+            const empCode = String(employeeInput.employee_code || '').trim() || ('NV-' + new Date().getFullYear() + '-' + Math.floor(100 + Math.random() * 900));
+            const fullName = String(employeeInput.full_name || candidate.full_name || '').trim();
+            const departmentId = String(employeeInput.department_id || candidate.conversion_department_id || '').trim();
+            const positionId = String(employeeInput.position_id || candidate.conversion_position_id || '').trim();
+            const joinDate = toDateTimestamp(employeeInput.join_date);
+            const contractType = String(contractInput.contract_type || '').trim();
+            const contractStartDate = toDateTimestamp(contractInput.start_date, joinDate);
+            if (!fullName || !departmentId || !positionId || !joinDate || !contractType || !contractStartDate) {
+                return { errorStatus: 400, errorMessage: 'Vui lòng nhập đầy đủ họ tên, phòng ban, vị trí, ngày vào làm, loại hợp đồng và ngày bắt đầu hợp đồng.' };
+            }
+            const parseNumber = (value, fallback = null) => {
+                if (value === '' || value === null || value === undefined) return fallback;
+                const number = Number(value);
+                return Number.isFinite(number) ? number : fallback;
+            };
+            const contractDate = toDateTimestamp(contractInput.contract_date, joinDate);
+            const signDate = toDateTimestamp(contractInput.sign_date, now);
+            const hasProbation = contractInput.has_probation === true || Number(contractInput.has_probation) === 1;
+            const probationFromDate = hasProbation ? toDateTimestamp(contractInput.probation_from_date, contractStartDate) : null;
+            const probationToDate = hasProbation ? toDateTimestamp(contractInput.probation_to_date) : null;
+            const probationSalaryRate = parseNumber(contractInput.probation_salary_rate);
+            if (hasProbation && (!probationFromDate || !probationToDate || !probationSalaryRate)) {
+                return { errorStatus: 400, errorMessage: 'Khi có thử việc phải nhập thời gian thử việc và tỷ lệ lương thử việc.' };
+            }
+            const officialSalary = parseNumber(contractInput.salary, parseNumber(offer?.official_salary || offer?.salary_offer, 0));
+            const probationSalary = parseNumber(contractInput.base_salary, parseNumber(offer?.probation_salary, officialSalary || 15000000));
+            const allowanceJson = Array.isArray(contractInput.allowance_details)
+                ? JSON.stringify(contractInput.allowance_details)
+                : (typeof contractInput.allowance_details === 'string' ? contractInput.allowance_details : '[]');
+            const graduationYear = parseNumber(employeeInput.graduation_year);
+            const gpa = parseNumber(employeeInput.gpa);
 
             await txRun(
-                `INSERT INTO Employee (employee_id, created_date, last_modified_date, employee_code, full_name, gender, date_of_birth, citizen_id, phone, email, address, candidate_id, department_id, position_id, join_date, initial_contract_date, employment_status, is_active)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'WORKING', 1)`,
+                `INSERT INTO Employee (
+                    employee_id, created_date, last_modified_date, employee_code, short_name, full_name, gender, date_of_birth, place_of_birth,
+                    is_foreign, hometown, nationality, ethnicity, religion, blood_type, marital_status, tax_code,
+                    citizen_id, citizen_issue_date, citizen_issue_place, citizen_expiry_date, phone, email, personal_email, company_email,
+                    emergency_contact_name, emergency_contact_relationship, emergency_contact_phone, address, permanent_address,
+                    bank_account_number, bank_account_holder, bank_name, bank_branch, culture_level, education_level, education_school, major,
+                    gpa, graduation_year, candidate_id, department_id, position_id, manager_id, level, join_date, initial_contract_date,
+                    official_date, resignation_date, employment_status, note, is_active
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
                 [
-                    empId,
-                    now,
-                    now,
-                    empCode,
-                    candidate.full_name,
-                    candidate.gender || 'Nam',
-                    candidate.date_of_birth,
-                    candidate.citizen_id || null,
-                    candidate.phone,
-                    candidate.email,
-                    candidate.address || '',
-                    candidateId,
-                    candidate.conversion_department_id,
-                    candidate.conversion_position_id,
-                    joinDate,
-                    joinDate
+                    empId, now, now, empCode, String(employeeInput.short_name || empCode), fullName,
+                    employeeInput.gender || candidate.gender || 'Nam',
+                    toDateTimestamp(employeeInput.date_of_birth, candidate.date_of_birth || null),
+                    employeeInput.place_of_birth || null, Number(employeeInput.is_foreign) === 1 ? 1 : 0,
+                    employeeInput.hometown || null, employeeInput.nationality || 'Việt Nam', employeeInput.ethnicity || 'Kinh',
+                    employeeInput.religion || 'Không', employeeInput.blood_type || null, employeeInput.marital_status || 'Độc thân',
+                    employeeInput.tax_code || null, employeeInput.citizen_id || candidate.citizen_id || null,
+                    toDateTimestamp(employeeInput.citizen_issue_date), employeeInput.citizen_issue_place || null,
+                    toDateTimestamp(employeeInput.citizen_expiry_date), employeeInput.phone || candidate.phone || null,
+                    employeeInput.email || candidate.email || null, employeeInput.personal_email || employeeInput.email || candidate.email || null,
+                    employeeInput.company_email || employeeInput.email || candidate.email || null,
+                    employeeInput.emergency_contact_name || null, employeeInput.emergency_contact_relationship || null,
+                    employeeInput.emergency_contact_phone || null, employeeInput.address || candidate.address || '', employeeInput.permanent_address || null,
+                    employeeInput.bank_account_number || null, employeeInput.bank_account_holder || null, employeeInput.bank_name || null,
+                    employeeInput.bank_branch || null, employeeInput.culture_level || candidate.culture_level || null,
+                    employeeInput.education_level || candidate.education_level || null, employeeInput.education_school || candidate.education_school || null,
+                    employeeInput.major || candidate.major || null, gpa, graduationYear, candidateId, departmentId, positionId,
+                    employeeInput.manager_id || null, employeeInput.level || 'Nhân viên', joinDate,
+                    toDateTimestamp(employeeInput.initial_contract_date, contractDate), toDateTimestamp(employeeInput.official_date),
+                    toDateTimestamp(employeeInput.resignation_date), employeeInput.employment_status || 'WORKING', employeeInput.note || ''
                 ]
             );
 
             const contractId = crypto.randomUUID();
-            const contractNum = 'HDTV/BRAVO/' + new Date().getFullYear() + '/' + Math.floor(100 + Math.random() * 900);
-            const officialSalary = Number(offer?.official_salary || offer?.salary_offer || 0);
-            const probationSalary = Number(offer?.probation_salary || officialSalary || 15000000);
-            const probationEnd = new Date(Number(joinDate));
-            probationEnd.setMonth(probationEnd.getMonth() + 2);
-            const probationRate = officialSalary > 0 ? Number(((probationSalary / officialSalary) * 100).toFixed(2)) : 100;
+            const contractNum = String(contractInput.contract_no || '').trim() || ('HDTV/BRAVO/' + new Date().getFullYear() + '/' + Math.floor(100 + Math.random() * 900));
+            const probationEnd = new Date(Number(probationFromDate || contractStartDate));
+            if (hasProbation && !probationToDate) probationEnd.setMonth(probationEnd.getMonth() + 2);
+            const finalProbationToDate = probationToDate || (hasProbation ? probationEnd.getTime() : null);
+            const probationRate = probationSalaryRate || (officialSalary > 0 ? Number(((probationSalary / officialSalary) * 100).toFixed(2)) : 100);
 
             await txRun(
-                `INSERT INTO EmployeeContract (contract_id, created_date, last_modified_date, contract_no, contract_date, sign_date, employee_id, employee_position, contract_type, start_date, end_date, has_probation, probation_from_date, probation_to_date, probation_salary_rate, salary, status, note)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Hợp đồng thử việc', ?, ?, 1, ?, ?, ?, ?, 'ACTIVE', 'Tự động tạo khi chuyển từ ứng viên có quyết định tuyển dụng Đạt.')`,
-                [contractId, now, now, contractNum, joinDate, now, empId, candidate.position_name || '', joinDate, probationEnd.getTime(), joinDate, probationEnd.getTime(), probationRate, probationSalary]
+                `INSERT INTO EmployeeContract (
+                    contract_id, created_date, last_modified_date, contract_no, contract_date, signer_id, signer_name, signer_position,
+                    employee_id, employee_position, contract_type, sign_date, start_date, end_date, has_probation, probation_from_date,
+                    probation_to_date, probation_salary_rate, job_description, salary_scale, salary_grade, allowance_details,
+                    base_salary, social_insurance_salary, salary, status, attachment_url, note
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                [
+                    contractId, now, now, contractNum, contractDate, contractInput.signer_id || null, contractInput.signer_name || '',
+                    contractInput.signer_position || '', empId, contractInput.employee_position || candidate.position_name || '', contractType,
+                    signDate, contractStartDate, toDateTimestamp(contractInput.end_date), hasProbation ? 1 : 0, probationFromDate,
+                    finalProbationToDate, hasProbation ? probationRate : null, contractInput.job_description || '', contractInput.salary_scale || '',
+                    contractInput.salary_grade || '', allowanceJson, parseNumber(contractInput.base_salary, probationSalary),
+                    parseNumber(contractInput.social_insurance_salary, 0), officialSalary, contractInput.status || 'ACTIVE',
+                    contractInput.attachment_url || '', contractInput.note || ''
+                ]
             );
 
             await txRun(`UPDATE Candidate SET status = ?, last_modified_date = ? WHERE candidate_id = ?`, [CANDIDATE_STATUS.WORKING, now, candidateId]);
-            return { candidateName: candidate.full_name, empId, empCode, contractId, probationFrom: joinDate, probationTo: probationEnd.getTime() };
+            return { candidateName: fullName, empId, empCode, contractId, probationFrom: probationFromDate, probationTo: finalProbationToDate };
         });
 
         if (conversion.errorStatus) {
@@ -1384,7 +1440,7 @@ router.post('/convert-to-employee', authorizeRole('Administrator', 'HR Staff'), 
 
         res.json({
             success: true,
-            message: `Chuyển ứng viên ${conversion.candidateName} thành nhân viên thành công! Mã NV: ${conversion.empCode}`,
+            message: `Đã tạo hồ sơ và hợp đồng cho ${conversion.candidateName} thành công! Mã NV: ${conversion.empCode}`,
             data: {
                 empId: conversion.empId,
                 empCode: conversion.empCode,
