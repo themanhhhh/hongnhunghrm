@@ -1263,6 +1263,28 @@ function StructuredDetail({
   }
   if (name === "people" && tab.id === "transfer-proposals") {
     const details = parseDetailList(row.detail_items);
+    const employee = lookups?.employees?.find(
+      (item) => String(item.employee_id ?? item.id ?? "") === String(row.employee_id ?? ""),
+    );
+    const displayDetails = details.length
+      ? details
+      : row.employee_id
+        ? [
+            {
+              employee_id: row.employee_id,
+              employee_name: row.employee_name ?? employee?.full_name,
+              current_department_id: row.current_department_id,
+              current_department_name: row.current_dept_name,
+              current_position_id: row.current_position_id,
+              current_position_name: row.current_pos_name,
+              target_department_id: row.target_department_id,
+              target_department_name: row.target_dept_name,
+              target_position_id: row.target_position_id,
+              target_position_name: row.target_pos_name,
+              note: row.note,
+            },
+          ]
+        : [];
     return (
       <div className="space-y-5">
         <DetailSection title="1. Thông tin chung">
@@ -1296,7 +1318,7 @@ function StructuredDetail({
               ["target_department_name", "Bộ phận mới"],
               ["note", "Ghi chú"],
             ]}
-            rows={details.map((detail) => ({
+            rows={displayDetails.map((detail) => ({
               ...detail,
               employee_name: detail.employee_name ?? row.employee_name,
               current_position_name:
