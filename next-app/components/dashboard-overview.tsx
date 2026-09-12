@@ -295,7 +295,7 @@ function actionLink(type: string) {
   if (normalized.includes("thuyên") || normalized.includes("transfer"))
     return "/people?tab=transfer-proposals";
   if (normalized.includes("hợp đồng") || normalized.includes("contract"))
-    return "/people?tab=contract-proposals";
+    return "/people?tab=contracts";
   if (normalized.includes("thưởng") || normalized.includes("kỷ luật"))
     return "/rewards?tab=proposals";
   return "/recruitment?tab=requests";

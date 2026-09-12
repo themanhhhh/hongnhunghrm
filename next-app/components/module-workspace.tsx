@@ -99,15 +99,11 @@ const editableTabs = new Set([
 const undeletableTabs = new Set(["work-history"]);
 const contractSectionIds = [
   "contracts",
-  "contract-proposals",
   "expiring-contracts",
-  "contract-extensions",
 ];
 const contractSections = [
   { id: "contracts", label: "Hợp đồng lao động" },
-  { id: "contract-proposals", label: "Đề xuất HĐLĐ" },
   { id: "expiring-contracts", label: "HĐ sắp hết hạn" },
-  { id: "contract-extensions", label: "Gia hạn HĐLĐ" },
 ];
 
 const workspaceTitles: Record<WorkspaceName, Record<string, string>> = {
@@ -127,10 +123,8 @@ const workspaceTitles: Record<WorkspaceName, Record<string, string>> = {
     quotas: "Quản lý định biên nhân sự",
     departments: "Quản lý danh mục bộ phận",
     positions: "Quản lý danh mục vị trí công việc",
-    "contract-proposals": "Quản lý đề xuất hợp đồng lao động",
     contracts: "Quản lý hợp đồng lao động",
     "expiring-contracts": "Theo dõi hợp đồng sắp hết hạn",
-    "contract-extensions": "Quản lý gia hạn hợp đồng lao động",
     leave: "Quản lý đơn xin nghỉ phép",
     "transfer-proposals": "Quản lý đề xuất thuyên chuyển, bổ nhiệm",
     "transfer-decisions":
@@ -1616,6 +1610,20 @@ function fieldValue(field: WorkspaceField, value: unknown) {
         : "";
   if (value === null || value === undefined) return "";
   return String(value);
+}
+
+function normalizeInterviewScore(value: unknown) {
+  const score = Number(value);
+  if (!Number.isFinite(score)) return "3";
+  const normalized = score > 5 ? Math.round(score / 2) : Math.round(score);
+  return String(Math.min(5, Math.max(1, normalized)));
+}
+
+function normalizeInterviewResult(value: unknown) {
+  const result = String(value ?? "").trim().toUpperCase();
+  if (["ĐẠT", "PASSED"].includes(result)) return "ĐẠT";
+  if (["KHÔNG ĐẠT", "FAILED"].includes(result)) return "KHÔNG ĐẠT";
+  return "";
 }
 
 function rowId(tab: WorkspaceTab, row: Row) {
@@ -5333,9 +5341,7 @@ function InterviewEvaluationForm({
             </label>
             <select
               className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm"
-              value={String(
-                Math.min(5, Math.max(1, Number(values.level_score) || 3)),
-              )}
+              value={normalizeInterviewScore(values.level_score)}
               required
               onChange={(event) => set("level_score", event.target.value)}
             >
@@ -5352,6 +5358,7 @@ function InterviewEvaluationForm({
               label: "Đánh giá chung",
               type: "select",
               options: [
+                { value: "", label: "-- Chọn kết quả --" },
                 { value: "ĐẠT", label: "Đạt" },
                 { value: "KHÔNG ĐẠT", label: "Không đạt" },
               ],
@@ -7001,9 +7008,11 @@ function OperationalWorkspace({
   const router = useRouter();
   const searchParams = useSearchParams();
   const requestedTab = searchParams.get("tab");
+  const workspaceTabIds = new Set(workspaceTabs[name].map((item) => item.id));
   const employeePeople = name === "people" && session?.role === "Nhân viên";
   const requestedTabAllowed =
     requestedTab &&
+    workspaceTabIds.has(requestedTab) &&
     (!employeePeople || ["employees", "leave"].includes(requestedTab));
   const firstTab = getWorkspaceTab(
     name,
@@ -7137,7 +7146,6 @@ function OperationalWorkspace({
         screenings,
         decisions,
         contracts,
-        contractProposals,
         leaveApplications,
         transferProposals,
         resignationApplications,
@@ -7158,7 +7166,6 @@ function OperationalWorkspace({
         api.list("/recruitment/pre-screenings", { resource }),
         api.list("/recruitment/decisions", { resource }),
         api.list("/hr/contracts", { resource }),
-        api.list("/hr/contract-proposals", { resource }),
         api.list("/hr/leave-applications", { resource }),
         api.list("/hr/transfer-proposals", { resource }),
         api.list("/hr/resignation-applications", { resource }),
@@ -7180,7 +7187,6 @@ function OperationalWorkspace({
         screenings,
         decisions,
         contracts,
-        contractProposals,
         leaveApplications,
         transferProposals,
         resignationApplications,
@@ -7923,14 +7929,17 @@ function OperationalWorkspace({
     }
     setEditingRow(row);
     setPendingAvatar(null);
-    setFormValues(
-      Object.fromEntries(
-        tab.fields.map((field) => [
-          field.name,
-          fieldValue(field, editRow[field.name]),
-        ]),
-      ),
+    const values = Object.fromEntries(
+      tab.fields.map((field) => [
+        field.name,
+        fieldValue(field, editRow[field.name]),
+      ]),
     );
+    if (tab.id === "interview-evaluations") {
+      values.level_score = normalizeInterviewScore(editRow.level_score);
+      values.overall_result = normalizeInterviewResult(editRow.overall_result);
+    }
+    setFormValues(values);
     setShowForm(true);
   };
 
@@ -8016,7 +8025,6 @@ function OperationalWorkspace({
         "quota",
         "quotas",
         "employees",
-        "contract-extensions",
         "transfer-proposals",
         "transfer-decisions",
         "resignation-applications",
@@ -8599,8 +8607,6 @@ function OperationalWorkspace({
       [
         "employees",
         "contracts",
-        "contract-proposals",
-        "contract-extensions",
         "leave",
         "transfer-proposals",
         "transfer-decisions",
@@ -8632,15 +8638,6 @@ function OperationalWorkspace({
       field.name === "employee_id"
     )
       return employeeOptions;
-    if (
-      name === "people" &&
-      tab.id === "contract-extensions" &&
-      field.name === "contract_id"
-    )
-      return lookup.contracts.map((item) => ({
-        value: String(item.contract_id ?? ""),
-        label: `${item.contract_no ?? ""} ${item.employee_name ?? ""}`.trim(),
-      }));
     if (
       name === "people" &&
       tab.id === "transfer-decisions" &&

@@ -63,10 +63,15 @@ const navItems: NavItem[] = [
     label: "Nhân sự",
     icon: UsersRound,
     resource: "people",
-    subItems: workspaceTabs.people.filter((item) => !["contract-proposals", "expiring-contracts", "contract-extensions"].includes(item.id)).map((item) => ({
-      id: item.id,
-      label: item.label,
-    })),
+    subItems: workspaceTabs.people
+      .filter(
+        (item) =>
+          !["contract-proposals", "contract-extensions"].includes(item.id),
+      )
+      .map((item) => ({
+        id: item.id,
+        label: item.label,
+      })),
   },
   {
     href: "/rewards",
