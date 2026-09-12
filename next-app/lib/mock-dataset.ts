@@ -167,14 +167,19 @@ function buildStore() {
       position_name: positionName(row.position_id),
       manager_name: employeeName(row.manager_id),
     })),
-    "/hr/quotas": asRows(tables, "DepartmentQuota").map((row) => ({
-      ...row,
-      id: row.quota_id,
-      department_code: departments.get(String(row.department_id))?.department_code,
-      department_name: departmentName(row.department_id),
-      details: quotaDetails.get(String(row.quota_id)) ?? [],
-      budget_details: parseJson(row.budget_details),
-    })),
+    "/hr/quotas": asRows(tables, "DepartmentQuota").map((row) => {
+      const current = Number(row.current_headcount ?? 0);
+      return {
+        ...row,
+        id: row.quota_id,
+        department_code: departments.get(String(row.department_id))?.department_code,
+        department_name: departmentName(row.department_id),
+        current_headcount: current,
+        needed_headcount: Math.max(0, Number(row.target_headcount ?? 0) - current),
+        details: quotaDetails.get(String(row.quota_id)) ?? [],
+        budget_details: parseJson(row.budget_details),
+      };
+    }),
     "/hr/contracts": asRows(tables, "EmployeeContract").map(withEmployee),
     "/hr/expiring-contracts": asRows(tables, "EmployeeContract").filter((row) => Number(row.end_date) > Date.UTC(2026, 8, 12)).map(withEmployee),
     "/hr/contract-proposals": asRows(tables, "ContractProposal").map(withEmployee),

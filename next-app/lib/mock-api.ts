@@ -352,6 +352,7 @@ function loadStore(): MockStore {
       ...quota,
       details: quota.details ?? quotaDefaults.details,
       budget_details: quota.budget_details ?? quotaDefaults.budget_details,
+      needed_headcount: Math.max(0, Number(quota.target_headcount ?? 0) - Number(quota.current_headcount ?? 0)),
     }));
     const storedQuotaIds = new Set(storedQuotas.map((quota) => String(quota.quota_id ?? "")));
     store["/hr/quotas"] = [

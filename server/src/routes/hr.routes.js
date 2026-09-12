@@ -1278,6 +1278,7 @@ router.get('/quotas', async (req, res) => {
             return {
                 ...q,
                 current_headcount: total,
+                needed_headcount: Math.max(0, (Number(q.target_headcount) || 0) - total),
                 details
             };
         }));
@@ -1351,6 +1352,7 @@ router.get('/quotas/:id', async (req, res) => {
             data: {
                 ...quota,
                 current_headcount: currentHeadcount,
+                needed_headcount: Math.max(0, (Number(quota.target_headcount) || 0) - currentHeadcount),
                 details: updatedDetails
             }
         });
