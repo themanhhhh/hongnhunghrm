@@ -112,9 +112,6 @@
 
 ::selection { background: #99f6e4; color: #0f172a; }
 
-/* Operational categories are navigated from the persistent sidebar. */
-.operational-workspace > .rounded-2xl:nth-child(3) > div:first-child { display: none; }
-
 @media print {
   body * { visibility: hidden !important; }
   .report-print-sheet, .report-print-sheet * { visibility: visible !important; }

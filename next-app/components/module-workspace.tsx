@@ -4597,10 +4597,6 @@ function EmployeeConversionForm({
           }}
         >
           <div className="min-h-0 flex-1 overflow-y-auto p-5 sm:p-7">
-            <div className="mb-6 grid gap-3 rounded-xl border border-amber-100 bg-amber-50 p-4 text-sm leading-6 text-amber-900 sm:grid-cols-[auto_1fr]">
-              <span className="font-bold">Lưu ý:</span>
-              <span>Kiểm tra và bổ sung đầy đủ thông tin. Dữ liệu chỉ được tạo thành nhân viên sau khi bấm “Tạo hồ sơ & hợp đồng”.</span>
-            </div>
             <div className="mb-6 flex flex-wrap gap-2 border-b border-slate-200">
               <button
                 type="button"
