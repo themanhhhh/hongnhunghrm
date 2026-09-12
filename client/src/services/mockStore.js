@@ -1,3 +1,5 @@
+import { datasetV2Defaults } from './dataset-v2.js';
+
 export const INITIAL_INTERVIEW_SCHEDULES = [
     {
         schedule_id: 'sch-01',
@@ -446,22 +448,23 @@ const normalizeCandidateStatus = (value) => {
 
 // Helper to get or initialize local storage dataset
 const getStorageItem = (key, initialValue) => {
+    const datasetDefault = Object.prototype.hasOwnProperty.call(datasetV2Defaults, key) ? datasetV2Defaults[key] : initialValue;
     try {
-        const item = localStorage.getItem(`bravo_hrm_mock_${key}`);
+        const item = localStorage.getItem(`bravo_hrm_mock_v2_${key}`);
         if (item) {
             const value = JSON.parse(item);
             return key === 'candidates' ? value.map(candidate => ({ ...candidate, status: normalizeCandidateStatus(candidate.status) })) : value;
         }
-        localStorage.setItem(`bravo_hrm_mock_${key}`, JSON.stringify(initialValue));
-        return initialValue;
+        localStorage.setItem(`bravo_hrm_mock_v2_${key}`, JSON.stringify(datasetDefault));
+        return datasetDefault;
     } catch (e) {
-        return initialValue;
+        return datasetDefault;
     }
 };
 
 const setStorageItem = (key, value) => {
     try {
-        localStorage.setItem(`bravo_hrm_mock_${key}`, JSON.stringify(value));
+        localStorage.setItem(`bravo_hrm_mock_v2_${key}`, JSON.stringify(value));
     } catch (e) { }
 };
 

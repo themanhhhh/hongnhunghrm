@@ -4,6 +4,7 @@ import { isMockMode, mockApiRequest, mockUploadEmployeeAvatar } from "./mock-api
 import { getStoredSession, setUserCookie } from "./session";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5000/api";
+const API_TIMEOUT_MS = 3000;
 
 export type DashboardData = {
   kpis: Array<{
@@ -245,8 +246,17 @@ export const api = {
     headers.set("Content-Type", "application/json");
     const token = typeof window !== "undefined" ? window.localStorage.getItem("bravo_next_token") : null;
     if (token) headers.set("Authorization", `Bearer ${token}`);
+    const timeoutController = init.signal ? undefined : new AbortController();
+    const timeoutId = timeoutController
+      ? setTimeout(() => timeoutController.abort(), API_TIMEOUT_MS)
+      : undefined;
     try {
-      const response = await fetch(`${API_URL}${path}`, { ...init, headers, cache: "no-store" });
+      const response = await fetch(`${API_URL}${path}`, {
+        ...init,
+        headers,
+        cache: "no-store",
+        signal: init.signal ?? timeoutController?.signal,
+      });
       if (!response.ok) {
         const body = await response.json().catch(() => null) as ApiEnvelope<unknown> | null;
       if (response.status >= 500) return mockApiRequest<T>(path, init, session);
@@ -256,6 +266,8 @@ export const api = {
     } catch (error) {
       if (error instanceof ApiError && error.status < 500) throw error;
       return mockApiRequest<T>(path, init, session);
+    } finally {
+      if (timeoutId) clearTimeout(timeoutId);
     }
   },
   async dashboard(): Promise<DashboardData> {

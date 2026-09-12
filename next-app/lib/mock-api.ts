@@ -1,11 +1,12 @@
 import { reportDefinitions } from "./report-config";
 import type { Session } from "./permissions";
 import { isCandidateHiringDecisionPassed, isCandidateWorking, normalizeCandidateStatus } from "./candidate-status";
+import { createMockStoreV2 } from "./mock-dataset";
 
 type MockRow = Record<string, unknown>;
 type MockStore = Record<string, MockRow[]>;
 
-const MOCK_STORE_KEY = "bravo_next_mock_store";
+const MOCK_STORE_KEY = "bravo_next_mock_store_v2";
 
 const idFields: Record<string, string> = {
   "/admin/users": "user_id",
@@ -18,6 +19,7 @@ const idFields: Record<string, string> = {
   "/hr/contracts": "contract_id",
   "/hr/contract-proposals": "proposal_id",
   "/hr/contract-extensions": "extension_id",
+  "/hr/contract-appendices": "appendix_id",
   "/hr/expiring-contracts": "contract_id",
   "/hr/leave-applications": "leave_id",
   "/hr/transfer-proposals": "proposal_id",
@@ -31,6 +33,7 @@ const idFields: Record<string, string> = {
   "/recruitment/pre-screenings": "pre_screening_id",
   "/recruitment/interview-schedules": "schedule_id",
   "/recruitment/interview-evaluations": "interview_eval_id",
+  "/recruitment/interviews": "interview_id",
   "/recruitment/offers": "offer_id",
   "/recruitment/decisions": "decision_id",
   "/reward-discipline/criteria": "criteria_id",
@@ -289,6 +292,9 @@ const initialStore: MockStore = {
     { reward_discipline_id: "discipline-demo-01", decision_no: "QĐKL/2026/001", decision_type: "KY_LUAT", employee_id: "emp-kd-01", employee_code: "NV-2024-027", employee_name: "Phạm Quốc Tuấn", department_name: "Phòng Kinh doanh", position_name: "Trưởng Phòng Kinh doanh", decision_date: "2026-08-20", effective_date: "2026-08-20", decision_by: "Trần Thị Thu Hà", proposal_id: "discipline-proposal-demo-01", amount: 0, status: "COMPLETED", reason: "Chưa cập nhật báo cáo đúng hạn nhiều lần.", content: "Nhắc nhở bằng văn bản và theo dõi cải thiện trong kỳ tiếp theo." },
   ],
 };
+
+for (const key of Object.keys(initialStore)) delete initialStore[key];
+Object.assign(initialStore, createMockStoreV2());
 
 function cloneInitialStore(): MockStore {
   return JSON.parse(JSON.stringify(initialStore)) as MockStore;
