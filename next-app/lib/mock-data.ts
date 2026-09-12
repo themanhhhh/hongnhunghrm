@@ -64,16 +64,4 @@ export const moduleData = {
       ["DXKT-2026-008", "Đội dự án ERP", "Khối Kỹ thuật", "5.000.000 đ", "Khen thưởng", "Chờ duyệt"],
     ],
   },
-  reports: {
-    title: "Báo cáo & phân tích",
-    eyebrow: "DECISION INTELLIGENCE",
-    description: "Biến dữ liệu nhân sự thành báo cáo quản trị có thể hành động ngay.",
-    tabs: ["Tổng quan", "Báo cáo tuyển dụng", "Báo cáo nhân sự", "Đánh giá nhân sự", "Xuất dữ liệu"],
-    stats: [{ label: "Mẫu báo cáo", value: "18", meta: "3 nhóm nghiệp vụ" }, { label: "Báo cáo tháng này", value: "46", meta: "12 người dùng" }, { label: "Tỷ lệ hoàn tất", value: "98%", meta: "Đúng hạn" }, { label: "Dữ liệu cập nhật", value: "08:42", meta: "Hôm nay" }],
-    rows: [
-      ["BC-HR-08", "Báo cáo biến động nhân sự", "Tháng 08/2026", "Toàn công ty", "146 nhân sự", "Sẵn sàng"],
-      ["BC-REC-12", "Hiệu quả nguồn tuyển dụng", "Quý II/2026", "Tuyển dụng", "51 nhân sự", "Sẵn sàng"],
-      ["BC-EV-04", "Tổng hợp xếp loại nhân viên", "Năm 2026", "Toàn công ty", "142 phiếu", "Sẵn sàng"],
-    ],
-  },
 };

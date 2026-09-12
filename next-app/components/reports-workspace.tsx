@@ -548,7 +548,7 @@ export function ReportsWorkspace() {
               <div className="flex items-center gap-2 text-sm font-bold text-slate-900">
                 <Layers size={16} className="text-teal-700" /> Danh mục báo cáo
               </div>
-               <Badge tone="teal">19 mẫu</Badge>
+               <Badge tone="teal">6 mẫu</Badge>
             </div>
             <div className="relative">
               <Search

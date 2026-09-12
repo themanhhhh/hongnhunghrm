@@ -1,4 +1,3 @@
-import { reportDefinitions } from "./report-config";
 import type { Session } from "./permissions";
 import { isCandidateHiringDecisionPassed, isCandidateWorking, normalizeCandidateStatus } from "./candidate-status";
 import { createMockStoreV2 } from "./mock-dataset";
@@ -382,83 +381,6 @@ export function mockUploadEmployeeAvatar(employeeId: string, file: File) {
   return { avatarUrl };
 }
 
-function mockReportResult(reportId: string, filters: Record<string, string>) {
-  const definition = reportDefinitions.find((item) => item.id === reportId);
-  if (!definition) return { success: false, message: "Không tìm thấy mẫu báo cáo." };
-  if (reportId === "rec_result") {
-    const store = loadStore();
-    const start = filters.startDate ? new Date(filters.startDate).getTime() : 0;
-    const end = filters.endDate ? new Date(filters.endDate).getTime() + 86399999 : Number.POSITIVE_INFINITY;
-    const grouped = new Map<string, { department_name: string; position_name: string; required_quantity: number; hired_quantity: number }>();
-    store["/recruitment/requests"].filter((request) => {
-      const date = dateTimestamp(request.created_date);
-      return (!Number.isNaN(date) && date >= start && date <= end) || request.created_date === undefined;
-    }).forEach((request) => {
-      const department = String(request.department_name ?? "");
-      const position = String(request.position_name ?? "");
-      if (filters.department && filters.department !== "ALL" && department !== filters.department) return;
-      if (filters.position && filters.position !== "ALL" && position !== filters.position) return;
-      const key = `${request.department_id ?? department}|${request.position_id ?? position}`;
-      const current = grouped.get(key) ?? { department_name: department, position_name: position, required_quantity: 0, hired_quantity: 0 };
-      current.required_quantity += Number(request.quantity ?? 0);
-      const hired = store["/recruitment/candidates"].filter((candidate) => String(candidate.recruitment_request_id) === String(request.recruitment_request_id) && (isCandidateWorking(candidate.status) || store["/hr/employees"].some((employee) => String(employee.candidate_id) === String(candidate.candidate_id) && employee.employment_status === "WORKING"))).length;
-      current.hired_quantity += hired;
-      grouped.set(key, current);
-    });
-    const data = Array.from(grouped.values()).map((row) => ({ ...row, remaining_quantity: Math.max(0, row.required_quantity - row.hired_quantity) }));
-    return { success: true, reportId, filters, data, summary: { totalRequired: data.reduce((sum, row) => sum + row.required_quantity, 0), totalHired: data.reduce((sum, row) => sum + row.hired_quantity, 0), totalRemaining: data.reduce((sum, row) => sum + row.remaining_quantity, 0), total: data.length, mock: true } };
-  }
-  if (reportId === "eval_detail") {
-    const store = loadStore();
-    const start = filters.startDate ? new Date(filters.startDate).getTime() : 0;
-    const end = filters.endDate ? new Date(filters.endDate).getTime() + 86399999 : Number.POSITIVE_INFINITY;
-    const data = store["/reward-discipline/evaluations"].filter((evaluation) => {
-      if (String(evaluation.status ?? "COMPLETED") !== "COMPLETED") return false;
-      const date = dateTimestamp(evaluation.evaluation_date);
-      if (!Number.isNaN(date) && (date < start || date > end)) return false;
-      if (filters.department && filters.department !== "ALL" && String(evaluation.department_name ?? "") !== filters.department) return false;
-      if (filters.position && filters.position !== "ALL" && String(evaluation.position_name ?? "") !== filters.position) return false;
-      return true;
-    }).flatMap((evaluation) => parseDetailList(evaluation.details).map((detail) => ({
-      criteria_code: detail.criteria_code,
-      criteria_name: detail.criteria_name,
-      self_score: "-",
-      manager_score: Number(detail.score) || 0,
-      weight: Number(detail.weight) || 0,
-      final_score: Number(detail.score) || 0,
-      notes: detail.note ?? "",
-      evaluation_code: evaluation.evaluation_code,
-      evaluation_date: evaluation.evaluation_date,
-      evaluation_quarter: evaluation.evaluation_quarter,
-      year: evaluation.year,
-      employee_id: evaluation.employee_id,
-      employee_code: evaluation.employee_code,
-      full_name: evaluation.employee_name,
-      evaluator_id: evaluation.evaluator_id,
-      evaluator_name: evaluation.evaluator_name,
-      dept_name: evaluation.department_name,
-      position_name: evaluation.position_name,
-    })));
-    return { success: true, reportId, filters, data, summary: { totalCriteriaScores: data.length, note: "Hệ thống hiện lưu điểm quản lý; chưa có trường tự đánh giá độc lập.", total: data.length, mock: true } };
-  }
-  const makeRow = (index: number) => Object.fromEntries(
-    definition.columns.map((column) => {
-      if (column.key.includes("date") || column.key.includes("_date") || column.key === "dob" || column.key === "join_date") return [column.key, filters.startDate || "2026-01-01"] as const;
-      if (column.key.includes("count") || column.key.includes("quantity") || column.key === "weight" || column.key === "amount" || column.key === "budget") return [column.key, index === 1 ? 8 : 5] as const;
-      if (column.key.includes("rate") || column.key === "percentage") return [column.key, "82%"] as const;
-      if (column.key.includes("score")) return [column.key, "8.5"] as const;
-      return [column.key, index === 1 ? "Dữ liệu mẫu 1" : "Dữ liệu mẫu 2"] as const;
-    }),
-  );
-  return {
-    success: true,
-    reportId,
-    filters,
-    data: [makeRow(1), makeRow(2)],
-    summary: { total: 2, mock: true },
-  };
-}
-
 const dedicatedReportIds: Record<string, string> = {
   "/reports/recruitment-result": "rec_result",
   "/reports/recruitment-evaluations": "rec_candidates_interview",
@@ -788,10 +710,6 @@ export async function mockApiRequest<T>(path: string, init: RequestInit = {}, se
 
   if (path.includes("dashboard")) return dashboardResponse(session) as T;
   if (path.endsWith("/approval-history") || path.endsWith("/pathway")) return envelope([]) as T;
-  if (path === "/reports/query" && (init.method ?? "GET") === "POST") {
-    const payload = payloadFor(init);
-    return mockReportResult(String(payload.reportId ?? ""), (payload.filters ?? {}) as Record<string, string>) as T;
-  }
   const dedicatedReportId = dedicatedReportIds[pathname];
   if (dedicatedReportId && (init.method ?? "GET") === "GET") {
     return mockDedicatedReport(dedicatedReportId, queryFilters) as T;

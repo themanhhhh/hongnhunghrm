@@ -408,18 +408,7 @@ export const api = {
     pagination: { page: number; size: number } = { page: 1, size: 20 },
   ): Promise<ReportQueryResult> {
     const endpoint = dedicatedReportEndpoints[reportId];
-    if (!endpoint) {
-      const legacyFilters = {
-        ...filters,
-        department: filters.department === "ALL" ? "ALL" : filters.departmentName ?? filters.department ?? "ALL",
-        position: filters.position === "ALL" ? "ALL" : filters.positionName ?? filters.position ?? "ALL",
-      };
-      return this.request<ReportQueryResult>(
-        "/reports/query",
-        { method: "POST", body: JSON.stringify({ reportId, filters: legacyFilters }) },
-        { resource: "reports" },
-      );
-    }
+    if (!endpoint) throw new ApiError("Mẫu báo cáo không còn được hỗ trợ.", 404);
 
     const params = new URLSearchParams();
     const values: Record<string, string | undefined> = {
@@ -554,11 +543,6 @@ export const api = {
       const response = await this.request<ApiEnvelope<Array<Record<string, unknown>>>>("/reward-discipline/evaluations", {}, permission);
       const rows = unwrap<Array<Record<string, unknown>>>(response);
       if (rows && rows.length > 0) return { ...moduleData.rewards, rows: rows.map((item) => [String(item.evaluation_code ?? "PĐG"), String(item.employee_name ?? "-"), String(item.department_name ?? "-"), `${item.total_score ?? 0} / 10`, String(item.grade_result ?? "-"), "Đã hoàn tất"]) };
-    }
-    if (name === "reports") {
-      const response = await this.request<ApiEnvelope<Array<Record<string, unknown>>>>("/reports/query", { method: "POST", body: JSON.stringify({ reportId: "hr_summary", filters: {} }) }, permission);
-      const rows = unwrap<Array<Record<string, unknown>>>(response);
-      if (rows && rows.length > 0) return { ...moduleData.reports, rows: rows.map((item) => [String(item.dept_code ?? "BC-HR"), String(item.dept_name ?? "-"), String(item.total_emp ?? 0), String(item.male_count ?? 0), String(item.female_count ?? 0), "Sẵn sàng"]) };
     }
     return moduleData[name];
   },
