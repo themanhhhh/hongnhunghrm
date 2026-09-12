@@ -24,6 +24,16 @@ function parseJson(value: unknown): MockRow[] {
   }
 }
 
+function parseJsonValue(value: unknown) {
+  if (value && typeof value === "object") return value;
+  if (typeof value !== "string") return undefined;
+  try {
+    return JSON.parse(value) as unknown;
+  } catch {
+    return undefined;
+  }
+}
+
 function buildStore() {
   const tables = buildDatasetV2().tables;
   const departments = byId(asRows(tables, "Department"), "department_id");
@@ -177,7 +187,7 @@ function buildStore() {
         current_headcount: current,
         needed_headcount: Math.max(0, Number(row.target_headcount ?? 0) - current),
         details: quotaDetails.get(String(row.quota_id)) ?? [],
-        budget_details: parseJson(row.budget_details),
+        budget_details: parseJsonValue(row.budget_details) ?? [],
       };
     }),
     "/hr/contracts": asRows(tables, "EmployeeContract").map(withEmployee),

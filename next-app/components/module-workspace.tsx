@@ -584,7 +584,6 @@ function parseBudgetDetails(value: unknown): Row[] {
 function QuotaDetail({ row }: { row: Row }) {
   const details = parseDetailList(row.details);
   const budgetDetails = parseBudgetDetails(row.budget_details);
-  console.debug("quota budget details", JSON.stringify({ value: row.budget_details, budgetDetails }));
   const overview: Array<[string, unknown]> = [
     ["Mã định biên", row.quota_id],
     ["Số phiếu", row.quota_code],
@@ -9655,9 +9654,9 @@ function OperationalWorkspace({
                       </div>
                       <div className="mt-1 break-words text-sm text-slate-700">
                         {isStructuredDetailValue(key, value) ? (
-                          <pre className="max-h-80 overflow-auto whitespace-pre-wrap rounded-lg bg-slate-950/[0.03] p-3 text-xs leading-5">
+                          <div className="max-h-80 overflow-auto whitespace-pre-wrap break-words text-sm leading-5">
                             {displayDetailValue(tab, key, value)}
-                          </pre>
+                          </div>
                         ) : (
                           displayDetailValue(tab, key, value)
                         )}
