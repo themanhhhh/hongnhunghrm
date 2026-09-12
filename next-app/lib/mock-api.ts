@@ -566,6 +566,9 @@ export async function mockApiRequest<T>(path: string, init: RequestInit = {}, se
           ...row,
           candidate_name: row.candidate_name ?? candidate?.full_name,
           candidate_code: row.candidate_code ?? candidate?.candidate_code,
+          offer: row.offer ?? (store["/recruitment/offers"] ?? []).find(
+            (item) => String(item.candidate_id ?? "") === String(row.candidate_id ?? ""),
+          ) ?? {},
         };
       })
     : rows;

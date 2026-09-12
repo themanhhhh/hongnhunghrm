@@ -530,7 +530,13 @@ function displayCell(key: string, value: unknown) {
   if (["amount", "proposed_amount"].includes(key))
     return `${Number(value).toLocaleString("vi-VN")} VNĐ`;
   if (key === "weight") return `${Number(value).toLocaleString("vi-VN")} %`;
-  if (/date|_time|_at$/i.test(key)) {
+  if (
+    key === "date" ||
+    key.startsWith("date_") ||
+    key.endsWith("_date") ||
+    key.endsWith("_time") ||
+    key.endsWith("_at")
+  ) {
     return key.endsWith("time") ? formatDateTime(value) : formatDate(value);
   }
   return displayValue(value);
@@ -556,9 +562,29 @@ function quotaNumber(value: unknown) {
   return Number(value ?? 0).toLocaleString("vi-VN");
 }
 
+function parseBudgetDetails(value: unknown): Row[] {
+  const details = parseDetailList(value);
+  if (details.length) return details;
+  let parsed = value;
+  if (typeof value === "string") {
+    try {
+      parsed = JSON.parse(value);
+    } catch {
+      return [];
+    }
+  }
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return [];
+  return Object.entries(parsed).map(([costType, estimatedCost]) => ({
+    cost_type: costType,
+    source: "Ngân sách tuyển dụng",
+    estimated_cost: estimatedCost,
+  }));
+}
+
 function QuotaDetail({ row }: { row: Row }) {
   const details = parseDetailList(row.details);
-  const budgetDetails = parseDetailList(row.budget_details);
+  const budgetDetails = parseBudgetDetails(row.budget_details);
+  console.debug("quota budget details", JSON.stringify({ value: row.budget_details, budgetDetails }));
   const overview: Array<[string, unknown]> = [
     ["Mã định biên", row.quota_id],
     ["Số phiếu", row.quota_code],
@@ -8058,6 +8084,7 @@ function OperationalWorkspace({
         "work-history",
         "departments",
         "positions",
+        "interview-evaluations",
       ].includes(tab.id)
     )
       return;
