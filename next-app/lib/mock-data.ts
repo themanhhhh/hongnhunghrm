@@ -47,9 +47,9 @@ export const moduleData = {
     tabs: ["Hồ sơ nhân sự", "Hợp đồng lao động", "Đơn xin nghỉ phép", "Điều chuyển & bổ nhiệm", "Quá trình công tác"],
     stats: [{ label: "Nhân sự chính thức", value: "146", meta: "8 đơn vị" }, { label: "Hợp đồng hiệu lực", value: "139", meta: "5 sắp hết hạn" }, { label: "Đơn nghỉ phép", value: "17", meta: "9 chờ duyệt" }, { label: "Biến động quý này", value: "+12", meta: "Tuyển mới ròng" }],
     rows: [
-      ["NV-2024-027", "Phạm Quốc Tuấn", "Phòng Kinh doanh", "Trưởng phòng", "01/04/2024", "Đang làm việc"],
-      ["NV-2024-028", "Đặng Đình Hùng", "Phòng Kinh doanh", "Trưởng nhóm", "15/05/2024", "Đang làm việc"],
-      ["NV-2024-086", "Phạm Đức Anh", "Phát triển sản phẩm", "Trưởng nhóm", "01/08/2024", "Đang làm việc"],
+      ["NV-2024-027", "Phạm Quốc Tuấn", "Phòng Kinh doanh", "Trưởng phòng", "01-04-2024", "Đang làm việc"],
+      ["NV-2024-028", "Đặng Đình Hùng", "Phòng Kinh doanh", "Trưởng nhóm", "15-05-2024", "Đang làm việc"],
+      ["NV-2024-086", "Phạm Đức Anh", "Phát triển sản phẩm", "Trưởng nhóm", "01-08-2024", "Đang làm việc"],
     ],
   },
   rewards: {

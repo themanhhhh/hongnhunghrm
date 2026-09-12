@@ -451,7 +451,7 @@ function buildDatasetV2({ passwordHash = 'RUNTIME_BCRYPT_HASH' } = {}) {
         employment_status: employmentStatus, avatar_url: null, note: employmentStatus === 'RESIGNED' ? 'Da hoan tat ban giao' : null, is_active: employmentStatus === 'WORKING' ? 1 : 0
     })));
     add('Employee', Array.from({ length: 42 }, (_, index) => {
-        const positionIndex = index % 24;
+        const positionIndex = index % extraPositionDepartments.length;
         const number = String(index + 9).padStart(3, '0');
         const resigned = index < 6;
         const joinMonth = String((index % 8) + 1).padStart(2, '0');
@@ -649,7 +649,7 @@ function buildDatasetV2({ passwordHash = 'RUNTIME_BCRYPT_HASH' } = {}) {
     ]);
     add('PreScreening', Array.from({ length: 16 }, (_, index) => {
         const number = String(index + 5).padStart(3, '0');
-        const positionIndex = (index + 4) % 24;
+        const positionIndex = (index + 4) % extraPositionDepartments.length;
         const day = String((index % 8) + 1).padStart(2, '0');
         const screeningDate = date(`2026-0${(index % 8) + 1}-${day}`);
         return {
@@ -981,11 +981,68 @@ function buildDatasetV2({ passwordHash = 'RUNTIME_BCRYPT_HASH' } = {}) {
         created_date: date(`2026-0${index + 2}-15`)
     })));
 
+    const foreignKeyDefaults = new Map(FOREIGN_KEYS.map(([table, column, target, targetColumn]) => [
+        `${table}.${column}`,
+        tables[target][0]?.[targetColumn]
+    ]));
+    const tableColumns = new Map(TABLES.map((table) => [
+        table,
+        [...new Set(tables[table].flatMap((row) => Object.keys(row)))]
+    ]));
+    const columnExamples = new Map();
+    for (const [table, rows] of Object.entries(tables)) {
+        for (const row of rows) {
+            for (const [column, value] of Object.entries(row)) {
+                if (value !== null && value !== undefined && !columnExamples.has(`${table}.${column}`)) {
+                    columnExamples.set(`${table}.${column}`, value);
+                }
+            }
+        }
+    }
+    const firstDateValue = (row) => [
+        row.start_date, row.decision_date, row.effective_date, row.proposal_date,
+        row.offer_date, row.received_date, row.join_date, row.created_date
+    ].find((value) => value !== null && value !== undefined);
+    const defaultValueFor = (table, row, column) => {
+        const foreignKeyDefault = foreignKeyDefaults.get(`${table}.${column}`);
+        if (foreignKeyDefault !== undefined) {
+            if (column === 'department_id' && row.employee_id) return employeeById.get(row.employee_id)?.department_id || foreignKeyDefault;
+            if (column === 'position_id' && row.employee_id) return employeeById.get(row.employee_id)?.position_id || foreignKeyDefault;
+            return foreignKeyDefault;
+        }
+        if (column === 'creator_id' || column === 'source_id') return row.employee_id || 'emp-001';
+        if (/(?:date|time)$/i.test(column)) {
+            if (column === 'end_date' || column === 'new_end_date' || column.includes('expiry') || column === 'resignation_date' || column === 'official_resign_date') return MAX_DATE;
+            if (column === 'probation_from_date') return row.start_date || row.created_date || MAX_DATE;
+            if (column === 'probation_to_date') return row.end_date || row.start_date || row.created_date || MAX_DATE;
+            return firstDateValue(row) || MAX_DATE;
+        }
+        if (/(?:json|details|items|attachments)$/i.test(column)) return json([]);
+        if (column === 'religion') return 'Không';
+        if (column === 'referrer') return 'Hệ thống';
+        if (column === 'payment_method') return 'CASH';
+        if (column.endsWith('_url')) return '';
+        if (column === 'decision_by' || column === 'signed_by') return employeeName('emp-001') || 'Hệ thống';
+        const example = columnExamples.get(`${table}.${column}`);
+        if (typeof example === 'number') return 0;
+        if (typeof example === 'boolean') return false;
+        if (column.endsWith('_id')) return row.employee_id || row.candidate_id || 'emp-001';
+        return 'Không có';
+    };
+    for (const [table, rows] of Object.entries(tables)) {
+        for (const row of rows) {
+            for (const column of tableColumns.get(table)) {
+                if (row[column] === null || row[column] === undefined) row[column] = defaultValueFor(table, row, column);
+            }
+        }
+    }
+
     const employeeReferenceFields = [
         ['employee_id', 'employee_name'], ['signer_id', 'signer_name'], ['approver_id', 'approver_name'],
         ['requested_by', 'requested_by_name'], ['interviewer_id', 'interviewer_name'], ['evaluator_id', 'evaluator_name'],
         ['decision_by_id', 'decision_by_name'], ['proposer_id', 'proposer_name'], ['creator_id', 'creator_name'],
-        ['proposed_by_employee_id', 'proposed_by'], ['approver_employee_id', 'approver_name'], ['manager_id', 'manager_name']
+        ['proposed_by_employee_id', 'proposed_by'], ['approver_employee_id', 'approver_name'], ['manager_id', 'manager_name'],
+        ['related_person_id', 'related_person_name']
     ];
     for (const rows of Object.values(tables)) {
         for (const row of rows) {

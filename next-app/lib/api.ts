@@ -2,6 +2,7 @@ import { canAccess, defaultSession, DEMO_USERS, type Action, type Resource, type
 import { dashboardData, moduleData } from "./mock-data";
 import { isMockMode, mockApiRequest, mockUploadEmployeeAvatar } from "./mock-api";
 import { getStoredSession, setUserCookie } from "./session";
+import { formatDate } from "./utils";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5000/api";
 const API_TIMEOUT_MS = 3000;
@@ -478,7 +479,7 @@ export const api = {
     if (name === "people") {
       const response = await this.request<ApiEnvelope<Array<Record<string, unknown>>>>("/hr/employees", {}, permission);
       const rows = unwrap<Array<Record<string, unknown>>>(response);
-      if (rows && rows.length > 0) return { ...moduleData.people, rows: rows.map((item) => [String(item.employee_code ?? "NV"), String(item.full_name ?? "-"), String(item.department_name ?? "-"), String(item.level ?? item.position_name ?? "Nhân viên"), item.join_date ? new Date(Number(item.join_date)).toLocaleDateString("vi-VN") : "-", "Đang làm việc"]) };
+      if (rows && rows.length > 0) return { ...moduleData.people, rows: rows.map((item) => [String(item.employee_code ?? "NV"), String(item.full_name ?? "-"), String(item.department_name ?? "-"), String(item.level ?? item.position_name ?? "Nhân viên"), formatDate(item.join_date), "Đang làm việc"]) };
     }
     if (name === "rewards") {
       const response = await this.request<ApiEnvelope<Array<Record<string, unknown>>>>("/reward-discipline/evaluations", {}, permission);

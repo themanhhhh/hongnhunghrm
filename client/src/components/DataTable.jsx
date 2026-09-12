@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Search, Plus, ChevronLeft, ChevronRight, Download, Printer } from 'lucide-react';
+import { formatDate, formatDateTime } from '../utils/date';
 
 const exportText = (value) => {
   if (value === null || value === undefined) return '';
@@ -11,9 +12,28 @@ const csvValue = (value) => `"${exportText(value).replaceAll('"', '""')}"`;
 
 const getExportValue = (row, column) => {
   if (typeof column.exportValue === 'function') return column.exportValue(row);
-  if (column.accessor) return row[column.accessor];
-  if (column.key) return row[column.key];
+  const key = column.accessor || column.key;
+  const value = key ? row[key] : '';
+  if (isDateColumn(column)) return isDateTimeColumn(column) ? formatDateTime(value, '') : formatDate(value, '');
+  if (key) return value;
   return '';
+};
+
+const isDateColumn = (column) => {
+  const key = String(column.accessor || column.key || '').toLowerCase();
+  const header = String(column.header || '').toLowerCase();
+  return /(^|_)(date|time|at)$/.test(key) || key === 'date_of_birth' || header.includes('ngày');
+};
+
+const isDateTimeColumn = (column) => /(^|_)(time|at)$/.test(String(column.accessor || column.key || '').toLowerCase());
+
+const renderCellValue = (row, column) => {
+  if (column.render) return typeof column.render === 'function' ? column.render(row) : '—';
+  const key = column.accessor || column.key;
+  const value = key ? row[key] : undefined;
+  if (value === undefined || value === null || value === '') return '—';
+  if (isDateColumn(column)) return isDateTimeColumn(column) ? formatDateTime(value) : formatDate(value);
+  return String(value);
 };
 
 export const DataTable = ({
@@ -159,9 +179,7 @@ export const DataTable = ({
                   </td>
                   {columns.map((col, cIdx) => (
                     <td key={cIdx} style={{ whiteSpace: 'nowrap' }}>
-                      {col.render
-                        ? (typeof col.render === 'function' ? col.render(row) : '—')
-                        : (col.accessor && row[col.accessor] !== undefined && row[col.accessor] !== null ? String(row[col.accessor]) : '—')}
+                      {renderCellValue(row, col)}
                     </td>
                   ))}
                 </tr>
@@ -189,10 +207,8 @@ export const DataTable = ({
             {(currentPage - 1) * itemsPerPage + rIdx + 1}
           </td>
           {columns.map((col, cIdx) => (
-            <td key={cIdx} style={{ whiteSpace: 'nowrap' }}>
-              {col.render
-                ? (typeof col.render === 'function' ? col.render(row) : '—')
-                : (col.accessor && row[col.accessor] !== undefined && row[col.accessor] !== null ? String(row[col.accessor]) : '—')}
+                    <td key={cIdx} style={{ whiteSpace: 'nowrap' }}>
+                      {renderCellValue(row, col)}
             </td>
           ))}
         </tr>

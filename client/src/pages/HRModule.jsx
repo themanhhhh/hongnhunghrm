@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { api } from '../services/api';
+import { dateInputValue, formatDate as displayDate, parseDateValue } from '../utils/date';
 import { DataTable } from '../components/DataTable';
 import { Modal } from '../components/Modal';
 import { StatusChip } from '../components/StatusChip';
@@ -97,8 +98,8 @@ export const HRModule = ({ activeSubTab }) => {
 
     const calculateTenure = (joinDate) => {
         if (!joinDate) return '—';
-        const start = new Date(joinDate);
-        if (isNaN(start.getTime())) return '—';
+        const start = parseDateValue(joinDate);
+        if (!start || isNaN(start.getTime())) return '—';
         const now = new Date();
         let years = now.getFullYear() - start.getFullYear();
         let months = now.getMonth() - start.getMonth();

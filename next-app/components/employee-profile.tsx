@@ -11,6 +11,7 @@ import { getStoredSession, subscribeToSession } from "@/lib/session";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { formatDate } from "@/lib/utils";
 
 type Row = Record<string, unknown>;
 type ProfileTab = "basic" | "onboarding" | "contact" | "contracts" | "history" | "rewards";
@@ -20,12 +21,7 @@ function valueOf(value: unknown) {
 }
 
 function dateOf(value: unknown) {
-  if (!value) return "-";
-  const text = String(value).trim();
-  const date = typeof value === "number" || /^\d+$/.test(text)
-    ? new Date(Number(value))
-    : new Date(text);
-  return Number.isNaN(date.getTime()) ? String(value) : date.toLocaleDateString("vi-VN");
+  return formatDate(value, "-");
 }
 
 function moneyOf(value: unknown) {

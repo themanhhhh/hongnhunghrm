@@ -541,12 +541,12 @@ const REPORT_MOCK_VALUES = {
         ['CLOUD', 'Khối Kỹ thuật Phần mềm', 7, 6, 1, 6, 1]
     ],
     hr_contracts: [
-        ['NV-2024-005', 'Nguyễn Thùy Linh', 'Phòng Hành chính Nhân sự', 'Nhân viên Nhân sự', 'HDLD/2026/001', 'Xác định thời hạn 12 tháng', '15/01/2026', '15/01/2026', 'Đang hiệu lực'],
-        ['NV-2024-027', 'Phạm Quốc Tuấn', 'Khối Kinh doanh ERP', 'Trưởng phòng', 'HDLD/2025/014', 'Không xác định thời hạn', '01/04/2025', '01/04/2025', 'Đang hiệu lực']
+        ['NV-2024-005', 'Nguyễn Thùy Linh', 'Phòng Hành chính Nhân sự', 'Nhân viên Nhân sự', 'HDLD/2026/001', 'Xác định thời hạn 12 tháng', '15-01-2026', '15-01-2026', 'Đang hiệu lực'],
+        ['NV-2024-027', 'Phạm Quốc Tuấn', 'Khối Kinh doanh ERP', 'Trưởng phòng', 'HDLD/2025/014', 'Không xác định thời hạn', '01-04-2025', '01-04-2025', 'Đang hiệu lực']
     ],
     hr_seniority: [
-        ['NV-2024-005', 'Nguyễn Thùy Linh', 'Phòng Hành chính Nhân sự', 'Nhân viên Nhân sự', '15/03/2024', '2 năm 5 tháng', 'Từ 1 đến 3 năm'],
-        ['NV-2024-027', 'Phạm Quốc Tuấn', 'Khối Kinh doanh ERP', 'Trưởng phòng', '01/04/2023', '3 năm 4 tháng', 'Từ 3 đến 5 năm']
+        ['NV-2024-005', 'Nguyễn Thùy Linh', 'Phòng Hành chính Nhân sự', 'Nhân viên Nhân sự', '15-03-2024', '2 năm 5 tháng', 'Từ 1 đến 3 năm'],
+        ['NV-2024-027', 'Phạm Quốc Tuấn', 'Khối Kinh doanh ERP', 'Trưởng phòng', '01-04-2023', '3 năm 4 tháng', 'Từ 3 đến 5 năm']
     ],
     hr_birthdays: [
         ['NV-2024-005', 'Nguyễn Thùy Linh', 'Phòng Hành chính Nhân sự', 'Nhân viên Nhân sự', mockBirthday(30, -1), '0966123456', 'linh.nt@bravo.com.vn'],

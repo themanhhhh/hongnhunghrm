@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { api } from '../services/api';
+import { formatDate } from '../utils/date';
 import { useAuth } from '../context/AuthContext';
 import {
     Users,
@@ -83,9 +84,7 @@ const CustomBarRow = ({ label, count, max, color = '#2D6F62', subtext }) => (
 );
 
 const formatDashboardDate = (value) => {
-    if (!value) return '-';
-    const date = new Date(value);
-    return Number.isNaN(date.getTime()) ? '-' : date.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' });
+    return formatDate(value, '-');
 };
 
 const DashboardTable = ({ title, icon: Icon, rows = [], columns, emptyMessage, onRowClick }) => (
@@ -266,10 +265,6 @@ const WorkforceDashboard = ({ setCurrentTab, setActiveSubTab }) => {
         const end = totalDepartmentEmployees ? cursor / totalDepartmentEmployees * 100 : 100;
         return `${['#0F766E', '#0284C7', '#7C3AED', '#D97706', '#E11D48', '#64748B'][index % 6]} ${start}% ${end}%`;
     });
-    const formatDate = (value) => {
-        const date = new Date(value);
-        return Number.isNaN(date.getTime()) ? '—' : date.toLocaleDateString('vi-VN');
-    };
     const openContracts = () => { setCurrentTab('HRModule'); setActiveSubTab('Hợp đồng lao động'); };
 
     return (
@@ -420,7 +415,7 @@ const AdminDashboard = ({ setCurrentTab, setActiveSubTab }) => {
                                     <span style={{ fontSize: '0.825rem', fontWeight: 600, color: '#0F172A' }}>
                                         {u.full_name} <span style={{ color: '#64748B', fontWeight: 400 }}>({u.username})</span>
                                     </span>
-                                    <span style={{ fontSize: '0.75rem', color: '#64748B' }}>{new Date(u.created_date).toLocaleDateString('vi-VN')}</span>
+                                    <span style={{ fontSize: '0.75rem', color: '#64748B' }}>{formatDate(u.created_date)}</span>
                                 </div>
                             ))}
                         </div>
@@ -756,7 +751,7 @@ const HrDashboard = ({ setCurrentTab, setActiveSubTab }) => {
                                         <div key={c.id} onClick={() => goTo('HRModule', 'Hợp đồng lao động')} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.5rem 0.75rem', backgroundColor: '#FEF2F2', borderRadius: '6px', cursor: 'pointer', border: '1px solid #FCA5A5' }}>
                                             <div>
                                                 <div style={{ fontWeight: 600, fontSize: '0.825rem', color: '#991B1B' }}>{c.empName} ({c.empCode})</div>
-                                                <div style={{ fontSize: '0.725rem', color: '#7F1D1D' }}>{c.contractType} - Hạn: {new Date(c.endDate).toLocaleDateString('vi-VN')}</div>
+                                                <div style={{ fontSize: '0.725rem', color: '#7F1D1D' }}>{c.contractType} - Hạn: {formatDate(c.endDate)}</div>
                                             </div>
                                             <span className="badge badge-red">Sắp hết hạn</span>
                                         </div>
@@ -771,7 +766,7 @@ const HrDashboard = ({ setCurrentTab, setActiveSubTab }) => {
                                         <div key={p.id} onClick={() => goTo('HRModule', 'Đề xuất thuyên chuyển, bổ nhiệm, miễn nhiệm')} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.5rem 0.75rem', backgroundColor: '#F8FAFC', borderRadius: '6px', cursor: 'pointer', border: '1px solid #E2E8F0' }}>
                                             <div>
                                                 <div style={{ fontWeight: 600, fontSize: '0.825rem', color: '#0F172A' }}>{p.code}: {p.typeName}</div>
-                                                <div style={{ fontSize: '0.725rem', color: '#64748B' }}>Ngày tạo: {new Date(p.created_date).toLocaleDateString('vi-VN')}</div>
+                                                <div style={{ fontSize: '0.725rem', color: '#64748B' }}>Ngày tạo: {formatDate(p.created_date)}</div>
                                             </div>
                                             <span className="badge badge-yellow">Chờ duyệt</span>
                                         </div>
@@ -964,7 +959,7 @@ const BgdDashboard = ({ setCurrentTab, setActiveSubTab }) => {
                                             <div style={{ fontWeight: 600, color: '#0F172A' }}>{item.employeeName}</div>
                                             <div style={{ fontSize: '0.775rem', color: '#64748B' }}>Lý do/Nội dung: {item.reason}</div>
                                         </td>
-                                        <td style={{ fontSize: '0.8rem', color: '#64748B' }}>{new Date(item.created_date).toLocaleDateString('vi-VN')}</td>
+                                        <td style={{ fontSize: '0.8rem', color: '#64748B' }}>{formatDate(item.created_date)}</td>
                                         <td><span className="badge badge-blue">{item.currentLevel}</span></td>
                                         <td style={{ textAlign: 'center' }}>
                                             <div style={{ display: 'flex', gap: '0.35rem', justifyContent: 'center' }}>
@@ -1155,8 +1150,8 @@ const ManagerDashboard = ({ setCurrentTab, setActiveSubTab }) => {
     const [toastMessage, setToastMessage] = useState(null);
 
     const [pendingApprovals, setPendingApprovals] = useState([
-        { id: 'doc-rne-01', code: 'RNE/0826-0002', type: 'YCTD', typeName: 'Yêu cầu tuyển dụng', title: 'Bổ sung 3 Chuyên viên Cloud & Security', requester: 'Hoàng Trọng Nghĩa - Trưởng nhóm Cloud', deptName: 'Phòng Cloud và Hạ tầng', submittedDate: '11/08/2026', priority: 'HIGH', status: 'PENDING', details: 'Tuyển bổ sung 3 Chuyên viên Cloud cho dự án nâng cấp Hạ tầng ERP BRAVO 10.' },
-        { id: 'doc-ct-01', code: 'DXHD/2026-089', type: 'CONTRACT', typeName: 'Đề xuất Hợp đồng', title: 'Đề xuất chuyển HĐLĐ Thử việc sang HĐLĐ 1 Năm', requester: 'Trần Thị Thu Hà - Chuyên viên HR', deptName: 'Phòng Kinh doanh', submittedDate: '10/08/2026', priority: 'MEDIUM', status: 'PENDING', details: 'Nhân sự Nguyễn Thu Hà hoàn thành 2 tháng thử việc xuất sắc.' }
+        { id: 'doc-rne-01', code: 'RNE/0826-0002', type: 'YCTD', typeName: 'Yêu cầu tuyển dụng', title: 'Bổ sung 3 Chuyên viên Cloud & Security', requester: 'Hoàng Trọng Nghĩa - Trưởng nhóm Cloud', deptName: 'Phòng Cloud và Hạ tầng', submittedDate: '11-08-2026', priority: 'HIGH', status: 'PENDING', details: 'Tuyển bổ sung 3 Chuyên viên Cloud cho dự án nâng cấp Hạ tầng ERP BRAVO 10.' },
+        { id: 'doc-ct-01', code: 'DXHD/2026-089', type: 'CONTRACT', typeName: 'Đề xuất Hợp đồng', title: 'Đề xuất chuyển HĐLĐ Thử việc sang HĐLĐ 1 Năm', requester: 'Trần Thị Thu Hà - Chuyên viên HR', deptName: 'Phòng Kinh doanh', submittedDate: '10-08-2026', priority: 'MEDIUM', status: 'PENDING', details: 'Nhân sự Nguyễn Thu Hà hoàn thành 2 tháng thử việc xuất sắc.' }
     ]);
 
     const [managerSchedule, setManagerSchedule] = useState([
@@ -1164,7 +1159,7 @@ const ManagerDashboard = ({ setCurrentTab, setActiveSubTab }) => {
     ]);
 
     const [upcomingExpirations, setUpcomingExpirations] = useState([
-        { id: 'exp-01', empCode: 'NV-2026-088', empName: 'Đỗ Quốc Hưng', positionName: 'Chuyên viên Kinh doanh ERP', contractType: 'Thử việc 2 tháng', expiryDate: '15/08/2026', daysLeft: 3 }
+        { id: 'exp-01', empCode: 'NV-2026-088', empName: 'Đỗ Quốc Hưng', positionName: 'Chuyên viên Kinh doanh ERP', contractType: 'Thử việc 2 tháng', expiryDate: '15-08-2026', daysLeft: 3 }
     ]);
 
     useEffect(() => {
@@ -1202,7 +1197,7 @@ const ManagerDashboard = ({ setCurrentTab, setActiveSubTab }) => {
                     title: `Bổ sung ${r.quantity} ${r.position_name || 'Nhân sự'} (${r.reason || 'Định biên'})`,
                     requester: r.requested_by_name || 'Trưởng bộ phận',
                     deptName: r.department_name,
-                    submittedDate: r.created_date ? new Date(Number(r.created_date) || Date.now()).toLocaleDateString('vi-VN') : 'Mới tạo',
+                    submittedDate: r.created_date ? formatDate(r.created_date, 'Mới tạo') : 'Mới tạo',
                     priority: r.priority || 'HIGH',
                     status: 'PENDING',
                     details: r.reason || 'Nhu cầu bổ sung nhân sự'
@@ -1212,7 +1207,7 @@ const ManagerDashboard = ({ setCurrentTab, setActiveSubTab }) => {
             if (resInts.success && Array.isArray(resInts.data) && resInts.data.length > 0) {
                 const mapped = resInts.data.map(i => ({
                     id: i.interview_id || i.id,
-                    time: i.interview_date ? new Date(Number(i.interview_date) || Date.now()).toLocaleDateString('vi-VN') : 'Sắp diễn ra',
+                    time: i.interview_date ? formatDate(i.interview_date, 'Sắp diễn ra') : 'Sắp diễn ra',
                     type: 'INTERVIEW',
                     title: i.round_name || 'Phỏng vấn chuyên môn',
                     candidateName: i.candidate_name || 'Ứng viên',

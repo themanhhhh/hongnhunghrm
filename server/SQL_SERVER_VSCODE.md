@@ -83,7 +83,7 @@ Lenh `npm run seed` se:
 2. Tao `BRAVO_HRM` neu database chua ton tai.
 3. Tao schema va cac migration can thiet.
 4. Xoa du lieu hien tai trong cac bang HRM.
-5. Nap dataset v2 deterministic gom 706 dong tren 47 bang.
+5. Nap dataset v2 deterministic gom 706 dong tren 47 bang, khong co gia tri `NULL` trong cac dong du lieu.
 
 > `npm run seed` la lenh reset du lieu. Khong chay tren database co du lieu can giu lai.
 

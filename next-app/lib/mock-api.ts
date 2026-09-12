@@ -2,9 +2,12 @@ import { reportDefinitions } from "./report-config";
 import type { Session } from "./permissions";
 import { isCandidateHiringDecisionPassed, isCandidateWorking, normalizeCandidateStatus } from "./candidate-status";
 import { createMockStoreV2 } from "./mock-dataset";
+import { parseDateValue } from "./utils";
 
 type MockRow = Record<string, unknown>;
 type MockStore = Record<string, MockRow[]>;
+
+const dateTimestamp = (value: unknown) => parseDateValue(value)?.getTime() ?? Number.NaN;
 
 const MOCK_STORE_KEY = "bravo_next_mock_store_v2";
 
@@ -387,7 +390,7 @@ function mockReportResult(reportId: string, filters: Record<string, string>) {
     const end = filters.endDate ? new Date(filters.endDate).getTime() + 86399999 : Number.POSITIVE_INFINITY;
     const grouped = new Map<string, { department_name: string; position_name: string; required_quantity: number; hired_quantity: number }>();
     store["/recruitment/requests"].filter((request) => {
-      const date = new Date(String(request.created_date ?? "")).getTime();
+      const date = dateTimestamp(request.created_date);
       return (!Number.isNaN(date) && date >= start && date <= end) || request.created_date === undefined;
     }).forEach((request) => {
       const department = String(request.department_name ?? "");
@@ -410,7 +413,7 @@ function mockReportResult(reportId: string, filters: Record<string, string>) {
     const end = filters.endDate ? new Date(filters.endDate).getTime() + 86399999 : Number.POSITIVE_INFINITY;
     const data = store["/reward-discipline/evaluations"].filter((evaluation) => {
       if (String(evaluation.status ?? "COMPLETED") !== "COMPLETED") return false;
-      const date = new Date(String(evaluation.evaluation_date ?? "")).getTime();
+      const date = dateTimestamp(evaluation.evaluation_date);
       if (!Number.isNaN(date) && (date < start || date > end)) return false;
       if (filters.department && filters.department !== "ALL" && String(evaluation.department_name ?? "") !== filters.department) return false;
       if (filters.position && filters.position !== "ALL" && String(evaluation.position_name ?? "") !== filters.position) return false;
@@ -1029,10 +1032,10 @@ function dashboardResponse(session?: Session) {
     const scopedContracts = store["/hr/contracts"].filter((item) => scopeDepartmentIds.includes(String(employees.find((employee) => String(employee.employee_id) === String(item.employee_id))?.department_id)));
     const now = Date.now();
     const expiringContracts = scopedContracts.filter((item) => {
-      const endDate = new Date(String(item.end_date)).getTime();
+      const endDate = dateTimestamp(item.end_date);
       return item.status === "ACTIVE" && Number.isFinite(endDate) && endDate >= now && endDate <= now + 60 * 86400000;
     }).map((item) => {
-      const endDate = new Date(String(item.end_date)).getTime();
+      const endDate = dateTimestamp(item.end_date);
       const daysRemaining = Math.max(0, Math.ceil((endDate - now) / 86400000));
       const employee = employees.find((row) => String(row.employee_id) === String(item.employee_id));
       return { id: String(item.contract_id), employee_code: employee?.employee_code, employee_name: String(item.employee_name ?? employee?.full_name ?? "-"), position_name: String(employee?.position_name ?? item.employee_position ?? "-"), contract_type: String(item.contract_type ?? "-"), end_date: String(item.end_date), days_remaining: daysRemaining, status_label: `Còn ${daysRemaining} ngày` };

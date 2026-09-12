@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { api } from '../services/api';
+import { formatDate } from '../utils/date';
 import { DataTable } from '../components/DataTable';
 import { Modal } from '../components/Modal';
 import { StatusChip } from '../components/StatusChip';
@@ -275,7 +276,7 @@ export const RewardDisciplineModule = ({ activeSubTab }) => {
                     searchPlaceholder="Tìm mã phiếu, tên nhân viên..."
                     columns={[
                         { header: 'Mã Phiếu', accessor: 'evaluation_code', render: (r) => <b>{r.evaluation_code}</b> },
-                        { header: 'Ngày đánh giá', render: (r) => r.evaluation_date ? new Date(r.evaluation_date).toLocaleDateString('vi-VN') : '—' },
+                         { header: 'Ngày đánh giá', render: (r) => formatDate(r.evaluation_date) },
                         { header: 'Nhân viên được đánh giá', accessor: 'employee_name', render: (r) => <span style={{ fontWeight: 700 }}>{r.employee_name} ({r.employee_code})</span> },
                         { header: 'Bộ phận & Vị trí', render: (r) => `${r.department_name || '—'} - ${r.position_name || '—'}` },
                         { header: 'Người đánh giá', accessor: 'evaluator_name' },
@@ -392,7 +393,7 @@ export const RewardDisciplineModule = ({ activeSubTab }) => {
                         { header: 'Nhân viên thụ hưởng', accessor: 'employee_name', render: (r) => <span style={{ fontWeight: 700 }}>{r.employee_name} ({r.employee_code})</span> },
                         { header: 'Bộ phận & Vị trí', render: (r) => `${r.department_name || '—'} - ${r.position_name || '—'}` },
                         { header: 'Lý do / Nội dung', accessor: 'reason', render: (r) => <span style={{ fontWeight: 600, color: 'var(--bravo-teal-dark)' }}>{r.reason}</span> },
-                        { header: 'Ngày ban hành', render: (r) => r.decision_date ? new Date(r.decision_date).toLocaleDateString('vi-VN') : '—' },
+                         { header: 'Ngày ban hành', render: (r) => formatDate(r.decision_date) },
                         { header: 'Người ký ban hành', accessor: 'decision_by' },
                         {
                             header: 'Thao tác',

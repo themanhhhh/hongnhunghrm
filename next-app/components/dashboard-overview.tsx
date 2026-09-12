@@ -29,7 +29,7 @@ import { getStoredSession, subscribeToSession } from "@/lib/session";
 import { buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { cn, formatNumber } from "@/lib/utils";
+import { cn, formatDate, formatNumber } from "@/lib/utils";
 
 const tones = {
   teal: "bg-teal-50 text-teal-700 ring-teal-100",
@@ -730,11 +730,7 @@ function HRRecruitmentVisuals({ data }: { data: DashboardData }) {
 }
 
 function formatDashboardShortDate(value: string | number) {
-  const date =
-    typeof value === "number" ? new Date(value) : new Date(String(value));
-  return Number.isNaN(date.getTime())
-    ? "-"
-    : date.toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit" });
+  return formatDate(value, "-");
 }
 
 function HRCandidateTables({ data }: { data: DashboardData }) {
@@ -1024,9 +1020,7 @@ const workforceStatusColors: Record<string, string> = {
 };
 
 function formatWorkforceDate(value: string | number) {
-  const date =
-    typeof value === "number" ? new Date(value) : new Date(String(value));
-  return Number.isNaN(date.getTime()) ? "-" : date.toLocaleDateString("vi-VN");
+  return formatDate(value, "-");
 }
 
 function WorkforceDashboard({

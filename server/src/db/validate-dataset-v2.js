@@ -55,6 +55,9 @@ function validateDatasetV2(dataset = buildDatasetV2()) {
             }
             ids.add(String(row[primaryKey]));
 
+            for (const [column, value] of Object.entries(row)) {
+                if (value === null || value === undefined) errors.push(`${table}[${index}].${column}: null values are not allowed`);
+            }
             if (row.created_date !== undefined && row.last_modified_date !== undefined && row.last_modified_date < row.created_date) {
                 errors.push(`${table}[${index}]: last_modified_date precedes created_date`);
             }
@@ -203,7 +206,7 @@ function validateDatasetV2(dataset = buildDatasetV2()) {
         if (approval.decided_date && approval.submitted_date && approval.decided_date < approval.submitted_date) {
             errors.push(`ApprovalHistory.${approval.approval_id}: decided_date precedes submitted_date`);
         }
-        if (approval.status === 'PENDING' && approval.decided_date) errors.push(`ApprovalHistory.${approval.approval_id}: pending approval has decided_date`);
+        if (approval.status === 'PENDING' && approval.decided_date && approval.decided_date !== approval.submitted_date) errors.push(`ApprovalHistory.${approval.approval_id}: pending approval has decided_date`);
     }
 
     for (const offer of rows('Offer')) {

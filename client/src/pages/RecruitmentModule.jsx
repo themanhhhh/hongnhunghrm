@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { api } from '../services/api';
+import { dateInputValue, formatDate, formatDateTime } from '../utils/date';
 import { DataTable } from '../components/DataTable';
 import { Modal } from '../components/Modal';
 import { StatusChip } from '../components/StatusChip';
@@ -842,20 +843,7 @@ export const RecruitmentModule = ({ activeSubTab }) => {
     };
 
 
-    const formatDate = (ts) => {
-        if (!ts) return '—';
-        if (typeof ts === 'string' && ts.includes('-')) return ts;
-        const date = new Date(Number(ts));
-        return isNaN(date.getTime()) ? '—' : date.toLocaleDateString('vi-VN');
-    };
-
-    const formatDateForInput = (ts) => {
-        if (!ts) return '';
-        const text = String(ts).trim();
-        const date = typeof ts === 'number' || /^\d+$/.test(text) ? new Date(Number(ts)) : new Date(ts);
-        if (isNaN(date.getTime())) return '';
-        return date.toISOString().split('T')[0];
-    };
+    const formatDateForInput = (ts) => dateInputValue(ts);
 
     // --- Handlers for Yêu cầu tuyển dụng (Recruitment Request) ---
     const handleRequestedByChange = (employeeId) => {
@@ -2720,7 +2708,7 @@ export const RecruitmentModule = ({ activeSubTab }) => {
                             searchPlaceholder="Tìm kiếm theo bộ phận"
                             columns={[
                                 { header: 'Số phiếu', accessor: 'quota_code', render: (r) => <b style={{ color: 'var(--bravo-teal-dark)' }}>{r.quota_code}</b> },
-                                { header: 'Ngày áp dụng', accessor: 'effective_date', render: (r) => r.effective_date ? new Date(r.effective_date).toLocaleDateString('vi-VN') : '' },
+                                { header: 'Ngày áp dụng', accessor: 'effective_date', render: (r) => formatDate(r.effective_date, '') },
                                 {
                                     header: 'Bộ phận',
                                     accessor: 'department_name',
@@ -2938,7 +2926,7 @@ export const RecruitmentModule = ({ activeSubTab }) => {
                         { header: 'Ứng viên', accessor: 'candidate_name', render: (r) => <span style={{ fontWeight: 700, whiteSpace: 'nowrap' }}>{r.candidate_name} ({r.candidate_code})</span> },
                         { header: 'Vị trí dự tuyển', accessor: 'position_name', render: (r) => <span style={{ whiteSpace: 'nowrap' }}>{r.position_name || '—'}</span> },
                         { header: 'Bộ phận', accessor: 'department_name', render: (r) => <span style={{ whiteSpace: 'nowrap' }}>{r.department_name || '—'}</span> },
-                        { header: 'Ngày sơ loại', render: (r) => <span style={{ whiteSpace: 'nowrap' }}>{r.screening_date ? new Date(r.screening_date).toLocaleDateString('vi-VN') : '—'}</span> },
+                        { header: 'Ngày sơ loại', render: (r) => <span style={{ whiteSpace: 'nowrap' }}>{formatDate(r.screening_date)}</span> },
                          { header: 'Mức độ', render: (r) => <b style={{ color: '#0284C7' }}>{r.level_score}/10</b> },
                         {
                             header: 'Đánh giá sơ loại',
@@ -2987,7 +2975,7 @@ export const RecruitmentModule = ({ activeSubTab }) => {
                     searchPlaceholder="Tìm mã phiếu, tên ứng viên, lịch số..."
                     columns={[
                         { header: 'Số phiếu', accessor: 'eval_code', render: (r) => <b style={{ color: 'var(--bravo-teal-dark)', whiteSpace: 'nowrap' }}>{r.eval_code}</b> },
-                        { header: 'Ngày đánh giá', render: (r) => <span style={{ whiteSpace: 'nowrap' }}>{r.evaluation_date ? new Date(r.evaluation_date).toLocaleDateString('vi-VN') : '—'}</span> },
+                        { header: 'Ngày đánh giá', render: (r) => <span style={{ whiteSpace: 'nowrap' }}>{formatDate(r.evaluation_date)}</span> },
                         { header: 'Lịch số', accessor: 'schedule_code', render: (r) => <span style={{ whiteSpace: 'nowrap' }}>{r.schedule_code || '—'}</span> },
                         { header: 'Ứng viên', accessor: 'candidate_name', render: (r) => <span style={{ fontWeight: 700, whiteSpace: 'nowrap' }}>{r.candidate_name} ({r.candidate_code})</span> },
                         { header: 'Thời lượng', render: (r) => <span style={{ whiteSpace: 'nowrap' }}>{r.duration_minutes} phút</span> },
@@ -3069,7 +3057,7 @@ export const RecruitmentModule = ({ activeSubTab }) => {
                             header: 'Thời gian bắt đầu',
                             render: (r) => {
                                 if (!r.start_time) return '—';
-                                const str = typeof r.start_time === 'number' ? new Date(r.start_time).toLocaleString('vi-VN') : r.start_time;
+                                    const str = typeof r.start_time === 'number' ? formatDateTime(r.start_time) : r.start_time;
                                 return <span style={{ whiteSpace: 'nowrap', fontWeight: 600 }}>{str}</span>;
                             }
                         },
@@ -3077,7 +3065,7 @@ export const RecruitmentModule = ({ activeSubTab }) => {
                             header: 'Thời gian kết thúc',
                             render: (r) => {
                                 if (!r.end_time) return '—';
-                                const str = typeof r.end_time === 'number' ? new Date(r.end_time).toLocaleString('vi-VN') : r.end_time;
+                                    const str = typeof r.end_time === 'number' ? formatDateTime(r.end_time) : r.end_time;
                                 return <span style={{ whiteSpace: 'nowrap', fontWeight: 600 }}>{str}</span>;
                             }
                         },

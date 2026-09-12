@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { normalizeCandidateStatus } from "@/lib/candidate-status";
+import { formatDate } from "@/lib/utils";
 
 type Row = Record<string, unknown>;
 
@@ -19,9 +20,7 @@ function valueOf(value: unknown) {
 }
 
 function dateOf(value: unknown) {
-  if (!value) return "-";
-  const date = typeof value === "number" ? new Date(value) : new Date(String(value));
-  return Number.isNaN(date.getTime()) ? String(value) : date.toLocaleDateString("vi-VN");
+  return formatDate(value, "-");
 }
 
 function statusOf(value: unknown) {

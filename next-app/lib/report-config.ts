@@ -99,7 +99,7 @@ export const reportGroups: ReportGroup[] = [
         { key: "female_count", label: "Nữ" },
         { key: "bachelor_count", label: "Trình độ Đại học" },
         { key: "master_count", label: "Trình độ Thạc sĩ trở lên" },
-      ], ["Tính đến ngày: 31/08/2026"]),
+      ], ["Tính đến ngày: 31-08-2026"]),
       report("hr_contracts", "Báo cáo danh sách nhân viên theo hợp đồng lao động", [
         { key: "employee_code", label: "Mã NV" },
         { key: "full_name", label: "Họ và tên" },
@@ -119,7 +119,7 @@ export const reportGroups: ReportGroup[] = [
         { key: "join_date", label: "Ngày vào công ty" },
         { key: "seniority_years", label: "Thâm niên làm việc" },
         { key: "seniority_group", label: "Nhóm thâm niên" },
-      ], ["Tính thâm niên đến: 31/08/2026"]),
+      ], ["Tính thâm niên đến: 31-08-2026"]),
       report("hr_birthdays", "Danh sách CBNV sinh nhật", [
         { key: "employee_code", label: "Mã NV" },
         { key: "full_name", label: "Họ và tên CBNV" },
@@ -153,7 +153,7 @@ export const reportGroups: ReportGroup[] = [
         { key: "manager_count", label: "Nhân sự quản lý / lãnh đạo" },
         { key: "intern_count", label: "Thực tập sinh / thử việc" },
         { key: "total_headcount", label: "Tổng định biên" },
-      ], ["Thời điểm chốt dữ liệu: 31/08/2026"]),
+      ], ["Thời điểm chốt dữ liệu: 31-08-2026"]),
     ],
   },
   {

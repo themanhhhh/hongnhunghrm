@@ -1,4 +1,5 @@
 import React from 'react';
+import { formatDate, parseDateValue } from '../utils/date';
 
 const valueOf = (document, ...keys) => {
     for (const key of keys) {
@@ -7,18 +8,8 @@ const valueOf = (document, ...keys) => {
     return '';
 };
 
-const formatDate = (value) => {
-    if (!value) return '.......';
-    if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}/.test(value)) {
-        const [year, month, day] = value.slice(0, 10).split('-');
-        return `${day}/${month}/${year}`;
-    }
-    const date = new Date(value);
-    return Number.isNaN(date.getTime()) ? String(value) : date.toLocaleDateString('vi-VN');
-};
-
 const dateParts = (value) => {
-    const date = value ? new Date(value) : new Date();
+    const date = parseDateValue(value) || new Date();
     if (Number.isNaN(date.getTime())) return { day: '....', month: '....', year: '........' };
     return {
         day: String(date.getDate()).padStart(2, '0'),

@@ -26,6 +26,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { formatDate } from "@/lib/utils";
 
 type ReportFilters = {
   startDate: string;
@@ -97,9 +98,7 @@ function filtersForReport(reportId: string) {
 function formatValue(value: unknown, key: string) {
   if (value === null || value === undefined || value === "") return "-";
   if (key.includes("date") || key === "dob" || key === "join_date") {
-    const date =
-      typeof value === "number" ? new Date(value) : new Date(String(value));
-    if (!Number.isNaN(date.getTime())) return date.toLocaleDateString("vi-VN");
+    return formatDate(value, String(value));
   }
   if (typeof value === "number") return value.toLocaleString("vi-VN");
   return String(value);

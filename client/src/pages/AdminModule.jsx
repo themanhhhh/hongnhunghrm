@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { api } from '../services/api';
+import { formatDate } from '../utils/date';
 import { DataTable } from '../components/DataTable';
 import { Modal } from '../components/Modal';
 import { useNotification } from '../context/NotificationContext';
@@ -719,7 +720,7 @@ export const AdminModule = ({ activeSubTab }) => {
                               <td style={{ fontWeight: 600, color: '#64748B' }}>{idx + 1}</td>
                               <td style={{ fontWeight: 700, color: 'var(--bravo-teal-dark)' }}>{emp.employee_code}</td>
                               <td style={{ fontWeight: 700, color: '#0F172A' }}>{emp.full_name}</td>
-                              <td>{emp.date_of_birth ? new Date(emp.date_of_birth).toLocaleDateString('vi-VN') : '—'}</td>
+                              <td>{formatDate(emp.date_of_birth)}</td>
                               <td>
                                 <span className={`badge ${emp.gender === 'Nam' ? 'badge-blue' : 'badge-yellow'}`}>
                                   {emp.gender || 'Chưa rõ'}

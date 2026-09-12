@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
+import { formatDate } from '../utils/date';
 import {
     BarChart3,
     FileText,
@@ -31,7 +32,7 @@ const REPORT_GROUPS = [
                 id: 'rec_result',
                 title: 'Báo cáo kết quả tuyển dụng',
                 columns: ['Mã KHTD', 'Tên Kế hoạch tuyển dụng', 'Chỉ tiêu (Người)', 'Ngân sách (VNĐ)', 'Số HĐ tiếp nhận', 'Đạt PV', 'Nhận Offer', 'Đã đi làm'],
-                sampleMeta: ['Từ ngày: 01/01/2026', 'Đến ngày: 31/12/2026', 'Đợt tuyển dụng: Tất cả']
+                sampleMeta: ['Từ ngày: 01-01-2026', 'Đến ngày: 31-12-2026', 'Đợt tuyển dụng: Tất cả']
             },
             {
                 id: 'rec_efficiency',
@@ -80,7 +81,7 @@ const REPORT_GROUPS = [
                 id: 'hr_summary',
                 title: 'Báo cáo tổng hợp nhân sự',
                 columns: ['Mã phòng', 'Tên Phòng ban / Bộ phận', 'Tổng số NV', 'Nam', 'Nữ', 'Trình độ Đại học', 'Trình độ Thạc sĩ trở lên'],
-                sampleMeta: ['Tính đến ngày: 31/08/2026']
+                sampleMeta: ['Tính đến ngày: 31-08-2026']
             },
             {
                 id: 'hr_contracts',
@@ -92,7 +93,7 @@ const REPORT_GROUPS = [
                 id: 'hr_seniority',
                 title: 'Báo cáo thâm niên làm việc',
                 columns: ['Mã NV', 'Họ và tên', 'Phòng ban', 'Chức danh', 'Ngày vào công ty', 'Thâm niên làm việc', 'Nhóm thâm niên'],
-                sampleMeta: ['Tính thâm niên đến: 31/08/2026']
+                sampleMeta: ['Tính thâm niên đến: 31-08-2026']
             },
             {
                 id: 'hr_birthdays',
@@ -116,7 +117,7 @@ const REPORT_GROUPS = [
                 id: 'hr_asof_date',
                 title: 'Báo cáo nhân sự quản lý theo thời điểm',
                 columns: ['Tên Bộ phận / Khối', 'Nhân sự chính thức', 'Nhân sự quản lý / Lãnh đạo', 'Thực tập sinh / Thử việc', 'Tổng định biên'],
-                sampleMeta: ['Thời điểm chốt dữ liệu: 31/08/2026']
+                sampleMeta: ['Thời điểm chốt dữ liệu: 31-08-2026']
             }
         ]
     },
@@ -179,6 +180,12 @@ const htmlEscape = (value) => String(value ?? '')
     .replaceAll('<', '&lt;')
     .replaceAll('>', '&gt;')
     .replaceAll('"', '&quot;');
+
+const formatReportValue = (value, columnLabel) => {
+    if (value === null || value === undefined || value === '') return '';
+    if (String(columnLabel).toLowerCase().includes('ngày')) return formatDate(value, String(value));
+    return typeof value === 'number' && value > 1000 ? value.toLocaleString('vi-VN') : value;
+};
 
 export const ReportsModule = ({ activeSubTab }) => {
     // State Management
@@ -257,8 +264,8 @@ export const ReportsModule = ({ activeSubTab }) => {
 
         const rowsHtml = reportData.data.map((row, idx) => {
             const values = Object.values(row).slice(0, selectedReport.columns.length);
-            const cells = values.slice(0, selectedReport.columns.length).map(val => {
-                const display = typeof val === 'number' && val > 1000 ? val.toLocaleString('vi-VN') : (val ?? '');
+            const cells = values.slice(0, selectedReport.columns.length).map((val, valueIndex) => {
+                const display = formatReportValue(val, selectedReport.columns[valueIndex]);
                 return `<td style="border:1px solid #94A3B8;padding:6px 8px;font-size:13px;">${htmlEscape(display)}</td>`;
             }).join('');
             return `<tr><td style="border:1px solid #94A3B8;padding:6px 8px;text-align:center;font-size:13px;">${idx + 1}</td>${cells}</tr>`;
@@ -419,7 +426,7 @@ export const ReportsModule = ({ activeSubTab }) => {
                                                     <td style={{ textAlign: 'center', color: '#64748B' }}>{rIdx + 1}</td>
                                                     {values.slice(0, selectedReport.columns.length).map((val, cIdx) => (
                                                         <td key={cIdx}>
-                                                            {typeof val === 'number' && val > 1000 ? val.toLocaleString('vi-VN') : val}
+                                                            {formatReportValue(val, selectedReport.columns[cIdx])}
                                                         </td>
                                                     ))}
                                                 </tr>
