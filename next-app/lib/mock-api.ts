@@ -557,6 +557,18 @@ export async function mockApiRequest<T>(path: string, init: RequestInit = {}, se
   const id = segments[0];
   const action = segments[1];
   const rows = store[route] ?? [];
+  const readableRows = route === "/recruitment/interview-evaluations"
+    ? rows.map((row) => {
+        const candidate = (store["/recruitment/candidates"] ?? []).find(
+          (item) => String(item.candidate_id ?? "") === String(row.candidate_id ?? ""),
+        );
+        return {
+          ...row,
+          candidate_name: row.candidate_name ?? candidate?.full_name,
+          candidate_code: row.candidate_code ?? candidate?.candidate_code,
+        };
+      })
+    : rows;
 
   if (path === "/hr/employees/me" && method === "GET") {
     const employee = store["/hr/employees"].find((row) => row.employee_id === "emp-kd-02") ?? store["/hr/employees"][0];
@@ -576,8 +588,8 @@ export async function mockApiRequest<T>(path: string, init: RequestInit = {}, se
   }
 
   if (method === "GET") {
-    if (id) return envelope(rows.find((row) => String(row[idField]) === id) ?? null) as T;
-    return envelope(rows) as T;
+    if (id) return envelope(readableRows.find((row) => String(row[idField]) === id) ?? null) as T;
+    return envelope(readableRows) as T;
   }
 
   const payload = payloadFor(init);

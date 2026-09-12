@@ -1630,6 +1630,26 @@ function rowId(tab: WorkspaceTab, row: Row) {
   return String(row[tab.idField] ?? row.id ?? row.code ?? "");
 }
 
+function enrichCandidateReference(row: Row, candidates: Row[]) {
+  const candidateId = row.candidate_id ?? row.candidateId;
+  if (!candidateId) return row;
+  const candidate = candidates.find(
+    (item) => String(item.candidate_id ?? item.id ?? "") === String(candidateId),
+  );
+  if (!candidate) return row;
+  const hasValue = (value: unknown) =>
+    value !== null && value !== undefined && String(value).trim() !== "" && String(value).trim() !== "-";
+  const fallback = (value: unknown, alternative: unknown) =>
+    hasValue(value) ? value : alternative;
+  return {
+    ...row,
+    candidate_name: fallback(row.candidate_name, candidate.full_name),
+    candidate_code: fallback(row.candidate_code, candidate.candidate_code),
+    position_name: fallback(row.position_name, candidate.apply_position_name ?? candidate.position_name),
+    department_name: fallback(row.department_name, candidate.department_name),
+  };
+}
+
 function defaultForm(tab: WorkspaceTab) {
   return Object.fromEntries(
     tab.fields.map((field) => [field.name, field.options?.[0]?.value ?? ""]),
@@ -7576,7 +7596,13 @@ function OperationalWorkspace({
   const selectedProposalManager = departmentManagerOptions.find(
     (item) => item.manager_id === proposalManagerFilter,
   );
-  const rows = (rowsQuery.data ?? []).filter((row) => {
+  const sourceRows = (rowsQuery.data ?? []).map((row) =>
+    name === "recruitment" &&
+    ["screenings", "interview-evaluations", "decisions"].includes(tab.id)
+      ? enrichCandidateReference(row, lookupData?.candidates ?? [])
+      : row,
+  );
+  const rows = sourceRows.filter((row) => {
     const rowText = Object.values(row)
       .map((value) => (typeof value === "object" ? JSON.stringify(value) : String(value ?? "")))
       .join(" ")
@@ -8969,7 +8995,9 @@ function OperationalWorkspace({
                           className={`max-w-[260px] px-5 py-4 ${column.key === tab.columns[0]?.key ? "font-mono text-xs font-bold text-teal-700" : "text-xs text-slate-600"}`}
                         >
                           <div className="line-clamp-2">
-                            {column.key === "status" ||
+                            {column.key === "candidate_name" ? (
+                              displayValue(row[column.key])
+                            ) : column.key === "status" ||
                             column.key === "employment_status" ||
                             column.key === "decision_type" ||
                             column.key === "record_type" ? (
