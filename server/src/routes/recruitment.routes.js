@@ -132,6 +132,38 @@ async function findDuplicateCandidate({ citizen_id, phone, email }, excludeCandi
     return queryOne(sql, params);
 }
 
+async function resolveCandidatePlan({ recruitment_plan_id, recruitment_request_id, fallbackPlanId }) {
+    if (recruitment_plan_id) {
+        return queryOne(
+            `SELECT TOP 1 plan.recruitment_plan_id, request.recruitment_request_id, request.department_id
+             FROM RecruitmentPlan plan
+             JOIN RecruitmentRequest request ON request.recruitment_request_id = plan.recruitment_request_id
+             WHERE plan.recruitment_plan_id = ?`,
+            [recruitment_plan_id]
+        );
+    }
+    if (recruitment_request_id) {
+        return queryOne(
+            `SELECT TOP 1 plan.recruitment_plan_id, request.recruitment_request_id, request.department_id
+             FROM RecruitmentPlan plan
+             JOIN RecruitmentRequest request ON request.recruitment_request_id = plan.recruitment_request_id
+             WHERE request.recruitment_request_id = ?
+             ORDER BY plan.created_date DESC`,
+            [recruitment_request_id]
+        );
+    }
+    if (fallbackPlanId) {
+        return queryOne(
+            `SELECT TOP 1 plan.recruitment_plan_id, request.recruitment_request_id, request.department_id
+             FROM RecruitmentPlan plan
+             JOIN RecruitmentRequest request ON request.recruitment_request_id = plan.recruitment_request_id
+             WHERE plan.recruitment_plan_id = ?`,
+            [fallbackPlanId]
+        );
+    }
+    return null;
+}
+
 async function replaceCandidateAttachments(candidateId, rawAttachments, now) {
     let attachments = rawAttachments;
     if (typeof attachments === 'string') {
@@ -402,13 +434,12 @@ router.post('/candidates', authorizeRole('Administrator', 'HR Staff'), async (re
         const parseDate = (d) => (d ? (typeof d === 'number' ? d : new Date(d).getTime()) : null);
         const dob = parseDate(date_of_birth);
         const rDate = parseDate(received_date) || now;
-        const plan = recruitment_plan_id
-            ? await queryOne(`SELECT request.department_id, request.recruitment_request_id
-                               FROM RecruitmentPlan plan JOIN RecruitmentRequest request ON request.recruitment_request_id = plan.recruitment_request_id
-                               WHERE plan.recruitment_plan_id = ?`, [recruitment_plan_id])
-            : null;
+        const plan = await resolveCandidatePlan({ recruitment_plan_id, recruitment_request_id });
+        if (!plan) {
+            return res.status(400).json({ success: false, message: 'Ứng viên bắt buộc phải liên kết với một kế hoạch tuyển dụng hợp lệ.' });
+        }
         const position = position_id ? await queryOne('SELECT department_id FROM Position WHERE position_id = ?', [position_id]) : null;
-        const finalRequestId = recruitment_request_id || plan?.recruitment_request_id || null;
+        const finalRequestId = plan.recruitment_request_id || recruitment_request_id || null;
         const finalDepartmentId = department_id || position?.department_id || plan?.department_id || null;
         const gpaValue = gpa === '' || gpa === null || gpa === undefined || Number.isNaN(Number(gpa)) ? null : Number(gpa);
 
@@ -429,7 +460,7 @@ router.post('/candidates', authorizeRole('Administrator', 'HR Staff'), async (re
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
                 id, now, now, candidate_code, full_name, gender || 'Nam', dob, citizen_id || '', phone || '', email || '', address || '',
-                culture_level || '12/12', education_level || '', education_school || '', major || '', gpaValue, experience || '', recruitment_plan_id || '', finalRequestId, finalDepartmentId, position_id || null,
+                culture_level || '12/12', education_level || '', education_school || '', major || '', gpaValue, experience || '', plan.recruitment_plan_id, finalRequestId, finalDepartmentId, position_id || null,
                 source || 'TopCV', recruitment_unit || 'Công ty CP Phần mềm BRAVO', referrer || '', referrer_employee_id || null, rDate, normalizeCandidateStatus(status), rejection_reason || '', note || '', attJson
             ]
         );
@@ -453,16 +484,29 @@ router.put('/candidates/:id', authorizeRole('Administrator', 'HR Staff'), async 
         const now = Date.now();
         const parseDate = (d) => (d ? (typeof d === 'number' ? d : new Date(d).getTime()) : null);
 
+        const existingCandidate = await queryOne(
+            `SELECT candidate_id, recruitment_plan_id
+             FROM Candidate
+             WHERE candidate_id = ?`,
+            [req.params.id]
+        );
+        if (!existingCandidate) {
+            return res.status(404).json({ success: false, message: 'Không tìm thấy ứng viên.' });
+        }
+
         const dob = parseDate(date_of_birth);
         const rDate = parseDate(received_date);
         const evDate = parseDate(eval_date);
-        const plan = recruitment_plan_id
-            ? await queryOne(`SELECT request.department_id, request.recruitment_request_id
-                               FROM RecruitmentPlan plan JOIN RecruitmentRequest request ON request.recruitment_request_id = plan.recruitment_request_id
-                               WHERE plan.recruitment_plan_id = ?`, [recruitment_plan_id])
-            : null;
+        const plan = await resolveCandidatePlan({
+            recruitment_plan_id,
+            recruitment_request_id,
+            fallbackPlanId: existingCandidate.recruitment_plan_id,
+        });
+        if (!plan) {
+            return res.status(400).json({ success: false, message: 'Ứng viên bắt buộc phải liên kết với một kế hoạch tuyển dụng hợp lệ.' });
+        }
         const position = position_id ? await queryOne('SELECT department_id FROM Position WHERE position_id = ?', [position_id]) : null;
-        const finalRequestId = recruitment_request_id || plan?.recruitment_request_id || null;
+        const finalRequestId = plan.recruitment_request_id || recruitment_request_id || null;
         const finalDepartmentId = department_id || position?.department_id || plan?.department_id || null;
         const gpaValue = gpa === '' || gpa === null || gpa === undefined || Number.isNaN(Number(gpa)) ? null : Number(gpa);
 
@@ -483,7 +527,7 @@ router.put('/candidates/:id', authorizeRole('Administrator', 'HR Staff'), async 
        WHERE candidate_id = ?`,
             [
                 candidate_code, full_name, gender, dob, citizen_id, phone, email, address,
-                culture_level, education_level, education_school, major, gpaValue, experience, recruitment_plan_id, finalRequestId, finalDepartmentId, position_id,
+                culture_level, education_level, education_school, major, gpaValue, experience, plan.recruitment_plan_id, finalRequestId, finalDepartmentId, position_id,
                 source, recruitment_unit, referrer, referrer_employee_id || null, rDate, evDate, normalizeCandidateStatus(status), rejection_reason, note, attJson, now, req.params.id
             ]
         );
