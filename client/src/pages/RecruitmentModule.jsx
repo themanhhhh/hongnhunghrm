@@ -5573,22 +5573,47 @@ export const RecruitmentModule = ({ activeSubTab }) => {
                     title={`Chi tiết ứng viên: ${selectedCandidate.full_name || '—'}`}
                     maxWidth="720px"
                 >
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.85rem', fontSize: '0.85rem' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '0.85rem', fontSize: '0.85rem' }}>
                         {[
                             ['Mã ứng viên', selectedCandidate.candidate_code],
                             ['Họ và tên', selectedCandidate.full_name],
+                            ['Số CMT/CCCD', selectedCandidate.citizen_id],
                             ['Ngày sinh', formatDate(selectedCandidate.date_of_birth)],
                             ['Giới tính', selectedCandidate.gender],
                             ['Điện thoại', selectedCandidate.phone],
                             ['Email', selectedCandidate.email],
-                            ['Vị trí dự tuyển', selectedCandidate.apply_position_name],
-                            ['Bộ phận dự tuyển', selectedCandidate.department_name],
-                            ['Trình độ', selectedCandidate.education_level],
+                            ['Trình độ văn hóa', selectedCandidate.culture_level],
+                            ['Trình độ chuyên môn', selectedCandidate.education_level],
+                            ['Bậc trình độ nghề', selectedCandidate.skill_level],
                             ['Đơn vị đào tạo', selectedCandidate.education_school],
-                            ['Kinh nghiệm', selectedCandidate.experience],
-                            ['Trạng thái', selectedCandidate.status]
-                        ].map(([label, value]) => <div key={label} style={{ padding: '0.65rem 0.75rem', borderRadius: '6px', backgroundColor: '#F8FAFC', border: '1px solid #E2E8F0' }}><div style={{ color: '#64748B', fontSize: '0.72rem', fontWeight: 700 }}>{label}</div><div style={{ marginTop: '0.2rem', color: '#0F172A', fontWeight: 600, wordBreak: 'break-word' }}>{value || '—'}</div></div>)}
-                        <div style={{ gridColumn: 'span 2', padding: '0.65rem 0.75rem', borderRadius: '6px', backgroundColor: '#F8FAFC', border: '1px solid #E2E8F0' }}><div style={{ color: '#64748B', fontSize: '0.72rem', fontWeight: 700 }}>Địa chỉ</div><div style={{ marginTop: '0.2rem', color: '#0F172A', fontWeight: 600 }}>{selectedCandidate.address || '—'}</div></div>
+                            ['Ngành đào tạo', selectedCandidate.major],
+                            ['Nguồn tuyển dụng', selectedCandidate.source],
+                            ['Đơn vị tuyển dụng', selectedCandidate.recruitment_unit],
+                            ['Người giới thiệu', selectedCandidate.referrer],
+                            ['Ngày nhận hồ sơ', formatDate(selectedCandidate.received_date)],
+                            ['Tin tuyển dụng', selectedCandidate.plan_name || selectedCandidate.request_code],
+                            ['Vị trí dự tuyển', selectedCandidate.apply_position_name || selectedCandidate.position_name],
+                            ['Bộ phận dự tuyển', selectedCandidate.department_name],
+                            ['Trạng thái', selectedCandidate.status],
+                            ['Lý do bị loại', selectedCandidate.rejection_reason]
+                        ].map(([label, value]) => <div key={label} style={{ padding: '0.65rem 0.75rem', borderRadius: '6px', backgroundColor: '#F8FAFC', border: '1px solid #E2E8F0' }}><div style={{ color: '#64748B', fontSize: '0.72rem', fontWeight: 700 }}>{label}</div><div style={{ marginTop: '0.2rem', color: '#0F172A', fontWeight: 600, wordBreak: 'break-word' }}>{value === null || value === undefined || value === '' ? '—' : value}</div></div>)}
+                        <div style={{ gridColumn: '1 / -1', padding: '0.65rem 0.75rem', borderRadius: '6px', backgroundColor: '#F8FAFC', border: '1px solid #E2E8F0' }}><div style={{ color: '#64748B', fontSize: '0.72rem', fontWeight: 700 }}>Địa chỉ</div><div style={{ marginTop: '0.2rem', color: '#0F172A', fontWeight: 600, wordBreak: 'break-word' }}>{selectedCandidate.address || '—'}</div></div>
+                        <div style={{ gridColumn: '1 / -1', padding: '0.65rem 0.75rem', borderRadius: '6px', backgroundColor: '#F8FAFC', border: '1px solid #E2E8F0' }}><div style={{ color: '#64748B', fontSize: '0.72rem', fontWeight: 700 }}>Kinh nghiệm</div><div style={{ marginTop: '0.2rem', color: '#0F172A', fontWeight: 600, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{selectedCandidate.experience || '—'}</div></div>
+                        <div style={{ gridColumn: '1 / -1', padding: '0.65rem 0.75rem', borderRadius: '6px', backgroundColor: '#F8FAFC', border: '1px solid #E2E8F0' }}><div style={{ color: '#64748B', fontSize: '0.72rem', fontWeight: 700 }}>Ghi chú</div><div style={{ marginTop: '0.2rem', color: '#0F172A', fontWeight: 600, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{selectedCandidate.note || '—'}</div></div>
+                        {Array.isArray(selectedCandidate.attachments_json) && selectedCandidate.attachments_json.length > 0 && (
+                            <div style={{ gridColumn: '1 / -1', padding: '0.65rem 0.75rem', borderRadius: '6px', backgroundColor: '#F8FAFC', border: '1px solid #E2E8F0' }}>
+                                <div style={{ color: '#64748B', fontSize: '0.72rem', fontWeight: 700 }}>Tài liệu đính kèm</div>
+                                <div style={{ marginTop: '0.4rem', display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                                    {selectedCandidate.attachments_json.map((attachment, index) => (
+                                        <div key={`${attachment.file_name || attachment.name || 'attachment'}-${index}`} style={{ color: '#0F172A', fontWeight: 600, wordBreak: 'break-word' }}>
+                                            {attachment.file_name || attachment.name || `Tài liệu ${index + 1}`}
+                                            {(attachment.file_url || attachment.url) && <span style={{ marginLeft: '0.4rem', color: '#64748B', fontWeight: 400 }}>({attachment.file_url || attachment.url})</span>}
+                                            {attachment.note && <div style={{ color: '#64748B', fontSize: '0.78rem', fontWeight: 400 }}>{attachment.note}</div>}
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </Modal>
             )}
