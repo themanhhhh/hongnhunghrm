@@ -496,12 +496,42 @@ function localizeDetailObject(
   return value;
 }
 
+function formatReadableStructuredValue(value: unknown, indent = 0): string {
+  const padding = " ".repeat(indent);
+  if (Array.isArray(value)) {
+    if (!value.length) return "-";
+    return value
+      .map((item, index) => {
+        const prefix = `${padding}${index + 1}.`;
+        return item && typeof item === "object"
+          ? `${prefix}\n${formatReadableStructuredValue(item, indent + 2)}`
+          : `${prefix} ${formatReadableStructuredValue(item)}`;
+      })
+      .join("\n");
+  }
+  if (value && typeof value === "object") {
+    const entries = Object.entries(value);
+    if (!entries.length) return "-";
+    return entries
+      .map(([entryKey, item]) => {
+        const label = `${padding}${entryKey}:`;
+        return item && typeof item === "object"
+          ? `${label}\n${formatReadableStructuredValue(item, indent + 2)}`
+          : `${label} ${formatReadableStructuredValue(item)}`;
+      })
+      .join("\n");
+  }
+  if (value === null || value === undefined || value === "") return "-";
+  const text = String(value);
+  return labels[text] ?? text;
+}
+
 function displayDetailValue(tab: WorkspaceTab, key: string, value: unknown) {
   if (value === null || value === undefined || value === "") return displayCell(key, value);
   if (isStructuredDetailValue(key, value)) {
     const structuredValue =
       typeof value === "string" ? JSON.parse(value) : value;
-    return JSON.stringify(localizeDetailObject(structuredValue, tab, key), null, 2);
+    return formatReadableStructuredValue(localizeDetailObject(structuredValue, tab, key));
   }
   return displayCell(key, value);
 }
@@ -518,7 +548,7 @@ function isStructuredDetailValue(key: string, value: unknown) {
 
 function displayValue(value: unknown) {
   if (value === null || value === undefined || value === "") return "-";
-  if (typeof value === "object") return JSON.stringify(value);
+  if (typeof value === "object") return formatReadableStructuredValue(value);
   const text = String(value);
   return labels[text] ?? text;
 }
