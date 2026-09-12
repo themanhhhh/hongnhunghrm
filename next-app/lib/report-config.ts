@@ -1,10 +1,33 @@
 export type ReportColumn = { key: string; label: string };
 
+export type ReportFilter = "date" | "department" | "position" | "status" | "result" | "employee" | "type";
+
+export type ReportSummaryField = {
+  key: string;
+  label: string;
+  format?: "number" | "percent";
+};
+
+export type ReportChartSeries = {
+  key: string;
+  label: string;
+  tone: "teal" | "amber" | "violet" | "rose";
+};
+
+export type ReportChartConfig = {
+  labelKey: string;
+  series: ReportChartSeries[];
+};
+
 export type ReportDefinition = {
   id: string;
   title: string;
   columns: ReportColumn[];
   sampleMeta: string[];
+  endpoint?: string;
+  filters?: ReportFilter[];
+  summary?: ReportSummaryField[];
+  chart?: ReportChartConfig;
 };
 
 export type ReportGroup = {
@@ -18,7 +41,8 @@ const report = (
   title: string,
   columns: ReportColumn[],
   sampleMeta: string[],
-): ReportDefinition => ({ id, title, columns, sampleMeta });
+  options: Omit<ReportDefinition, "id" | "title" | "columns" | "sampleMeta"> = {},
+): ReportDefinition => ({ id, title, columns, sampleMeta, ...options });
 
 export const reportGroups: ReportGroup[] = [
   {
@@ -26,12 +50,37 @@ export const reportGroups: ReportGroup[] = [
     title: "Báo cáo tuyển dụng",
     reports: [
       report("rec_result", "Báo cáo kết quả tuyển dụng", [
-        { key: "department_name", label: "Bộ phận" },
-        { key: "position_name", label: "Vị trí" },
-        { key: "required_quantity", label: "Số lượng cần tuyển" },
-        { key: "hired_quantity", label: "Số lượng đã tuyển" },
-        { key: "remaining_quantity", label: "Còn thiếu" },
-      ], ["Thời gian: Tùy chọn", "Bộ phận: Tất cả", "Vị trí: Tất cả"]),
+        { key: "departmentName", label: "Bộ phận" },
+        { key: "positionName", label: "Vị trí" },
+        { key: "requiredCount", label: "Cần tuyển" },
+        { key: "appliedCount", label: "Ứng tuyển" },
+        { key: "passedCount", label: "Trúng tuyển" },
+        { key: "onboardedCount", label: "Đi làm" },
+        { key: "passRate", label: "% Trúng tuyển" },
+        { key: "onboardRate", label: "% Đi làm" },
+        { key: "fulfillmentRate", label: "% Hoàn thành" },
+      ], ["Thời gian: Ngày lập yêu cầu tuyển dụng", "Bộ phận: Tất cả", "Vị trí: Tất cả"], {
+        endpoint: "/reports/recruitment-result",
+        filters: ["date", "department", "position"],
+        summary: [
+          { key: "requiredCount", label: "Cần tuyển" },
+          { key: "appliedCount", label: "Ứng tuyển" },
+          { key: "passedCount", label: "Trúng tuyển" },
+          { key: "onboardedCount", label: "Đi làm" },
+          { key: "passRate", label: "Tỷ lệ trúng tuyển", format: "percent" },
+          { key: "onboardRate", label: "Tỷ lệ nhận việc", format: "percent" },
+          { key: "fulfillmentRate", label: "Tỷ lệ hoàn thành", format: "percent" },
+        ],
+        chart: {
+          labelKey: "positionName",
+          series: [
+            { key: "requiredCount", label: "Cần tuyển", tone: "teal" },
+            { key: "appliedCount", label: "Ứng tuyển", tone: "violet" },
+            { key: "passedCount", label: "Trúng tuyển", tone: "amber" },
+            { key: "onboardedCount", label: "Đi làm", tone: "rose" },
+          ],
+        },
+      }),
       report("rec_efficiency", "Hiệu quả tuyển dụng theo tin theo nguồn", [
         { key: "source_name", label: "Nguồn tuyển dụng" },
         { key: "post_count", label: "Số tin đăng" },
@@ -49,15 +98,31 @@ export const reportGroups: ReportGroup[] = [
         { key: "retention_1year", label: "Tỷ lệ gắn bó > 1 năm" },
         { key: "overall_rating", label: "Đánh giá tổng quan" },
       ], ["Phạm vi đánh giá: Toàn công ty", "Năm: 2026"]),
-      report("rec_candidates_interview", "Danh sách ứng viên tham gia phỏng vấn, thi tuyển", [
-        { key: "candidate_code", label: "Mã UV" },
-        { key: "full_name", label: "Họ và tên ứng viên" },
-        { key: "apply_position", label: "Vị trí ứng tuyển" },
-        { key: "interview_round", label: "Vòng phỏng vấn" },
-        { key: "interview_date", label: "Ngày phỏng vấn" },
-        { key: "interviewer_name", label: "Người phỏng vấn" },
+      report("rec_candidates_interview", "Bảng kê đánh giá tuyển dụng", [
+        { key: "candidateCode", label: "Mã ứng viên" },
+        { key: "fullName", label: "Họ và tên" },
+        { key: "positionName", label: "Vị trí ứng tuyển" },
+        { key: "departmentName", label: "Bộ phận" },
+        { key: "candidateStatus", label: "Trạng thái" },
+        { key: "evaluationDate", label: "Ngày đánh giá" },
         { key: "result", label: "Kết quả" },
-      ], ["Trạng thái phỏng vấn: Tất cả", "Người phỏng vấn: Tất cả"]),
+        { key: "comment", label: "Nhận xét" },
+        { key: "evaluatorName", label: "Người đánh giá" },
+        { key: "recruitmentRequestCode", label: "Yêu cầu tuyển dụng" },
+      ], ["Thời gian: Ngày đánh giá phỏng vấn", "Trạng thái: Tất cả", "Kết quả: Tất cả"], {
+        endpoint: "/reports/recruitment-evaluations",
+        filters: ["date", "department", "position", "status", "result"],
+        summary: [
+          { key: "totalEvaluations", label: "Tổng phiếu đánh giá" },
+          { key: "passedCount", label: "Đạt" },
+          { key: "failedCount", label: "Không đạt" },
+          { key: "otherCount", label: "Chưa kết luận" },
+        ],
+        chart: {
+          labelKey: "result",
+          series: [{ key: "count", label: "Số phiếu", tone: "teal" }],
+        },
+      }),
       report("rec_candidates_offer", "Danh sách ứng viên trúng offer", [
         { key: "candidate_code", label: "Mã UV" },
         { key: "full_name", label: "Họ và tên" },
@@ -84,22 +149,73 @@ export const reportGroups: ReportGroup[] = [
     title: "Báo cáo nhân sự",
     reports: [
       report("hr_turnover", "Báo cáo biến động nhân sự", [
-        { key: "period", label: "Kỳ / Tháng" },
-        { key: "start_count", label: "Nhân sự đầu kỳ" },
-        { key: "new_hired", label: "Nhân sự tuyển mới" },
-        { key: "resigned", label: "Nhân sự nghỉ việc" },
-        { key: "end_count", label: "Nhân sự cuối kỳ" },
-        { key: "turnover_rate", label: "Tỷ lệ biến động (%)" },
-      ], ["Thời gian: Năm 2026", "Phòng ban: Toàn công ty"]),
-      report("hr_summary", "Báo cáo tổng hợp nhân sự", [
-        { key: "dept_code", label: "Mã phòng" },
-        { key: "dept_name", label: "Tên phòng ban / bộ phận" },
-        { key: "total_emp", label: "Tổng số NV" },
-        { key: "male_count", label: "Nam" },
-        { key: "female_count", label: "Nữ" },
-        { key: "bachelor_count", label: "Trình độ Đại học" },
-        { key: "master_count", label: "Trình độ Thạc sĩ trở lên" },
-      ], ["Tính đến ngày: 31-08-2026"]),
+        { key: "employeeCode", label: "Mã NV" },
+        { key: "fullName", label: "Họ và tên" },
+        { key: "departmentName", label: "Bộ phận" },
+        { key: "positionName", label: "Vị trí" },
+        { key: "movementType", label: "Loại biến động" },
+        { key: "movementDate", label: "Ngày biến động" },
+      ], ["Thời gian: Từ ngày - Đến ngày", "Bộ phận: Tất cả", "Vị trí: Tất cả"], {
+        endpoint: "/reports/headcount-movement",
+        filters: ["date", "department", "position"],
+        summary: [
+          { key: "beginning", label: "Đầu kỳ" },
+          { key: "increased", label: "Tăng trong kỳ" },
+          { key: "decreased", label: "Giảm trong kỳ" },
+          { key: "ending", label: "Cuối kỳ" },
+          { key: "averageHeadcount", label: "Nhân sự bình quân" },
+          { key: "turnoverRate", label: "Tỷ lệ biến động", format: "percent" },
+        ],
+        chart: {
+          labelKey: "metric",
+          series: [{ key: "count", label: "Nhân sự", tone: "teal" }],
+        },
+      }),
+      report("hr_summary", "Báo cáo cơ cấu nhân sự hiện tại", [
+        { key: "departmentName", label: "Bộ phận" },
+        { key: "positionName", label: "Vị trí" },
+        { key: "totalEmployees", label: "Tổng nhân viên" },
+        { key: "maleCount", label: "Nam" },
+        { key: "femaleCount", label: "Nữ" },
+        { key: "otherCount", label: "Khác / Chưa xác định" },
+        { key: "averageAge", label: "Tuổi trung bình" },
+      ], ["Mốc thời gian: Tại thời điểm chạy báo cáo", "Trạng thái: Đang làm việc"], {
+        endpoint: "/reports/headcount-structure",
+        filters: ["department", "position"],
+        summary: [
+          { key: "totalEmployees", label: "Tổng nhân viên" },
+          { key: "maleCount", label: "Nam" },
+          { key: "femaleCount", label: "Nữ" },
+          { key: "otherCount", label: "Khác / Chưa xác định" },
+          { key: "averageAge", label: "Tuổi trung bình" },
+        ],
+        chart: {
+          labelKey: "departmentName",
+          series: [{ key: "totalEmployees", label: "Nhân viên", tone: "teal" }],
+        },
+      }),
+      report("hr_employees", "Danh sách hồ sơ nhân sự", [
+        { key: "employeeCode", label: "Mã NV" },
+        { key: "fullName", label: "Họ và tên" },
+        { key: "departmentName", label: "Bộ phận" },
+        { key: "positionName", label: "Vị trí" },
+        { key: "joinDate", label: "Ngày vào làm" },
+        { key: "status", label: "Trạng thái" },
+        { key: "resignationDate", label: "Ngày nghỉ việc" },
+      ], ["Bộ phận: Tất cả", "Vị trí: Tất cả", "Trạng thái: Tất cả"], {
+        endpoint: "/reports/employees",
+        filters: ["department", "position", "status"],
+        summary: [
+          { key: "totalEmployees", label: "Tổng hồ sơ" },
+          { key: "workingCount", label: "Đang làm việc" },
+          { key: "resignedCount", label: "Đã nghỉ việc" },
+          { key: "otherCount", label: "Khác" },
+        ],
+        chart: {
+          labelKey: "status",
+          series: [{ key: "count", label: "Hồ sơ", tone: "teal" }],
+        },
+      }),
       report("hr_contracts", "Báo cáo danh sách nhân viên theo hợp đồng lao động", [
         { key: "employee_code", label: "Mã NV" },
         { key: "full_name", label: "Họ và tên" },
@@ -186,21 +302,34 @@ export const reportGroups: ReportGroup[] = [
         { key: "percentage", label: "Tỷ lệ (%)" },
         { key: "bonus_proposed", label: "Mức thưởng đề xuất" },
       ], ["Phạm vi: Toàn hệ thống BRAVO"]),
-      report("eval_reward_discipline", "Báo cáo đề xuất thưởng phạt", [
-        { key: "decision_number", label: "Số quyết định" },
-        { key: "title", label: "Tiêu đề / Hình thức" },
-        { key: "employee_code", label: "Mã NV" },
-        { key: "full_name", label: "Họ và tên" },
-        { key: "dept_name", label: "Phòng ban" },
-        { key: "record_type", label: "Loại hình" },
+      report("eval_reward_discipline", "Báo cáo khen thưởng - kỷ luật", [
+        { key: "decisionNo", label: "Số quyết định" },
+        { key: "employeeCode", label: "Mã NV" },
+        { key: "fullName", label: "Họ và tên" },
+        { key: "departmentName", label: "Phòng ban" },
+        { key: "positionName", label: "Vị trí" },
+        { key: "typeLabel", label: "Loại hình" },
         { key: "amount", label: "Số tiền (VNĐ)" },
-        { key: "effective_date", label: "Ngày hiệu lực" },
-        { key: "reason", label: "Lý do" },
-      ], ["Hình thức: Thưởng / Kỷ luật", "Năm: 2026"]),
+        { key: "decisionDate", label: "Ngày quyết định" },
+        { key: "description", label: "Nội dung / Lý do" },
+        { key: "decisionMaker", label: "Người quyết định" },
+      ], ["Ngày quyết định: Từ ngày - Đến ngày", "Loại: Tất cả", "Nhân viên: Tất cả"], {
+        endpoint: "/reports/reward-discipline",
+        filters: ["date", "department", "position", "employee", "type"],
+        summary: [
+          { key: "totalDecisions", label: "Tổng quyết định" },
+          { key: "rewardCount", label: "Khen thưởng" },
+          { key: "disciplineCount", label: "Kỷ luật" },
+        ],
+        chart: {
+          labelKey: "type",
+          series: [{ key: "count", label: "Quyết định", tone: "teal" }],
+        },
+      }),
     ],
   },
 ];
 
 export const reportDefinitions = reportGroups.flatMap((group) => group.reports);
 
-export const defaultReport = reportGroups[2].reports[0];
+export const defaultReport = reportGroups[0].reports[0];

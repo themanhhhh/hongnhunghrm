@@ -91,11 +91,31 @@ export type WorkforceDashboardData = {
 
 export type ReportQueryResult = {
   success: boolean;
-  reportId: string;
-  filters: Record<string, string>;
+  reportId?: string;
+  filters?: Record<string, string>;
   data: Array<Record<string, unknown>>;
   summary: Record<string, unknown>;
+  chart?: Array<Record<string, unknown>>;
+  items?: Array<Record<string, unknown>>;
+  increases?: Array<Record<string, unknown>>;
+  decreases?: Array<Record<string, unknown>>;
+  page?: number;
+  size?: number;
+  totalItems?: number;
 };
+
+const dedicatedReportEndpoints: Record<string, string> = {
+  rec_result: "/reports/recruitment-result",
+  rec_candidates_interview: "/reports/recruitment-evaluations",
+  hr_summary: "/reports/headcount-structure",
+  hr_turnover: "/reports/headcount-movement",
+  hr_employees: "/reports/employees",
+  eval_reward_discipline: "/reports/reward-discipline",
+};
+
+function reportQueryValue(value: string | undefined) {
+  return value && value !== "ALL" ? value : "";
+}
 
 const fallbackWorkforce: WorkforceDashboardData = {
   scopeName: "Toàn công ty",
@@ -382,12 +402,61 @@ export const api = {
     }
     return fallbackDashboard(session.role);
   },
-  async queryReport(reportId: string, filters: Record<string, string>) {
-    return this.request<ReportQueryResult>(
-      "/reports/query",
-      { method: "POST", body: JSON.stringify({ reportId, filters }) },
+  async queryReport(
+    reportId: string,
+    filters: Record<string, string>,
+    pagination: { page: number; size: number } = { page: 1, size: 20 },
+  ): Promise<ReportQueryResult> {
+    const endpoint = dedicatedReportEndpoints[reportId];
+    if (!endpoint) {
+      const legacyFilters = {
+        ...filters,
+        department: filters.department === "ALL" ? "ALL" : filters.departmentName ?? filters.department ?? "ALL",
+        position: filters.position === "ALL" ? "ALL" : filters.positionName ?? filters.position ?? "ALL",
+      };
+      return this.request<ReportQueryResult>(
+        "/reports/query",
+        { method: "POST", body: JSON.stringify({ reportId, filters: legacyFilters }) },
+        { resource: "reports" },
+      );
+    }
+
+    const params = new URLSearchParams();
+    const values: Record<string, string | undefined> = {
+      from: filters.startDate,
+      to: filters.endDate,
+      departmentId: filters.department,
+      positionId: filters.position,
+      status: filters.status,
+      result: filters.result,
+      employeeId: filters.employeeId,
+      type: filters.type,
+    };
+    Object.entries(values).forEach(([key, value]) => {
+      const normalized = reportQueryValue(value);
+      if (normalized) params.set(key, normalized);
+    });
+    params.set("page", String(pagination.page));
+    params.set("size", String(pagination.size));
+
+    const response = await this.request<ReportQueryResult>(
+      `${endpoint}?${params.toString()}`,
+      {},
       { resource: "reports" },
     );
+    const items = Array.isArray(response.items) ? response.items : [];
+    return {
+      ...response,
+      reportId,
+      filters,
+      data: items,
+      items,
+      chart: Array.isArray(response.chart) ? response.chart : [],
+      summary: response.summary ?? {},
+      page: response.page ?? pagination.page,
+      size: response.size ?? pagination.size,
+      totalItems: response.totalItems ?? items.length,
+    };
   },
   async uploadEmployeeAvatar(employeeId: string, file: File) {
     const session = readSession();

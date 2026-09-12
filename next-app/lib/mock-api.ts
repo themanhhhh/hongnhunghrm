@@ -459,6 +459,271 @@ function mockReportResult(reportId: string, filters: Record<string, string>) {
   };
 }
 
+const dedicatedReportIds: Record<string, string> = {
+  "/reports/recruitment-result": "rec_result",
+  "/reports/recruitment-evaluations": "rec_candidates_interview",
+  "/reports/headcount-structure": "hr_summary",
+  "/reports/headcount-movement": "hr_turnover",
+  "/reports/employees": "hr_employees",
+  "/reports/reward-discipline": "eval_reward_discipline",
+};
+
+function mockPagination(filters: Record<string, string>) {
+  const pageValue = Number.parseInt(filters.page ?? "1", 10);
+  const sizeValue = Number.parseInt(filters.size ?? "20", 10);
+  const page = Number.isInteger(pageValue) && pageValue > 0 ? pageValue : 1;
+  const size = Number.isInteger(sizeValue) && sizeValue > 0 ? Math.min(sizeValue, 100) : 20;
+  return { page, size, start: (page - 1) * size };
+}
+
+function mockDateInRange(value: unknown, from: string | undefined, to: string | undefined) {
+  const timestamp = dateTimestamp(value);
+  if (Number.isNaN(timestamp)) return true;
+  const start = from ? dateTimestamp(from) : Number.NEGATIVE_INFINITY;
+  const end = to ? dateTimestamp(to) + 86399999 : Number.POSITIVE_INFINITY;
+  return timestamp >= start && timestamp <= end;
+}
+
+function mockDepartmentAndPosition(row: MockRow, filters: Record<string, string>) {
+  return (!filters.departmentId || String(filters.departmentId).toUpperCase() === "ALL" || String(row.department_id ?? "") === filters.departmentId)
+    && (!filters.positionId || String(filters.positionId).toUpperCase() === "ALL" || String(row.position_id ?? "") === filters.positionId);
+}
+
+function mockPagedResult(
+  reportId: string,
+  filters: Record<string, string>,
+  summary: MockRow,
+  chart: MockRow[],
+  rows: MockRow[],
+  extras: MockRow = {},
+) {
+  const pagination = mockPagination(filters);
+  return {
+    success: true,
+    reportId,
+    filters,
+    summary,
+    chart,
+    items: rows.slice(pagination.start, pagination.start + pagination.size),
+    page: pagination.page,
+    size: pagination.size,
+    totalItems: rows.length,
+    ...extras,
+  };
+}
+
+function mockDedicatedReport(reportId: string, filters: Record<string, string>) {
+  const store = loadStore();
+  if (reportId === "rec_result") {
+    const decisions = store["/recruitment/decisions"] ?? [];
+    const employees = store["/hr/employees"] ?? [];
+    const grouped = new Map<string, MockRow>();
+    (store["/recruitment/requests"] ?? []).filter((request) => {
+      const status = String(request.status ?? "").trim().toUpperCase();
+      return !["REJECTED", "CANCELLED", "CANCELED", "HUY", "HỦY", "TỪ CHỐI"].includes(status)
+        && mockDateInRange(request.created_date, filters.from, filters.to)
+        && mockDepartmentAndPosition(request, filters);
+    }).forEach((request) => {
+      const key = `${request.department_id ?? ""}|${request.position_id ?? ""}`;
+      const current = grouped.get(key) ?? {
+        departmentId: request.department_id,
+        departmentName: request.department_name ?? "Chưa phân loại",
+        positionId: request.position_id,
+        positionName: request.position_name ?? "Chưa xác định",
+        requiredCount: 0,
+        appliedCount: 0,
+        passedCount: 0,
+        onboardedCount: 0,
+      };
+      const candidates = (store["/recruitment/candidates"] ?? []).filter(
+        (candidate) => String(candidate.recruitment_request_id ?? "") === String(request.recruitment_request_id ?? ""),
+      );
+      current.requiredCount = Number(current.requiredCount ?? 0) + Number(request.quantity ?? 0);
+      current.appliedCount = Number(current.appliedCount ?? 0) + candidates.length;
+      current.passedCount = Number(current.passedCount ?? 0) + candidates.filter((candidate) =>
+        decisions.some((decision) => String(decision.candidate_id) === String(candidate.candidate_id) && String(decision.result ?? "").trim().toUpperCase() === "ĐẠT")
+          || isCandidateHiringDecisionPassed(candidate.status),
+      ).length;
+      current.onboardedCount = Number(current.onboardedCount ?? 0) + candidates.filter((candidate) =>
+        isCandidateWorking(candidate.status) || employees.some((employee) => String(employee.candidate_id) === String(candidate.candidate_id) && String(employee.employment_status) === "WORKING"),
+      ).length;
+      grouped.set(key, current);
+    });
+    const rows: MockRow[] = [...grouped.values()].map((row) => {
+      const requiredCount = Number(row.requiredCount ?? 0);
+      const appliedCount = Number(row.appliedCount ?? 0);
+      const passedCount = Number(row.passedCount ?? 0);
+      const onboardedCount = Number(row.onboardedCount ?? 0);
+      return {
+        ...row,
+        passRate: appliedCount ? Math.round((passedCount / appliedCount) * 10000) / 100 : 0,
+        onboardRate: passedCount ? Math.round((onboardedCount / passedCount) * 10000) / 100 : 0,
+        fulfillmentRate: requiredCount ? Math.round((onboardedCount / requiredCount) * 10000) / 100 : 0,
+      };
+    });
+    const totals = rows.reduce<MockRow>((result, row) => {
+      result.requiredCount = Number(result.requiredCount ?? 0) + Number(row.requiredCount ?? 0);
+      result.appliedCount = Number(result.appliedCount ?? 0) + Number(row.appliedCount ?? 0);
+      result.passedCount = Number(result.passedCount ?? 0) + Number(row.passedCount ?? 0);
+      result.onboardedCount = Number(result.onboardedCount ?? 0) + Number(row.onboardedCount ?? 0);
+      return result;
+    }, { requiredCount: 0, appliedCount: 0, passedCount: 0, onboardedCount: 0 });
+    const totalApplied = Number(totals.appliedCount ?? 0);
+    const totalPassed = Number(totals.passedCount ?? 0);
+    const totalOnboarded = Number(totals.onboardedCount ?? 0);
+    const totalRequired = Number(totals.requiredCount ?? 0);
+    return mockPagedResult(reportId, filters, {
+      ...totals,
+      passRate: totalApplied ? Math.round((totalPassed / totalApplied) * 10000) / 100 : 0,
+      onboardRate: totalPassed ? Math.round((totalOnboarded / totalPassed) * 10000) / 100 : 0,
+      fulfillmentRate: totalRequired ? Math.round((totalOnboarded / totalRequired) * 10000) / 100 : 0,
+    }, rows, rows);
+  }
+
+  if (reportId === "rec_candidates_interview") {
+    const candidates = store["/recruitment/candidates"] ?? [];
+    const requests = store["/recruitment/requests"] ?? [];
+    const employees = store["/hr/employees"] ?? [];
+    const rows = (store["/recruitment/interview-evaluations"] ?? []).filter((evaluation) => {
+      const candidate = candidates.find((item) => String(item.candidate_id) === String(evaluation.candidate_id));
+      return Boolean(candidate)
+        && mockDateInRange(evaluation.evaluation_date, filters.from, filters.to)
+        && mockDepartmentAndPosition(candidate ?? {}, filters)
+        && (!filters.status || String(filters.status).toUpperCase() === "ALL" || normalizeCandidateStatus(candidate?.status) === normalizeCandidateStatus(filters.status))
+        && (!filters.result || String(filters.result).toUpperCase() === "ALL" || (String(evaluation.overall_result ?? "").toUpperCase() === "PASSED" && String(filters.result).toUpperCase() === "ĐẠT") || (String(evaluation.overall_result ?? "").toUpperCase() === "FAILED" && String(filters.result).toUpperCase() === "KHÔNG ĐẠT"));
+    }).map((evaluation) => {
+      const candidate = candidates.find((item) => String(item.candidate_id) === String(evaluation.candidate_id)) ?? {};
+      const request = requests.find((item) => String(item.recruitment_request_id) === String(candidate.recruitment_request_id)) ?? {};
+      const evaluator = employees.find((item) => String(item.employee_id) === String(evaluation.evaluator_id));
+      const result = String(evaluation.overall_result ?? "").toUpperCase() === "PASSED" ? "ĐẠT" : String(evaluation.overall_result ?? "").toUpperCase() === "FAILED" ? "KHÔNG ĐẠT" : String(evaluation.overall_result ?? "");
+      return {
+        candidateCode: evaluation.candidate_code ?? candidate.candidate_code,
+        fullName: evaluation.candidate_name ?? candidate.full_name,
+        positionName: request.position_name ?? candidate.apply_position_name ?? candidate.position_name,
+        departmentName: request.department_name ?? candidate.department_name,
+        candidateStatus: normalizeCandidateStatus(candidate.status),
+        evaluationDate: evaluation.evaluation_date,
+        result,
+        comment: evaluation.overall_comment ?? "",
+        evaluatorName: evaluation.evaluator_name ?? evaluator?.full_name,
+        recruitmentRequestCode: request.request_code,
+      };
+    });
+    const chartMap = new Map<string, number>();
+    rows.forEach((row) => chartMap.set(String(row.result || "Chưa kết luận"), (chartMap.get(String(row.result || "Chưa kết luận")) ?? 0) + 1));
+    const chart = [...chartMap.entries()].map(([result, count]) => ({ result, count }));
+    const passedCount = rows.filter((row) => row.result === "ĐẠT").length;
+    const failedCount = rows.filter((row) => row.result === "KHÔNG ĐẠT").length;
+    return mockPagedResult(reportId, filters, { totalEvaluations: rows.length, passedCount, failedCount, otherCount: rows.length - passedCount - failedCount }, chart, rows);
+  }
+
+  if (reportId === "hr_summary") {
+    const grouped = new Map<string, MockRow>();
+    (store["/hr/employees"] ?? []).filter((employee) => String(employee.employment_status ?? "") === "WORKING" && employee.is_active !== 0 && mockDepartmentAndPosition(employee, filters)).forEach((employee) => {
+      const key = `${employee.department_id ?? ""}|${employee.position_id ?? ""}`;
+      const current = grouped.get(key) ?? { departmentId: employee.department_id, departmentName: employee.department_name ?? "Chưa phân loại", positionId: employee.position_id, positionName: employee.position_name ?? "Chưa xác định", totalEmployees: 0, maleCount: 0, femaleCount: 0, otherCount: 0, ageSum: 0, ageCount: 0 };
+      current.totalEmployees = Number(current.totalEmployees) + 1;
+      const gender = String(employee.gender ?? "").trim().toUpperCase();
+      if (["NAM", "MALE"].includes(gender)) current.maleCount = Number(current.maleCount) + 1;
+      else if (["NỮ", "FEMALE"].includes(gender)) current.femaleCount = Number(current.femaleCount) + 1;
+      else current.otherCount = Number(current.otherCount) + 1;
+      const dob = dateTimestamp(employee.date_of_birth);
+      if (!Number.isNaN(dob)) {
+        current.ageSum = Number(current.ageSum) + Math.floor((Date.now() - dob) / (365.2425 * 86400000));
+        current.ageCount = Number(current.ageCount) + 1;
+      }
+      grouped.set(key, current);
+    });
+    const rows: MockRow[] = [...grouped.values()].map((group) => {
+      const ageSum = Number(group.ageSum ?? 0);
+      const ageCount = Number(group.ageCount ?? 0);
+      const { ageSum: _ageSum, ageCount: _ageCount, ...row } = group;
+      return { ...row, averageAge: ageCount ? Math.round((ageSum / ageCount) * 100) / 100 : 0 };
+    });
+    const summary = rows.reduce<MockRow>((result, row) => {
+      result.totalEmployees = Number(result.totalEmployees ?? 0) + Number(row.totalEmployees ?? 0);
+      result.maleCount = Number(result.maleCount ?? 0) + Number(row.maleCount ?? 0);
+      result.femaleCount = Number(result.femaleCount ?? 0) + Number(row.femaleCount ?? 0);
+      result.otherCount = Number(result.otherCount ?? 0) + Number(row.otherCount ?? 0);
+      return result;
+    }, { totalEmployees: 0, maleCount: 0, femaleCount: 0, otherCount: 0 });
+    const ageValues = [...grouped.values()];
+    const ageSum = ageValues.reduce((sum, row) => sum + Number(row.ageSum ?? 0), 0);
+    const ageCount = ageValues.reduce((sum, row) => sum + Number(row.ageCount ?? 0), 0);
+    return mockPagedResult(reportId, filters, { ...summary, averageAge: ageCount ? Math.round((ageSum / ageCount) * 100) / 100 : 0 }, rows.reduce<MockRow[]>((result, row) => {
+      const current = result.find((item) => item.departmentName === row.departmentName);
+      if (current) current.totalEmployees = Number(current.totalEmployees ?? 0) + Number(row.totalEmployees ?? 0);
+      else result.push({ departmentName: row.departmentName, totalEmployees: Number(row.totalEmployees ?? 0) });
+      return result;
+    }, [] as MockRow[]), rows);
+  }
+
+  if (reportId === "hr_employees") {
+    const rows = (store["/hr/employees"] ?? []).filter((employee) =>
+      mockDepartmentAndPosition(employee, filters)
+      && (!filters.status || String(filters.status).toUpperCase() === "ALL" || String(employee.employment_status ?? "").toUpperCase() === String(filters.status).toUpperCase() || (String(filters.status).toUpperCase() === "ACTIVE" && String(employee.employment_status ?? "").toUpperCase() === "WORKING")),
+    ).map((employee) => ({
+      employeeCode: employee.employee_code,
+      fullName: employee.full_name,
+      departmentName: employee.department_name,
+      positionName: employee.position_name,
+      joinDate: employee.join_date,
+      status: employee.employment_status,
+      resignationDate: employee.resignation_date,
+    }));
+    const workingCount = rows.filter((row) => String(row.status).toUpperCase() === "WORKING").length;
+    const resignedCount = rows.filter((row) => String(row.status).toUpperCase() === "RESIGNED").length;
+    return mockPagedResult(reportId, filters, { totalEmployees: rows.length, workingCount, resignedCount, otherCount: rows.length - workingCount - resignedCount }, [
+      { status: "WORKING", count: workingCount },
+      { status: "RESIGNED", count: resignedCount },
+    ], rows);
+  }
+
+  if (reportId === "hr_turnover") {
+    const from = filters.from ? dateTimestamp(filters.from) : 0;
+    const to = filters.to ? dateTimestamp(filters.to) + 86399999 : Number.POSITIVE_INFINITY;
+    const employees = (store["/hr/employees"] ?? []).filter((employee) => mockDepartmentAndPosition(employee, filters));
+    const beginning = employees.filter((employee) => {
+      const joinDate = dateTimestamp(employee.join_date);
+      const resignationDate = dateTimestamp(employee.resignation_date);
+      return !Number.isNaN(joinDate) && joinDate < from && (Number.isNaN(resignationDate) || resignationDate >= from);
+    }).length;
+    const increases = employees.filter((employee) => {
+      const date = dateTimestamp(employee.join_date);
+      return !Number.isNaN(date) && date >= from && date <= to;
+    }).map((employee) => ({ employeeCode: employee.employee_code, fullName: employee.full_name, departmentName: employee.department_name, positionName: employee.position_name, movementType: "INCREASE", movementDate: employee.join_date }));
+    const decreases = employees.filter((employee) => {
+      const date = dateTimestamp(employee.resignation_date);
+      return !Number.isNaN(date) && date >= from && date <= to;
+    }).map((employee) => ({ employeeCode: employee.employee_code, fullName: employee.full_name, departmentName: employee.department_name, positionName: employee.position_name, movementType: "DECREASE", movementDate: employee.resignation_date }));
+    const ending = beginning + increases.length - decreases.length;
+    const averageHeadcount = (beginning + ending) / 2;
+    return mockPagedResult(reportId, filters, { beginning, increased: increases.length, decreased: decreases.length, ending, averageHeadcount, turnoverRate: averageHeadcount ? Math.round((decreases.length / averageHeadcount) * 10000) / 100 : 0 }, [
+      { metric: "Đầu kỳ", count: beginning },
+      { metric: "Tăng trong kỳ", count: increases.length },
+      { metric: "Giảm trong kỳ", count: decreases.length },
+      { metric: "Cuối kỳ", count: ending },
+    ], [...increases, ...decreases], { increases, decreases });
+  }
+
+  if (reportId === "eval_reward_discipline") {
+    const rows = (store["/reward-discipline"] ?? []).filter((decision) =>
+      mockDateInRange(decision.decision_date, filters.from, filters.to)
+      && mockDepartmentAndPosition(decision, filters)
+      && (!filters.employeeId || String(filters.employeeId).toUpperCase() === "ALL" || String(decision.employee_id) === filters.employeeId)
+      && (!filters.type || String(filters.type).toUpperCase() === "ALL" || String(decision.decision_type).toUpperCase() === String(filters.type).toUpperCase() || (String(filters.type).toUpperCase() === "REWARD" && String(decision.decision_type).toUpperCase() === "KHEN_THUONG") || (String(filters.type).toUpperCase() === "DISCIPLINE" && String(decision.decision_type).toUpperCase() === "KY_LUAT")),
+    ).map((decision) => {
+      const type = ["REWARD", "KHEN_THUONG"].includes(String(decision.decision_type).toUpperCase()) ? "REWARD" : "DISCIPLINE";
+      return { decisionNo: decision.decision_no, decisionDate: decision.decision_date, employeeId: decision.employee_id, employeeCode: decision.employee_code, fullName: decision.employee_name, departmentName: decision.department_name, positionName: decision.position_name, type, typeLabel: type === "REWARD" ? "Khen thưởng" : "Kỷ luật", amount: Number(decision.amount ?? 0), description: decision.content ?? decision.reason ?? "", reason: decision.reason ?? "", decisionMaker: decision.decision_by };
+    });
+    const rewardCount = rows.filter((row) => row.type === "REWARD").length;
+    const disciplineCount = rows.filter((row) => row.type === "DISCIPLINE").length;
+    return mockPagedResult(reportId, filters, { totalDecisions: rows.length, rewardCount, disciplineCount }, [{ type: "REWARD", count: rewardCount }, { type: "DISCIPLINE", count: disciplineCount }], rows);
+  }
+
+  return mockPagedResult(reportId, filters, { total: 0 }, [], []);
+}
+
 function routeFor(path: string) {
   return Object.keys(idFields).sort((a, b) => b.length - a.length).find((route) => path === route || path.startsWith(`${route}/`)) ?? path;
 }
@@ -518,6 +783,8 @@ export function isMockMode() {
 
 export async function mockApiRequest<T>(path: string, init: RequestInit = {}, session?: Session): Promise<T> {
   await new Promise((resolve) => setTimeout(resolve, 120));
+  const [pathname, queryString = ""] = path.split("?");
+  const queryFilters = Object.fromEntries(new URLSearchParams(queryString).entries()) as Record<string, string>;
 
   if (path.includes("dashboard")) return dashboardResponse(session) as T;
   if (path.endsWith("/approval-history") || path.endsWith("/pathway")) return envelope([]) as T;
@@ -525,10 +792,14 @@ export async function mockApiRequest<T>(path: string, init: RequestInit = {}, se
     const payload = payloadFor(init);
     return mockReportResult(String(payload.reportId ?? ""), (payload.filters ?? {}) as Record<string, string>) as T;
   }
-  if (path === "/reports/departments" && (init.method ?? "GET") === "GET") {
+  const dedicatedReportId = dedicatedReportIds[pathname];
+  if (dedicatedReportId && (init.method ?? "GET") === "GET") {
+    return mockDedicatedReport(dedicatedReportId, queryFilters) as T;
+  }
+  if (pathname === "/reports/departments" && (init.method ?? "GET") === "GET") {
     return envelope(loadStore()["/admin/departments"] ?? []) as T;
   }
-  if (path === "/reports/positions" && (init.method ?? "GET") === "GET") {
+  if (pathname === "/reports/positions" && (init.method ?? "GET") === "GET") {
     return envelope(loadStore()["/admin/positions"] ?? []) as T;
   }
   if (path.includes("/employees") && path.includes("/admin/departments/")) {

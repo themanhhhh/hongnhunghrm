@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { api } from "@/lib/api";
+import { api, type ReportQueryResult } from "@/lib/api";
 import {
   reportGroups,
   defaultReport,
@@ -32,9 +32,17 @@ type ReportFilters = {
   startDate: string;
   endDate: string;
   department: string;
+  departmentName: string;
   position: string;
+  positionName: string;
   period: string;
+  status: string;
+  result: string;
+  employeeId: string;
+  type: string;
 };
+
+type ReportOption = { id: string; label: string };
 
 function formatDateInput(date: Date) {
   const year = date.getFullYear();
@@ -51,21 +59,37 @@ function lastWeekFilters(): ReportFilters {
     startDate: formatDateInput(start),
     endDate: formatDateInput(end),
     department: "ALL",
+    departmentName: "Toàn công ty",
     position: "ALL",
+    positionName: "Tất cả vị trí",
     period: "7 ngày gần nhất",
+    status: "ALL",
+    result: "ALL",
+    employeeId: "ALL",
+    type: "ALL",
   };
 }
 
 const fallbackDepartments = [
-  "Khối Kỹ thuật Phần mềm",
-  "Khối Kinh doanh ERP",
-  "Phòng Hành chính Nhân sự",
-  "Ban Giám đốc",
+  { id: "fallback-engineering", label: "Khối Kỹ thuật Phần mềm" },
+  { id: "fallback-erp", label: "Khối Kinh doanh ERP" },
+  { id: "fallback-hr", label: "Phòng Hành chính Nhân sự" },
+  { id: "fallback-board", label: "Ban Giám đốc" },
 ];
 
 function filtersForPeriod(period: string, current: ReportFilters) {
   if (period === "7 ngày gần nhất")
-    return { ...lastWeekFilters(), department: current.department, position: current.position };
+    return {
+      ...lastWeekFilters(),
+      department: current.department,
+      departmentName: current.departmentName,
+      position: current.position,
+      positionName: current.positionName,
+      status: current.status,
+      result: current.result,
+      employeeId: current.employeeId,
+      type: current.type,
+    };
   if (period === "Quý I/2026")
     return {
       ...current,
@@ -92,16 +116,38 @@ function filtersForPeriod(period: string, current: ReportFilters) {
 
 function filtersForReport(reportId: string) {
   const current = lastWeekFilters();
-  return reportId.startsWith("eval_") ? filtersForPeriod("Năm 2026", current) : current;
+  return reportId.startsWith("eval_") || reportId === "rec_candidates_interview"
+    ? filtersForPeriod("Năm 2026", current)
+    : current;
 }
 
 function formatValue(value: unknown, key: string) {
   if (value === null || value === undefined || value === "") return "-";
-  if (key.includes("date") || key === "dob" || key === "join_date") {
+  if (key.toLowerCase().includes("date") || key === "dob" || key === "join_date") {
     return formatDate(value, String(value));
+  }
+  if (key.toLowerCase().includes("rate") || key === "percentage") {
+    const numeric = Number(value);
+    return Number.isFinite(numeric) ? `${numeric.toFixed(2)}%` : String(value);
+  }
+  if (key === "movementType") {
+    return { INCREASE: "Tăng", DECREASE: "Giảm" }[String(value)] ?? String(value);
+  }
+  if (key === "status") {
+    return { WORKING: "Đang làm việc", RESIGNED: "Đã nghỉ việc" }[String(value)] ?? String(value);
   }
   if (typeof value === "number") return value.toLocaleString("vi-VN");
   return String(value);
+}
+
+function formatSummaryValue(value: unknown, format: "number" | "percent" = "number") {
+  const numeric = Number(value ?? 0);
+  if (!Number.isFinite(numeric)) return "0";
+  return format === "percent" ? `${numeric.toFixed(2)}%` : numeric.toLocaleString("vi-VN");
+}
+
+function filterEnabled(report: ReportDefinition, filter: NonNullable<ReportDefinition["filters"]>[number]) {
+  return report.filters?.includes(filter) ?? ["date", "department", "position"].includes(filter);
 }
 
 function csvValue(value: unknown) {
@@ -120,16 +166,22 @@ function ReportPaper({
   report,
   filters,
   rows,
+  page = 1,
+  pageSize = rows.length || 1,
+  totalItems = rows.length,
   preview = false,
 }: {
   report: ReportDefinition;
   filters: ReportFilters;
   rows: Array<Record<string, unknown>>;
+  page?: number;
+  pageSize?: number;
+  totalItems?: number;
   preview?: boolean;
 }) {
   const displayRows = preview ? Array.from({ length: 7 }, () => null) : rows;
-  const department = filters.department === "ALL" ? "Toàn công ty" : filters.department;
-  const position = filters.position === "ALL" ? "Tất cả vị trí" : filters.position;
+  const department = filters.department === "ALL" ? "Toàn công ty" : filters.departmentName || filters.department;
+  const position = filters.position === "ALL" ? "Tất cả vị trí" : filters.positionName || filters.position;
 
   return (
     <div className="legacy-a4-preview-paper">
@@ -156,47 +208,165 @@ function ReportPaper({
         <div className="legacy-report-meta">
           {preview ? report.sampleMeta.map((meta) => <div key={meta}>• {meta}</div>) : (
             <>
-              <div>• Từ ngày: {filters.startDate}</div>
-              <div>• Đến ngày: {filters.endDate}</div>
-              <div>• Phòng ban: {department}</div>
-              <div>• Vị trí: {position}</div>
-              <div>• Số bản ghi: {rows.length}</div>
+              {filterEnabled(report, "date") && <div>• Từ ngày: {filters.startDate}</div>}
+              {filterEnabled(report, "date") && <div>• Đến ngày: {filters.endDate}</div>}
+              {filterEnabled(report, "department") && <div>• Phòng ban: {department}</div>}
+              {filterEnabled(report, "position") && <div>• Vị trí: {position}</div>}
+              <div>• Số bản ghi: {totalItems}</div>
             </>
           )}
         </div>
 
-        <table className="legacy-preview-table">
-          <thead>
-            <tr>
-              <th className="legacy-index-column">Stt</th>
-              {report.columns.map((column) => <th key={column.key}>{column.label}</th>)}
-            </tr>
-          </thead>
-          <tbody>
-            {displayRows.length > 0 ? displayRows.map((row, index) => (
-              <tr key={`${report.id}-${index}`}>
-                <td className={preview ? "legacy-preview-index" : "legacy-index-column"}>{index + 1}</td>
-                {report.columns.map((column) => (
-                  <td key={column.key} className={preview ? "legacy-preview-placeholder" : undefined}>
-                    {preview ? "abc" : formatValue(row?.[column.key], column.key)}
-                  </td>
-                ))}
-              </tr>
-            )) : (
+        <div className="overflow-x-auto">
+          <table className="legacy-preview-table">
+            <thead>
               <tr>
-                <td colSpan={report.columns.length + 1} className="legacy-empty-cell">
-                  Không tìm thấy dữ liệu thống kê phù hợp điều kiện lọc.
-                </td>
+                <th className="legacy-index-column">Stt</th>
+                {report.columns.map((column) => <th key={column.key}>{column.label}</th>)}
               </tr>
-            )}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {displayRows.length > 0 ? displayRows.map((row, index) => (
+                <tr key={`${report.id}-${index}`}>
+                  <td className={preview ? "legacy-preview-index" : "legacy-index-column"}>
+                    {preview ? index + 1 : (page - 1) * pageSize + index + 1}
+                  </td>
+                  {report.columns.map((column) => (
+                    <td key={column.key} className={preview ? "legacy-preview-placeholder" : undefined}>
+                      {preview ? "abc" : formatValue(row?.[column.key], column.key)}
+                    </td>
+                  ))}
+                </tr>
+              )) : (
+                <tr>
+                  <td colSpan={report.columns.length + 1} className="legacy-empty-cell">
+                    Không tìm thấy dữ liệu thống kê phù hợp điều kiện lọc.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
 
         <div className="legacy-signatures">
           <div><b>NGƯỜI LẬP BÁO CÁO</b><span>(Ký, ghi rõ họ tên)</span></div>
           <div><b>TRƯỞNG BỘ PHẬN</b><span>(Ký, ghi rõ họ tên)</span></div>
           <div><b>GIÁM ĐỐC BRAVO</b><span>(Ký, ghi rõ họ tên)</span></div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+const chartToneClasses = {
+  teal: "bg-teal-600",
+  amber: "bg-amber-500",
+  violet: "bg-violet-500",
+  rose: "bg-rose-500",
+} as const;
+
+function ReportSummary({ report, result }: { report: ReportDefinition; result: ReportQueryResult }) {
+  if (!report.summary?.length) return null;
+  return (
+    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      {report.summary.map((field) => (
+        <Card key={field.key}>
+          <CardContent className="p-4">
+            <div className="text-xs font-semibold text-slate-500">{field.label}</div>
+            <div className="mt-2 text-2xl font-bold tracking-tight text-slate-950">
+              {formatSummaryValue(result.summary?.[field.key], field.format)}
+            </div>
+          </CardContent>
+        </Card>
+      ))}
+    </div>
+  );
+}
+
+function ReportChart({ report, result }: { report: ReportDefinition; result: ReportQueryResult }) {
+  const config = report.chart;
+  const points = Array.isArray(result.chart) ? result.chart : [];
+  if (!config || !points.length) return null;
+
+  const maxValue = Math.max(
+    1,
+    ...points.flatMap((point) =>
+      config.series.map((series) => Math.max(0, Number(point[series.key] ?? 0))),
+    ),
+  );
+
+  return (
+    <Card>
+      <CardContent className="p-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <div className="text-sm font-bold text-slate-950">Biểu đồ tổng hợp</div>
+            <div className="mt-1 text-xs text-slate-500">Dùng cùng tập lọc với bảng chi tiết</div>
+          </div>
+          <div className="flex flex-wrap gap-3 text-xs text-slate-500">
+            {config.series.map((series) => (
+              <span key={series.key} className="inline-flex items-center gap-1.5">
+                <span className={`size-2 rounded-full ${chartToneClasses[series.tone]}`} />
+                {series.label}
+              </span>
+            ))}
+          </div>
+        </div>
+        <div className="mt-5 space-y-4">
+          {points.map((point, index) => (
+            <div key={`${String(point[config.labelKey] ?? "point")}-${index}`}>
+              <div className="mb-1.5 flex items-center justify-between gap-3 text-xs">
+                <span className="min-w-0 truncate font-semibold text-slate-700">
+                  {String(point[config.labelKey] ?? "Chưa xác định")}
+                </span>
+                <span className="shrink-0 text-slate-400">
+                  {config.series.map((series) => Number(point[series.key] ?? 0).toLocaleString("vi-VN")).join(" / ")}
+                </span>
+              </div>
+              <div className="space-y-1.5">
+                {config.series.map((series) => {
+                  const value = Math.max(0, Number(point[series.key] ?? 0));
+                  return (
+                    <div key={series.key} className="h-2 overflow-hidden rounded-full bg-slate-100" title={`${series.label}: ${value}`}>
+                      <div
+                        className={`h-full rounded-full ${chartToneClasses[series.tone]}`}
+                        style={{ width: `${Math.min(100, (value / maxValue) * 100)}%` }}
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function ReportPagination({
+  page,
+  size,
+  totalItems,
+  onChange,
+}: {
+  page: number;
+  size: number;
+  totalItems: number;
+  onChange: (page: number) => void;
+}) {
+  const totalPages = Math.max(1, Math.ceil(totalItems / size));
+  if (totalPages <= 1) return null;
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm">
+      <span className="text-slate-500">Trang {page} / {totalPages} · {totalItems.toLocaleString("vi-VN")} bản ghi</span>
+      <div className="flex gap-2">
+        <Button variant="secondary" size="sm" disabled={page <= 1} onClick={() => onChange(page - 1)}>
+          Trang trước
+        </Button>
+        <Button variant="secondary" size="sm" disabled={page >= totalPages} onClick={() => onChange(page + 1)}>
+          Trang sau
+        </Button>
       </div>
     </div>
   );
@@ -216,6 +386,8 @@ export function ReportsWorkspace() {
   const [search, setSearch] = useState("");
   const [showFilters, setShowFilters] = useState(false);
   const [hasRun, setHasRun] = useState(false);
+  const [page, setPage] = useState(1);
+  const pageSize = 20;
   const departmentsQuery = useQuery({
     queryKey: ["report-departments"],
     queryFn: () => api.list("/reports/departments", { resource: "reports" }),
@@ -224,32 +396,67 @@ export function ReportsWorkspace() {
     queryKey: ["report-positions"],
     queryFn: () => api.list("/reports/positions", { resource: "reports" }),
   });
+  const employeesQuery = useQuery({
+    queryKey: ["report-employees"],
+    queryFn: () => api.queryReport("hr_employees", { department: "ALL", position: "ALL", status: "ALL" }, { page: 1, size: 100 }),
+  });
   const reportMutation = useMutation({
-    mutationFn: () => api.queryReport(selectedReport.id, filters),
+    mutationFn: (requestedPage: number) => api.queryReport(selectedReport.id, filters, { page: requestedPage, size: pageSize }),
     onSuccess: () => {
       setHasRun(true);
       setShowFilters(false);
     },
   });
   const reportData = reportMutation.data;
-  const departments =
-    departmentsQuery.data
-      ?.map((item) => String(item.department_name ?? ""))
-      .filter(Boolean) ?? fallbackDepartments;
-  const positions =
-    positionsQuery.data
-      ?.map((item) => String(item.position_name ?? ""))
-      .filter(Boolean) ?? [];
+  const departments: ReportOption[] = departmentsQuery.data?.map((item) => ({
+    id: String(item.department_id ?? item.id ?? ""),
+    label: String(item.department_name ?? item.name ?? ""),
+  })).filter((item) => item.id && item.label) ?? fallbackDepartments;
+  const positions: ReportOption[] = positionsQuery.data?.map((item) => ({
+    id: String(item.position_id ?? item.id ?? ""),
+    label: String(item.position_name ?? item.name ?? ""),
+  })).filter((item) => item.id && item.label) ?? [];
+  const employees: ReportOption[] = employeesQuery.data?.data?.map((item) => ({
+    id: String(item.employeeId ?? item.employee_id ?? ""),
+    label: `${String(item.employeeCode ?? item.employee_code ?? "")} · ${String(item.fullName ?? item.full_name ?? "")}`.trim(),
+  })).filter((item) => item.id && item.label) ?? [];
 
   const chooseReport = (report: ReportDefinition) => {
     setSelectedReport(report);
     setFilters(filtersForReport(report.id));
     setHasRun(false);
+    setPage(1);
     setShowFilters(false);
     reportMutation.reset();
   };
 
-  const runReport = () => reportMutation.mutate();
+  const runReport = () => {
+    setPage(1);
+    reportMutation.mutate(1);
+  };
+
+  const changePage = (nextPage: number) => {
+    setPage(nextPage);
+    reportMutation.mutate(nextPage);
+  };
+
+  const setDepartment = (departmentId: string) => {
+    const option = departments.find((item) => item.id === departmentId);
+    setFilters((current) => ({
+      ...current,
+      department: departmentId,
+      departmentName: option?.label ?? (departmentId === "ALL" ? "Toàn công ty" : departmentId),
+    }));
+  };
+
+  const setPosition = (positionId: string) => {
+    const option = positions.find((item) => item.id === positionId);
+    setFilters((current) => ({
+      ...current,
+      position: positionId,
+      positionName: option?.label ?? (positionId === "ALL" ? "Tất cả vị trí" : positionId),
+    }));
+  };
 
   const exportCsv = () => {
     if (!reportData?.data) return;
@@ -285,7 +492,7 @@ export function ReportsWorkspace() {
           `<tr>${selectedReport.columns.map((column) => `<td>${escapeHtml(formatValue(row[column.key], column.key))}</td>`).join("")}</tr>`,
       )
       .join("");
-    const html = `<html><head><meta charset="utf-8"></head><body><h2>${escapeHtml(selectedReport.title)}</h2><p>${escapeHtml(filters.startDate)} - ${escapeHtml(filters.endDate)} | ${escapeHtml(filters.department === "ALL" ? "Toàn công ty" : filters.department)}</p><table border="1"><thead><tr>${headers}</tr></thead><tbody>${rows}</tbody></table></body></html>`;
+     const html = `<html><head><meta charset="utf-8"></head><body><h2>${escapeHtml(selectedReport.title)}</h2><p>${escapeHtml(filters.startDate)} - ${escapeHtml(filters.endDate)} | ${escapeHtml(filters.department === "ALL" ? "Toàn công ty" : filters.departmentName)}</p><table border="1"><thead><tr>${headers}</tr></thead><tbody>${rows}</tbody></table></body></html>`;
     const blob = new Blob(["\uFEFF", html], {
       type: "application/vnd.ms-excel;charset=utf-8",
     });
@@ -341,7 +548,7 @@ export function ReportsWorkspace() {
               <div className="flex items-center gap-2 text-sm font-bold text-slate-900">
                 <Layers size={16} className="text-teal-700" /> Danh mục báo cáo
               </div>
-              <Badge tone="teal">18 mẫu</Badge>
+               <Badge tone="teal">19 mẫu</Badge>
             </div>
             <div className="relative">
               <Search
@@ -461,94 +668,137 @@ export function ReportsWorkspace() {
                   </button>
                 </div>
                 <div className="max-h-[calc(92vh-125px)] overflow-y-auto p-6 sm:p-8">
-                 
                   <div className="grid gap-5 sm:grid-cols-2">
-                   <label className="order-1 text-sm font-bold text-slate-700">
-                     Từ ngày
-                     <Input
-                       className="mt-2 h-11"
-                      type="date"
-                      value={filters.startDate}
-                      onChange={(event) =>
-                        setFilters((current) => ({
-                          ...current,
-                          startDate: event.target.value,
-                        }))
-                      }
-                    />
-                  </label>
-                   <label className="order-4 text-sm font-bold text-slate-700">
-                     Vị trí
-                     <select
-                       className="mt-2 h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-sm font-normal outline-none transition focus:border-teal-500 focus:ring-4 focus:ring-teal-500/10"
-                      value={filters.position}
-                      onChange={(event) =>
-                        setFilters((current) => ({
-                          ...current,
-                          position: event.target.value,
-                        }))
-                      }
-                    >
-                      <option value="ALL">Tất cả vị trí</option>
-                      {positions.map((position) => (
-                        <option key={position} value={position}>
-                          {position}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                   <label className="order-2 text-sm font-bold text-slate-700">
-                     Đến ngày
-                     <Input
-                       className="mt-2 h-11"
-                      type="date"
-                      value={filters.endDate}
-                      onChange={(event) =>
-                        setFilters((current) => ({
-                          ...current,
-                          endDate: event.target.value,
-                        }))
-                      }
-                    />
-                  </label>
-                   <label className="order-3 text-sm font-bold text-slate-700">
-                     Phòng ban
-                     <select
-                       className="mt-2 h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-sm font-normal outline-none transition focus:border-teal-500 focus:ring-4 focus:ring-teal-500/10"
-                      value={filters.department}
-                      onChange={(event) =>
-                        setFilters((current) => ({
-                          ...current,
-                          department: event.target.value,
-                        }))
-                      }
-                    >
-                      <option value="ALL">Toàn công ty</option>
-                      {departments.map((department) => (
-                        <option key={department} value={department}>
-                          {department}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                   <label className="order-5 text-sm font-bold text-slate-700 sm:col-span-2">
-                     Kỳ báo cáo
-                     <select
-                       className="mt-2 h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-sm font-normal outline-none transition focus:border-teal-500 focus:ring-4 focus:ring-teal-500/10"
-                      value={filters.period}
-                      onChange={(event) =>
-                        setFilters((current) =>
-                          filtersForPeriod(event.target.value, current),
-                        )
-                      }
-                    >
-                      <option>7 ngày gần nhất</option>
-                      <option>Năm 2026</option>
-                      <option>Quý I/2026</option>
-                      <option>Quý II/2026</option>
-                      <option>Tháng 08/2026</option>
-                    </select>
-                  </label>
+                    {filterEnabled(selectedReport, "date") && (
+                      <>
+                        <label className="text-sm font-bold text-slate-700">
+                          Từ ngày
+                          <Input
+                            className="mt-2 h-11"
+                            type="date"
+                            value={filters.startDate}
+                            onChange={(event) => setFilters((current) => ({ ...current, startDate: event.target.value }))}
+                          />
+                        </label>
+                        <label className="text-sm font-bold text-slate-700">
+                          Đến ngày
+                          <Input
+                            className="mt-2 h-11"
+                            type="date"
+                            value={filters.endDate}
+                            onChange={(event) => setFilters((current) => ({ ...current, endDate: event.target.value }))}
+                          />
+                        </label>
+                      </>
+                    )}
+                    {filterEnabled(selectedReport, "department") && (
+                      <label className="text-sm font-bold text-slate-700">
+                        Phòng ban
+                        <select
+                          className="mt-2 h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-sm font-normal outline-none transition focus:border-teal-500 focus:ring-4 focus:ring-teal-500/10"
+                          value={filters.department}
+                          onChange={(event) => setDepartment(event.target.value)}
+                        >
+                          <option value="ALL">Toàn công ty</option>
+                          {departments.map((department) => (
+                            <option key={department.id} value={department.id}>{department.label}</option>
+                          ))}
+                        </select>
+                      </label>
+                    )}
+                    {filterEnabled(selectedReport, "position") && (
+                      <label className="text-sm font-bold text-slate-700">
+                        Vị trí
+                        <select
+                          className="mt-2 h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-sm font-normal outline-none transition focus:border-teal-500 focus:ring-4 focus:ring-teal-500/10"
+                          value={filters.position}
+                          onChange={(event) => setPosition(event.target.value)}
+                        >
+                          <option value="ALL">Tất cả vị trí</option>
+                          {positions.map((position) => (
+                            <option key={position.id} value={position.id}>{position.label}</option>
+                          ))}
+                        </select>
+                      </label>
+                    )}
+                    {filterEnabled(selectedReport, "status") && (
+                      <label className="text-sm font-bold text-slate-700">
+                        Trạng thái
+                        <select
+                          className="mt-2 h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-sm font-normal outline-none transition focus:border-teal-500 focus:ring-4 focus:ring-teal-500/10"
+                          value={filters.status}
+                          onChange={(event) => setFilters((current) => ({ ...current, status: event.target.value }))}
+                        >
+                          <option value="ALL">Tất cả trạng thái</option>
+                          <option value="tiếp nhận hồ sơ">Tiếp nhận hồ sơ</option>
+                          <option value="đã sơ loại">Đã sơ loại</option>
+                          <option value="đã tạo lịch">Đã tạo lịch</option>
+                          <option value="đã phỏng vấn">Đã phỏng vấn</option>
+                          <option value="đã quyết định loại">Đã quyết định loại</option>
+                          <option value="đã quyết định tuyển">Đã quyết định tuyển</option>
+                          <option value="đi làm">Đi làm</option>
+                        </select>
+                      </label>
+                    )}
+                    {filterEnabled(selectedReport, "result") && (
+                      <label className="text-sm font-bold text-slate-700">
+                        Kết quả
+                        <select
+                          className="mt-2 h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-sm font-normal outline-none transition focus:border-teal-500 focus:ring-4 focus:ring-teal-500/10"
+                          value={filters.result}
+                          onChange={(event) => setFilters((current) => ({ ...current, result: event.target.value }))}
+                        >
+                          <option value="ALL">Tất cả kết quả</option>
+                          <option value="ĐẠT">Đạt</option>
+                          <option value="KHÔNG ĐẠT">Không đạt</option>
+                        </select>
+                      </label>
+                    )}
+                    {filterEnabled(selectedReport, "type") && (
+                      <label className="text-sm font-bold text-slate-700">
+                        Loại quyết định
+                        <select
+                          className="mt-2 h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-sm font-normal outline-none transition focus:border-teal-500 focus:ring-4 focus:ring-teal-500/10"
+                          value={filters.type}
+                          onChange={(event) => setFilters((current) => ({ ...current, type: event.target.value }))}
+                        >
+                          <option value="ALL">Tất cả</option>
+                          <option value="REWARD">Khen thưởng</option>
+                          <option value="DISCIPLINE">Kỷ luật</option>
+                        </select>
+                      </label>
+                    )}
+                    {filterEnabled(selectedReport, "employee") && (
+                      <label className="text-sm font-bold text-slate-700">
+                        Nhân viên
+                        <select
+                          className="mt-2 h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-sm font-normal outline-none transition focus:border-teal-500 focus:ring-4 focus:ring-teal-500/10"
+                          value={filters.employeeId}
+                          onChange={(event) => setFilters((current) => ({ ...current, employeeId: event.target.value }))}
+                        >
+                          <option value="ALL">Tất cả nhân viên</option>
+                          {employees.map((employee) => (
+                            <option key={employee.id} value={employee.id}>{employee.label}</option>
+                          ))}
+                        </select>
+                      </label>
+                    )}
+                    {filterEnabled(selectedReport, "date") && (
+                      <label className="text-sm font-bold text-slate-700 sm:col-span-2">
+                        Kỳ báo cáo nhanh
+                        <select
+                          className="mt-2 h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-sm font-normal outline-none transition focus:border-teal-500 focus:ring-4 focus:ring-teal-500/10"
+                          value={filters.period}
+                          onChange={(event) => setFilters((current) => filtersForPeriod(event.target.value, current))}
+                        >
+                          <option>7 ngày gần nhất</option>
+                          <option>Năm 2026</option>
+                          <option>Quý I/2026</option>
+                          <option>Quý II/2026</option>
+                          <option>Tháng 08/2026</option>
+                        </select>
+                      </label>
+                    )}
                   </div>
                   <div className="mt-8 flex flex-col-reverse justify-end gap-3 border-t border-slate-100 pt-5 sm:flex-row">
                     <Button size="lg" variant="secondary" onClick={() => setShowFilters(false)}>
@@ -591,15 +841,34 @@ export function ReportsWorkspace() {
                       <Printer size={14} /> In / Lưu PDF
                     </Button>
                   </div>
-                </div>
-                <div className="legacy-filter-banner">
-                  <span> <b>Thời gian:</b> {filters.startDate} đến {filters.endDate}</span>
-                  <span> <b>Phòng ban:</b> {filters.department === "ALL" ? "Toàn công ty" : filters.department}</span>
-                  <span> <b>Vị trí:</b> {filters.position === "ALL" ? "Tất cả vị trí" : filters.position}</span>
-                  <span> <b>Số bản ghi:</b> {reportData?.data?.length ?? 0} kết quả</span>
-                </div>
-                <ReportPaper report={selectedReport} filters={filters} rows={reportData?.data ?? []} />
-              </div>
+                 </div>
+                 <div className="legacy-filter-banner">
+                   {filterEnabled(selectedReport, "date") && <span> <b>Thời gian:</b> {filters.startDate} đến {filters.endDate}</span>}
+                   {filterEnabled(selectedReport, "department") && <span> <b>Phòng ban:</b> {filters.department === "ALL" ? "Toàn công ty" : filters.departmentName}</span>}
+                   {filterEnabled(selectedReport, "position") && <span> <b>Vị trí:</b> {filters.position === "ALL" ? "Tất cả vị trí" : filters.positionName}</span>}
+                   {filterEnabled(selectedReport, "status") && <span> <b>Trạng thái:</b> {filters.status === "ALL" ? "Tất cả" : filters.status}</span>}
+                   {filterEnabled(selectedReport, "type") && <span> <b>Loại:</b> {filters.type === "ALL" ? "Tất cả" : filters.type === "REWARD" ? "Khen thưởng" : "Kỷ luật"}</span>}
+                   <span> <b>Số bản ghi:</b> {reportData?.totalItems ?? reportData?.data?.length ?? 0} kết quả</span>
+                 </div>
+                 {reportData && <ReportSummary report={selectedReport} result={reportData} />}
+                 {reportData && <ReportChart report={selectedReport} result={reportData} />}
+                 <ReportPaper
+                   report={selectedReport}
+                   filters={filters}
+                   rows={reportData?.data ?? []}
+                   page={reportData?.page ?? page}
+                   pageSize={reportData?.size ?? pageSize}
+                   totalItems={reportData?.totalItems ?? reportData?.data?.length ?? 0}
+                 />
+                 {reportData && (
+                   <ReportPagination
+                     page={reportData.page ?? page}
+                     size={reportData.size ?? pageSize}
+                     totalItems={reportData.totalItems ?? reportData.data.length}
+                     onChange={changePage}
+                   />
+                 )}
+               </div>
             ) : (
               <div className="legacy-report-preview-container">
                 <ReportPaper report={selectedReport} filters={filters} rows={[]} preview />

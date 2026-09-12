@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { query, queryOne } = require('../db/connection');
 const { authenticateToken, authorizeRole } = require('../middleware/auth');
+const reportService = require('../services/report.service');
 
 router.use(authenticateToken);
 
@@ -208,6 +209,22 @@ router.get('/dashboard/employee', authorizeRole('Nhân viên'), async (req, res)
 
 // Báo cáo thống kê: dành cho Admin/HR/Ban Giám Đốc/Trưởng Khối/Trưởng Phòng.
 router.use(authorizeRole('Administrator', 'HR Staff', 'Ban Giám Đốc', 'Trưởng Khối', 'Trưởng Phòng'));
+
+// Dedicated report APIs. The router-level middleware above supplies authentication and report-reader authorization.
+const reportEndpoint = (handler) => async (req, res) => {
+    try {
+        return res.json({ success: true, ...(await handler(req)) });
+    } catch (error) {
+        return res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+router.get('/recruitment-result', reportEndpoint(reportService.getRecruitmentResult));
+router.get('/recruitment-evaluations', reportEndpoint(reportService.getRecruitmentEvaluations));
+router.get('/headcount-structure', reportEndpoint(reportService.getHeadcountStructure));
+router.get('/headcount-movement', reportEndpoint(reportService.getHeadcountMovement));
+router.get('/employees', reportEndpoint(reportService.getEmployees));
+router.get('/reward-discipline', reportEndpoint(reportService.getRewardDiscipline));
 
 // Dashboard nhân sự dùng chung cho Admin, Ban Giám Đốc và cấp quản lý.
 router.get('/dashboard/workforce', authorizeRole('Administrator', 'Ban Giám Đốc', 'Trưởng Khối', 'Trưởng Phòng'), async (req, res) => {
