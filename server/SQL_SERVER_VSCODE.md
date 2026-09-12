@@ -67,22 +67,27 @@ JWT_SECRET=chuoi_bi_mat_ngau_nhien_dai_it_nhat_32_ky_tu
 
 Khong commit `server/.env`, khong chia se `DB_PASSWORD`, va khong dat mat khau that trong `server/.env.example`.
 
-## 4. Tao database va chay backend
+## 4. Tao database, seed du lieu va chay backend
 
-Tu thu muc `server`, cai package va khoi dong backend:
+Tu thu muc `server`, cai package, seed dataset v2 va khoi dong backend:
 
 ```powershell
 npm install
+npm run seed
 npm run dev
 ```
 
-Khi ket noi thanh cong, backend se tu dong:
+Lenh `npm run seed` se:
 
 1. Ket noi database `master`.
 2. Tao `BRAVO_HRM` neu database chua ton tai.
 3. Tao schema va cac migration can thiet.
-4. Seed du lieu mau theo cach khong xoa du lieu dang co.
-5. Mo API tai `http://localhost:5000`.
+4. Xoa du lieu hien tai trong cac bang HRM.
+5. Nap dataset v2 deterministic gom 706 dong tren 47 bang.
+
+> `npm run seed` la lenh reset du lieu. Khong chay tren database co du lieu can giu lai.
+
+Sau do `npm run dev` chi khoi dong schema va API tai `http://localhost:5000`; backend khong tu dong chay lai seed cu.
 
 Tai khoan SQL `sa` can co quyen `CREATE DATABASE` de backend tu tao database. Neu tai khoan khong co quyen nay, tao database truoc trong VS Code khi dang ket noi `master`:
 
@@ -91,7 +96,7 @@ CREATE DATABASE [BRAVO_HRM];
 GO
 ```
 
-Sau do chay lai `npm run dev`.
+Sau do chay lai `npm run seed`, roi `npm run dev`.
 
 ## 5. Kiem tra trong VS Code
 

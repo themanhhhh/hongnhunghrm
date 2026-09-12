@@ -8,7 +8,6 @@ const fs = require('fs');
 
 const { closeDb } = require('./db/connection');
 const { initSchema } = require('./db/schema');
-const { seedData } = require('./db/seed');
 
 const authRoutes = require('./routes/auth.routes');
 const adminRoutes = require('./routes/admin.routes');
@@ -69,11 +68,11 @@ app.use((err, req, res, next) => {
   });
 });
 
-// Initialize schema before the non-destructive seed and before accepting traffic.
+// Initialize schema before accepting traffic. Run `npm run seed` explicitly when a
+// deterministic local dataset is needed; startup must not reinsert the legacy fixture.
 let server;
 async function startServer() {
   await initSchema();
-  await seedData(false);
   server = app.listen(PORT, () => {
     console.log(`==================================================`);
     console.log(`🚀 BRAVO HRM REST API Server running on port ${PORT}`);

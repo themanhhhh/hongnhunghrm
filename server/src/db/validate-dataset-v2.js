@@ -114,6 +114,13 @@ function validateDatasetV2(dataset = buildDatasetV2()) {
     }
     requireCoverage(rows('User').length >= 15, 'User: at least 15 users are required');
     requireCoverage(rows('User').some((row) => row.status === 0), 'User: at least one locked/inactive user is required');
+    const placeholderNamePattern = /^(?:Ứng viên|Ung vien|Nhân viên|Nhan vien|Nhân sự tổ chức|Nhan su To chuc|Ứng viên bổ sung|Ung vien bo sung)\b/i;
+    const employeeNames = rows('Employee').map((row) => String(row.full_name || '').trim());
+    const candidateNames = rows('Candidate').map((row) => String(row.full_name || '').trim());
+    requireCoverage(employeeNames.every((name) => name && !placeholderNamePattern.test(name)), 'Employee: realistic full names are required');
+    requireCoverage(candidateNames.every((name) => name && !placeholderNamePattern.test(name)), 'Candidate: realistic full names are required');
+    requireCoverage(new Set(employeeNames).size === employeeNames.length, 'Employee: full names must be unique');
+    requireCoverage(new Set(candidateNames).size === candidateNames.length, 'Candidate: full names must be unique');
     requireCoverage(rows('Department').length >= 12, 'Department: at least 12 departments are required');
     requireCoverage(rows('Position').length >= 30, 'Position: at least 30 positions are required');
     requireCoverage(rows('Employee').length >= 50, 'Employee: at least 50 employees are required');

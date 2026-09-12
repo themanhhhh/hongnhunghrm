@@ -24,6 +24,29 @@ const CANDIDATE_STATUS_VALUES = [
     'đã quyết định tuyển', 'HIRED', 'hired', 'SUBMITTED', 'đã chuyển thành nhân viên', 'đã chuyển nhân viên', 'đi làm'
 ];
 
+// Synthetic Vietnamese names keep the fixture realistic without using real personal data.
+const CANDIDATE_NAMES = [
+    'Nguyễn Hà My', 'Lê Minh Quân', 'Trần Bảo Ngọc', 'Đỗ Văn Hùng', 'Phạm Thu Uyên', 'Vũ Minh Khôi',
+    'Phan Đức Anh', 'Bùi Bảo Trâm', 'Nguyễn Hoàng Yến', 'Trần Gia Huy', 'Lê Ngọc Mai', 'Phạm Quang Vinh',
+    'Đặng Khánh Linh', 'Hoàng Minh Châu', 'Võ Thành Đạt', 'Nguyễn Thảo Vy', 'Trương Quốc Bảo', 'Phan Ngọc Hân',
+    'Đinh Tuấn Anh', 'Cao Phương Thảo', 'Lý Minh Khang', 'Huỳnh Kim Oanh', 'Bạch Nhật Nam', 'Dương Thùy Dương',
+    'Tạ Hoàng Long', 'Mai Thanh Tâm', 'Trịnh Khánh Toàn', 'Hà Ngọc Anh', 'Nguyễn Quốc Khánh', 'Đoàn Hải Yến',
+    'Phạm Nhật Minh', 'Lê Thu Trang', 'Vũ Hoàng Phúc', 'Trần Ngọc Diệp', 'Bùi Anh Khoa', 'Nguyễn Khánh An',
+    'Đỗ Quỳnh Như', 'Hoàng Đức Thành', 'Phan Thanh Huyền', 'Trần Minh Nhật'
+];
+
+const EMPLOYEE_NAMES = [
+    'Bùi Xuân Thức', 'Trần Thu Hà', 'Nguyễn Thùy Linh', 'Lê Hoàng Nam', 'Phạm Đức Duy', 'Vũ Khánh Linh',
+    'Đỗ Phương Anh', 'Phan Đức Anh', 'Nguyễn Hữu Phúc', 'Trần Ngọc Hân', 'Lê Quốc Việt', 'Phạm Thị Minh Anh',
+    'Vũ Tuấn Kiệt', 'Đặng Hoàng Nam', 'Nguyễn Khánh Vy', 'Trương Minh Đức', 'Võ Thùy Trang', 'Hoàng Gia Bảo',
+    'Phan Ngọc Huyền', 'Đỗ Minh Khang', 'Bùi Thanh Tùng', 'Lý Quỳnh Anh', 'Hà Đức Minh', 'Cao Thị Ngọc',
+    'Dương Quốc Toàn', 'Tạ Mỹ Linh', 'Trịnh Anh Tuấn', 'Mai Phương Thảo', 'Nguyễn Đức Hoàng', 'Đoàn Minh Châu',
+    'Phạm Hoài Nam', 'Lê Thanh Trúc', 'Vũ Quốc Hưng', 'Trần Bích Ngọc', 'Bùi Minh Quân', 'Nguyễn Thảo Nguyên',
+    'Đỗ Thành Công', 'Hoàng Khánh Vân', 'Phan Tuấn Anh', 'Võ Ngọc Diệp', 'Trương Hải Đăng', 'Hà Phương Uyên',
+    'Cao Minh Nhật', 'Dương Thùy Linh', 'Tạ Quốc Khánh', 'Lý Hoàng Anh', 'Mai Ngọc Lan', 'Đặng Minh Khoa',
+    'Trịnh Hoàng Yến', 'Nguyễn An Nhiên'
+];
+
 const TABLES = [
     'SchemaMigration', 'Role', 'User', 'Department', 'Position', 'Employee',
     'EmployeeContract', 'WorkHistory', 'RewardDiscipline', 'RecruitmentRequest',
@@ -270,8 +293,8 @@ function buildDatasetV2({ passwordHash = 'RUNTIME_BCRYPT_HASH' } = {}) {
     ]);
 
     add('DepartmentQuota', [
-        { quota_id: 'quota-eng-2026', ...stamp('2026-01-05'), quota_code: 'Q-ENG-2026', effective_date: date('2026-01-05'), department_id: 'dept-engineering', creator_id: null, creator_name: 'He thong', target_headcount: 12, max_capacity: 14, current_headcount: 3, budget: 720000000, budget_details: json({ salary: 600000000, onboarding: 120000000 }), description: 'Ke hoach nhan su ky thuat 2026', status: 'Tạo phiếu' },
-        { quota_id: 'quota-people-2026', ...stamp('2026-01-06'), quota_code: 'Q-HR-2026', effective_date: date('2026-01-06'), department_id: 'dept-people', creator_id: null, creator_name: 'He thong', target_headcount: 8, max_capacity: 10, current_headcount: 3, budget: 360000000, budget_details: json({ salary: 320000000, training: 40000000 }), description: 'Ke hoach nhan su HR 2026', status: 'Đã phê duyệt' }
+        { quota_id: 'quota-eng-2026', ...stamp('2026-01-05'), quota_code: 'Q-ENG-2026', effective_date: date('2026-01-05'), department_id: 'dept-engineering', creator_id: null, creator_name: 'Hệ thống', target_headcount: 12, max_capacity: 14, current_headcount: 3, budget: 720000000, budget_details: json({ salary: 600000000, onboarding: 120000000 }), description: 'Ke hoach nhan su ky thuat 2026', status: 'Tạo phiếu' },
+        { quota_id: 'quota-people-2026', ...stamp('2026-01-06'), quota_code: 'Q-HR-2026', effective_date: date('2026-01-06'), department_id: 'dept-people', creator_id: null, creator_name: 'Hệ thống', target_headcount: 8, max_capacity: 10, current_headcount: 3, budget: 360000000, budget_details: json({ salary: 320000000, training: 40000000 }), description: 'Ke hoach nhan su HR 2026', status: 'Đã phê duyệt' }
     ]);
     add('DepartmentQuota', Array.from({ length: 6 }, (_, index) => {
         const positionIndex = (index + 4) % 24;
@@ -279,7 +302,7 @@ function buildDatasetV2({ passwordHash = 'RUNTIME_BCRYPT_HASH' } = {}) {
         const number = String(index + 3).padStart(2, '0');
         return {
             quota_id: `quota-extra-${number}`, ...stamp(`2026-0${(index % 8) + 2}-05`), quota_code: `Q-2026-${number}`, effective_date: date(`2026-0${(index % 8) + 2}-05`),
-            department_id: department, creator_id: null, creator_name: 'He thong', target_headcount: 5 + index, max_capacity: 7 + index,
+            department_id: department, creator_id: null, creator_name: 'Hệ thống', target_headcount: 5 + index, max_capacity: 7 + index,
             current_headcount: index % 3, budget: 180000000 + index * 30000000, budget_details: json({ salary: 150000000 + index * 20000000, training: 30000000 }),
             description: `Dinh bien tuyen dung dot ${number}`, status: index % 2 ? 'Đã phê duyệt' : 'Tạo phiếu'
         };
@@ -348,14 +371,14 @@ function buildDatasetV2({ passwordHash = 'RUNTIME_BCRYPT_HASH' } = {}) {
     }));
 
     const candidateRows = [
-        ['cand-new', 'UV-001', 'Nguyen Ha My', 'plan-hr-q2', 'req-hr-001', 'dept-people', 'pos-hr-specialist', 'S1: Mới', '2026-03-18'],
-        ['cand-screened', 'UV-002', 'Le Minh Quan', 'plan-eng-q1', 'req-eng-001', 'dept-engineering', 'pos-eng-specialist', 'đã sơ loại', '2026-02-08'],
-        ['cand-interview', 'UV-003', 'Tran Bao Ngoc', 'plan-platform-q3', 'req-platform-001', 'dept-platform', 'pos-platform-specialist', 'S2: Phỏng vấn', '2026-08-10'],
-        ['cand-rejected', 'UV-004', 'Do Van Hung', 'plan-platform-q3', 'req-platform-001', 'dept-platform', 'pos-platform-specialist', 'S7: Loại', '2026-08-12'],
-        ['cand-cv-rejected', 'UV-005', 'Pham Thu Uyen', 'plan-eng-q1', 'req-eng-001', 'dept-engineering', 'pos-eng-specialist', 'đã sơ loại, không đạt', '2026-02-09'],
-        ['cand-passed', 'UV-006', 'Vu Minh Khoi', 'plan-hr-q2', 'req-hr-001', 'dept-people', 'pos-hr-specialist', 'S5: Trúng tuyển', '2026-06-01'],
-        ['cand-hired', 'UV-007', 'Phan Duc Anh', 'plan-platform-q3', 'req-platform-001', 'dept-platform', 'pos-platform-specialist', 'HIRED', '2026-07-05'],
-        ['cand-submitted', 'UV-008', 'Bui Bao Tram', 'plan-platform-q3', 'req-platform-001', 'dept-platform', 'pos-platform-specialist', 'SUBMITTED', '2026-08-26']
+        ['cand-new', 'UV-001', CANDIDATE_NAMES[0], 'plan-hr-q2', 'req-hr-001', 'dept-people', 'pos-hr-specialist', 'S1: Mới', '2026-03-18'],
+        ['cand-screened', 'UV-002', CANDIDATE_NAMES[1], 'plan-eng-q1', 'req-eng-001', 'dept-engineering', 'pos-eng-specialist', 'đã sơ loại', '2026-02-08'],
+        ['cand-interview', 'UV-003', CANDIDATE_NAMES[2], 'plan-platform-q3', 'req-platform-001', 'dept-platform', 'pos-platform-specialist', 'S2: Phỏng vấn', '2026-08-10'],
+        ['cand-rejected', 'UV-004', CANDIDATE_NAMES[3], 'plan-platform-q3', 'req-platform-001', 'dept-platform', 'pos-platform-specialist', 'S7: Loại', '2026-08-12'],
+        ['cand-cv-rejected', 'UV-005', CANDIDATE_NAMES[4], 'plan-eng-q1', 'req-eng-001', 'dept-engineering', 'pos-eng-specialist', 'đã sơ loại, không đạt', '2026-02-09'],
+        ['cand-passed', 'UV-006', CANDIDATE_NAMES[5], 'plan-hr-q2', 'req-hr-001', 'dept-people', 'pos-hr-specialist', 'S5: Trúng tuyển', '2026-06-01'],
+        ['cand-hired', 'UV-007', CANDIDATE_NAMES[6], 'plan-platform-q3', 'req-platform-001', 'dept-platform', 'pos-platform-specialist', 'HIRED', '2026-07-05'],
+        ['cand-submitted', 'UV-008', CANDIDATE_NAMES[7], 'plan-platform-q3', 'req-platform-001', 'dept-platform', 'pos-platform-specialist', 'SUBMITTED', '2026-08-26']
     ];
     add('Candidate', candidateRows.map(([id, code, name, plan, request, department, position, status, received], index) => ({
         candidate_id: id, ...stamp(received), candidate_code: code, full_name: name, gender: index % 2 ? 'Nam' : 'Nữ',
@@ -388,7 +411,7 @@ function buildDatasetV2({ passwordHash = 'RUNTIME_BCRYPT_HASH' } = {}) {
         const context = candidatePlanMap[index % candidatePlanMap.length];
         const received = `2026-${String((index % 8) + 1).padStart(2, '0')}-${String((index % 20) + 1).padStart(2, '0')}`;
         return {
-            candidate_id: `cand-extra-${number}`, ...stamp(received), candidate_code: `UV-${number}`, full_name: `Ung vien bo sung ${number}`,
+            candidate_id: `cand-extra-${number}`, ...stamp(received), candidate_code: `UV-${number}`, full_name: CANDIDATE_NAMES[index + 8],
             gender: index % 2 ? 'Nam' : 'Nữ', date_of_birth: date(`${1990 + (index % 12)}-${String((index % 9) + 1).padStart(2, '0')}-18`),
             citizen_id: `001299${number}`, phone: `090900${number}`, email: `candidate${number}@example.test`, address: 'Ha Noi', culture_level: '12/12',
             education_level: 'Dai hoc', education_school: 'Dai hoc Quoc gia Ha Noi', gpa: 7 + (index % 25) / 10, major: 'Cong nghe thong tin',
@@ -396,7 +419,7 @@ function buildDatasetV2({ passwordHash = 'RUNTIME_BCRYPT_HASH' } = {}) {
             department_id: context[2], position_id: context[3], source: index % 2 ? 'LinkedIn' : 'TopCV', recruitment_unit: 'BRAVO', referrer: null,
             referrer_employee_id: null, cv_url: `/uploads/cv-${number}.pdf`, received_date: date(received), eval_date: ['new', 'submitted', 'S1: Mới', 'đã tiếp nhận hồ sơ', 'tiếp nhận hồ sơ'].includes(status) ? null : date(received),
             status, rejection_reason: ['S7: Loại', 'rejected', 'offer_rejected', 'loại', 'đã quyết định loại'].includes(status) ? 'Khong phu hop yeu cau tuyen dung' : null,
-            note: 'Ung vien bo sung cho bo du lieu v2', attachments_json: json([{ name: 'CV.pdf', url: `/uploads/cv-${number}.pdf` }])
+            note: 'Ho so ung vien tiep nhan theo ke hoach tuyen dung', attachments_json: json([{ name: 'CV.pdf', url: `/uploads/cv-${number}.pdf` }])
         };
     }));
     add('CandidateAttachment', [
@@ -405,14 +428,14 @@ function buildDatasetV2({ passwordHash = 'RUNTIME_BCRYPT_HASH' } = {}) {
     ]);
 
     const employeeSpecs = [
-        ['emp-001', 'NV-2024-001', 'Bui Xuan Thuc', 'dept-exec', 'pos-ceo', '2024-01-08', 'WORKING', 65000000, null],
-        ['emp-002', 'NV-2024-002', 'Tran Thu Ha', 'dept-people', 'pos-hr-manager', '2024-02-12', 'WORKING', 32000000, null],
-        ['emp-003', 'NV-2024-003', 'Nguyen Thuy Linh', 'dept-people', 'pos-hr-specialist', '2025-01-06', 'WORKING', 18000000, 'emp-002'],
-        ['emp-004', 'NV-2024-004', 'Le Hoang Nam', 'dept-engineering', 'pos-eng-manager', '2023-06-01', 'WORKING', 42000000, 'emp-001'],
-        ['emp-005', 'NV-2024-005', 'Pham Duc Duy', 'dept-engineering', 'pos-eng-specialist', '2025-03-03', 'WORKING', 20000000, 'emp-004'],
-        ['emp-006', 'NV-2024-006', 'Vu Khanh Linh', 'dept-platform', 'pos-platform-specialist', '2025-05-12', 'WORKING', 19000000, 'emp-004'],
-        ['emp-007', 'NV-2024-007', 'Do Phuong Anh', 'dept-engineering', 'pos-eng-specialist', '2024-08-01', 'RESIGNED', 18500000, 'emp-004'],
-        ['emp-008', 'NV-2026-001', 'Phan Duc Anh', 'dept-platform', 'pos-platform-specialist', '2026-08-15', 'WORKING', 21000000, 'emp-004']
+        ['emp-001', 'NV-2024-001', EMPLOYEE_NAMES[0], 'dept-exec', 'pos-ceo', '2024-01-08', 'WORKING', 65000000, null],
+        ['emp-002', 'NV-2024-002', EMPLOYEE_NAMES[1], 'dept-people', 'pos-hr-manager', '2024-02-12', 'WORKING', 32000000, null],
+        ['emp-003', 'NV-2024-003', EMPLOYEE_NAMES[2], 'dept-people', 'pos-hr-specialist', '2025-01-06', 'WORKING', 18000000, 'emp-002'],
+        ['emp-004', 'NV-2024-004', EMPLOYEE_NAMES[3], 'dept-engineering', 'pos-eng-manager', '2023-06-01', 'WORKING', 42000000, 'emp-001'],
+        ['emp-005', 'NV-2024-005', EMPLOYEE_NAMES[4], 'dept-engineering', 'pos-eng-specialist', '2025-03-03', 'WORKING', 20000000, 'emp-004'],
+        ['emp-006', 'NV-2024-006', EMPLOYEE_NAMES[5], 'dept-platform', 'pos-platform-specialist', '2025-05-12', 'WORKING', 19000000, 'emp-004'],
+        ['emp-007', 'NV-2024-007', EMPLOYEE_NAMES[6], 'dept-engineering', 'pos-eng-specialist', '2024-08-01', 'RESIGNED', 18500000, 'emp-004'],
+        ['emp-008', 'NV-2026-001', EMPLOYEE_NAMES[7], 'dept-platform', 'pos-platform-specialist', '2026-08-15', 'WORKING', 21000000, 'emp-004']
     ];
     add('Employee', employeeSpecs.map(([id, code, name, department, position, join, employmentStatus, salary, manager], index) => ({
         employee_id: id, ...stamp(join), employee_code: code, short_name: name.split(' ').pop(), full_name: name, gender: index % 2 ? 'Nữ' : 'Nam',
@@ -437,7 +460,7 @@ function buildDatasetV2({ passwordHash = 'RUNTIME_BCRYPT_HASH' } = {}) {
         const resignation = resigned ? date(`2026-0${(index % 6) + 1}-${String(10 + index).padStart(2, '0')}`) : null;
         const department = extraPositionDepartments[positionIndex];
         const position = `pos-extra-${String(positionIndex + 1).padStart(2, '0')}`;
-        const name = `Nhan su To chuc ${number}`;
+        const name = EMPLOYEE_NAMES[index + 8];
         return {
             employee_id: `emp-extra-${number}`, ...stamp(join), employee_code: `NV-2026-${number}`, short_name: name.split(' ').pop(), full_name: name,
             gender: index % 2 ? 'Nữ' : 'Nam', date_of_birth: date(`${1980 + (index % 15)}-${String((index % 9) + 1).padStart(2, '0')}-15`),
@@ -453,22 +476,32 @@ function buildDatasetV2({ passwordHash = 'RUNTIME_BCRYPT_HASH' } = {}) {
             note: resigned ? 'Da hoan tat ban giao' : null, is_active: resigned ? 0 : 1
         };
     }));
+    const employeeById = new Map(tables.Employee.map((employee) => [employee.employee_id, employee]));
+    const employeeName = (employeeId) => employeeById.get(employeeId)?.full_name || null;
+    const employeePositionName = (employeeId) => {
+        const employee = employeeById.get(employeeId);
+        return tables.Position.find((position) => position.position_id === employee?.position_id)?.position_name || null;
+    };
+    const employeeDepartmentName = (employeeId) => {
+        const employee = employeeById.get(employeeId);
+        return tables.Department.find((department) => department.department_id === employee?.department_id)?.department_name || null;
+    };
     add('User', [
-        { user_id: 'user-admin', username: 'admin', password_hash: passwordHash, full_name: 'Bui Xuan Thuc', email: 'admin@bravo.example', phone: '0988000001', role_id: 'role-admin', department_id: 'dept-exec', employee_id: 'emp-001', avatar_url: null, ...stamp('2026-01-04'), status: 1 },
-        { user_id: 'user-hr', username: 'hr.ha', password_hash: passwordHash, full_name: 'Tran Thu Ha', email: 'hr.ha@bravo.example', phone: '0988000002', role_id: 'role-hr', department_id: 'dept-people', employee_id: 'emp-002', avatar_url: null, ...stamp('2026-01-04'), status: 1 },
-        { user_id: 'user-manager', username: 'eng.nam', password_hash: passwordHash, full_name: 'Le Hoang Nam', email: 'eng.nam@bravo.example', phone: '0988000004', role_id: 'role-manager', department_id: 'dept-engineering', employee_id: 'emp-004', avatar_url: null, ...stamp('2026-01-05'), status: 1 },
-        { user_id: 'user-resigned', username: 'former.employee', password_hash: passwordHash, full_name: 'Do Phuong Anh', email: 'former@bravo.example', phone: '0988000007', role_id: 'role-employee', department_id: 'dept-engineering', employee_id: 'emp-007', avatar_url: null, ...stamp('2026-01-05'), status: 0 },
-        { user_id: 'user-bgd', username: 'bgd.van', password_hash: passwordHash, full_name: 'Pham Thi Thanh Van', email: 'bgd.van@bravo.example', phone: '0988000010', role_id: 'role-bgd', department_id: 'dept-exec', employee_id: 'emp-001', avatar_url: null, ...stamp('2026-01-06'), status: 1 },
-        { user_id: 'user-block', username: 'block.nam', password_hash: passwordHash, full_name: 'Le Hoang Nam', email: 'block.nam@bravo.example', phone: '0988000011', role_id: 'role-block', department_id: 'dept-engineering', employee_id: 'emp-004', avatar_url: null, ...stamp('2026-01-06'), status: 1 },
-        { user_id: 'user-hr-specialist', username: 'hr.linh', password_hash: passwordHash, full_name: 'Nguyen Thuy Linh', email: 'hr.linh@bravo.example', phone: '0988000012', role_id: 'role-hr', department_id: 'dept-people', employee_id: 'emp-003', avatar_url: null, ...stamp('2026-01-06'), status: 1 },
-        { user_id: 'user-employee-005', username: 'duy.pham', password_hash: passwordHash, full_name: 'Pham Duc Duy', email: 'duy.pham@bravo.example', phone: '0988000013', role_id: 'role-employee', department_id: 'dept-engineering', employee_id: 'emp-005', avatar_url: null, ...stamp('2026-01-07'), status: 1 },
-        { user_id: 'user-employee-006', username: 'linh.vu', password_hash: passwordHash, full_name: 'Vu Khanh Linh', email: 'linh.vu@bravo.example', phone: '0988000014', role_id: 'role-employee', department_id: 'dept-platform', employee_id: 'emp-006', avatar_url: null, ...stamp('2026-01-07'), status: 1 },
-        { user_id: 'user-locked', username: 'locked.user', password_hash: passwordHash, full_name: 'Nhan su bi khoa', email: 'locked@bravo.example', phone: '0988000015', role_id: 'role-employee', department_id: 'dept-exec', employee_id: 'emp-extra-009', avatar_url: null, ...stamp('2026-01-08'), status: 0 },
-        { user_id: 'user-employee-010', username: 'employee.010', password_hash: passwordHash, full_name: 'Nhan su To chuc 010', email: 'employee010@bravo.example', phone: '0988000016', role_id: 'role-employee', department_id: 'dept-people', employee_id: 'emp-extra-010', avatar_url: null, ...stamp('2026-01-08'), status: 1 },
-        { user_id: 'user-employee-011', username: 'employee.011', password_hash: passwordHash, full_name: 'Nhan su To chuc 011', email: 'employee011@bravo.example', phone: '0988000017', role_id: 'role-employee', department_id: 'dept-engineering', employee_id: 'emp-extra-011', avatar_url: null, ...stamp('2026-01-08'), status: 1 },
-        { user_id: 'user-employee-012', username: 'employee.012', password_hash: passwordHash, full_name: 'Nhan su To chuc 012', email: 'employee012@bravo.example', phone: '0988000018', role_id: 'role-employee', department_id: 'dept-platform', employee_id: 'emp-extra-012', avatar_url: null, ...stamp('2026-01-08'), status: 1 },
-        { user_id: 'user-employee-013', username: 'employee.013', password_hash: passwordHash, full_name: 'Nhan su To chuc 013', email: 'employee013@bravo.example', phone: '0988000019', role_id: 'role-employee', department_id: 'dept-pmk', employee_id: 'emp-extra-013', avatar_url: null, ...stamp('2026-01-08'), status: 1 },
-        { user_id: 'user-employee-014', username: 'employee.014', password_hash: passwordHash, full_name: 'Nhan su To chuc 014', email: 'employee014@bravo.example', phone: '0988000020', role_id: 'role-employee', department_id: 'dept-kd', employee_id: 'emp-extra-014', avatar_url: null, ...stamp('2026-01-08'), status: 1 }
+        { user_id: 'user-admin', username: 'admin', password_hash: passwordHash, full_name: employeeName('emp-001'), email: 'admin@bravo.example', phone: '0988000001', role_id: 'role-admin', department_id: 'dept-exec', employee_id: 'emp-001', avatar_url: null, ...stamp('2026-01-04'), status: 1 },
+        { user_id: 'user-hr', username: 'hr.ha', password_hash: passwordHash, full_name: employeeName('emp-002'), email: 'hr.ha@bravo.example', phone: '0988000002', role_id: 'role-hr', department_id: 'dept-people', employee_id: 'emp-002', avatar_url: null, ...stamp('2026-01-04'), status: 1 },
+        { user_id: 'user-manager', username: 'eng.nam', password_hash: passwordHash, full_name: employeeName('emp-004'), email: 'eng.nam@bravo.example', phone: '0988000004', role_id: 'role-manager', department_id: 'dept-engineering', employee_id: 'emp-004', avatar_url: null, ...stamp('2026-01-05'), status: 1 },
+        { user_id: 'user-resigned', username: 'former.employee', password_hash: passwordHash, full_name: employeeName('emp-007'), email: 'former@bravo.example', phone: '0988000007', role_id: 'role-employee', department_id: 'dept-engineering', employee_id: 'emp-007', avatar_url: null, ...stamp('2026-01-05'), status: 0 },
+        { user_id: 'user-bgd', username: 'bgd.van', password_hash: passwordHash, full_name: employeeName('emp-001'), email: 'bgd.van@bravo.example', phone: '0988000010', role_id: 'role-bgd', department_id: 'dept-exec', employee_id: 'emp-001', avatar_url: null, ...stamp('2026-01-06'), status: 1 },
+        { user_id: 'user-block', username: 'block.nam', password_hash: passwordHash, full_name: employeeName('emp-004'), email: 'block.nam@bravo.example', phone: '0988000011', role_id: 'role-block', department_id: 'dept-engineering', employee_id: 'emp-004', avatar_url: null, ...stamp('2026-01-06'), status: 1 },
+        { user_id: 'user-hr-specialist', username: 'hr.linh', password_hash: passwordHash, full_name: employeeName('emp-003'), email: 'hr.linh@bravo.example', phone: '0988000012', role_id: 'role-hr', department_id: 'dept-people', employee_id: 'emp-003', avatar_url: null, ...stamp('2026-01-06'), status: 1 },
+        { user_id: 'user-employee-005', username: 'duy.pham', password_hash: passwordHash, full_name: employeeName('emp-005'), email: 'duy.pham@bravo.example', phone: '0988000013', role_id: 'role-employee', department_id: 'dept-engineering', employee_id: 'emp-005', avatar_url: null, ...stamp('2026-01-07'), status: 1 },
+        { user_id: 'user-employee-006', username: 'linh.vu', password_hash: passwordHash, full_name: employeeName('emp-006'), email: 'linh.vu@bravo.example', phone: '0988000014', role_id: 'role-employee', department_id: 'dept-platform', employee_id: 'emp-006', avatar_url: null, ...stamp('2026-01-07'), status: 1 },
+        { user_id: 'user-locked', username: 'locked.user', password_hash: passwordHash, full_name: employeeName('emp-extra-009'), email: 'locked@bravo.example', phone: '0988000015', role_id: 'role-employee', department_id: 'dept-exec', employee_id: 'emp-extra-009', avatar_url: null, ...stamp('2026-01-08'), status: 0 },
+        { user_id: 'user-employee-010', username: 'employee.010', password_hash: passwordHash, full_name: employeeName('emp-extra-010'), email: 'employee010@bravo.example', phone: '0988000016', role_id: 'role-employee', department_id: 'dept-people', employee_id: 'emp-extra-010', avatar_url: null, ...stamp('2026-01-08'), status: 1 },
+        { user_id: 'user-employee-011', username: 'employee.011', password_hash: passwordHash, full_name: employeeName('emp-extra-011'), email: 'employee011@bravo.example', phone: '0988000017', role_id: 'role-employee', department_id: 'dept-engineering', employee_id: 'emp-extra-011', avatar_url: null, ...stamp('2026-01-08'), status: 1 },
+        { user_id: 'user-employee-012', username: 'employee.012', password_hash: passwordHash, full_name: employeeName('emp-extra-012'), email: 'employee012@bravo.example', phone: '0988000018', role_id: 'role-employee', department_id: 'dept-platform', employee_id: 'emp-extra-012', avatar_url: null, ...stamp('2026-01-08'), status: 1 },
+        { user_id: 'user-employee-013', username: 'employee.013', password_hash: passwordHash, full_name: employeeName('emp-extra-013'), email: 'employee013@bravo.example', phone: '0988000019', role_id: 'role-employee', department_id: 'dept-pmk', employee_id: 'emp-extra-013', avatar_url: null, ...stamp('2026-01-08'), status: 1 },
+        { user_id: 'user-employee-014', username: 'employee.014', password_hash: passwordHash, full_name: employeeName('emp-extra-014'), email: 'employee014@bravo.example', phone: '0988000020', role_id: 'role-employee', department_id: 'dept-kd', employee_id: 'emp-extra-014', avatar_url: null, ...stamp('2026-01-08'), status: 1 }
     ]);
 
     add('EmployeeContract', [
@@ -947,6 +980,45 @@ function buildDatasetV2({ passwordHash = 'RUNTIME_BCRYPT_HASH' } = {}) {
         entity_id: ['emp-extra-013', 'leave-002', 'offer-004', 'employee-eval-001', 'recruitment-decision-003'][index], entity_name: 'Audit nghiep vu v2', details: json({ source: 'dataset-v2' }),
         created_date: date(`2026-0${index + 2}-15`)
     })));
+
+    const employeeReferenceFields = [
+        ['employee_id', 'employee_name'], ['signer_id', 'signer_name'], ['approver_id', 'approver_name'],
+        ['requested_by', 'requested_by_name'], ['interviewer_id', 'interviewer_name'], ['evaluator_id', 'evaluator_name'],
+        ['decision_by_id', 'decision_by_name'], ['proposer_id', 'proposer_name'], ['creator_id', 'creator_name'],
+        ['proposed_by_employee_id', 'proposed_by'], ['approver_employee_id', 'approver_name'], ['manager_id', 'manager_name']
+    ];
+    for (const rows of Object.values(tables)) {
+        for (const row of rows) {
+            for (const [idField, nameField] of employeeReferenceFields) {
+                if (Object.prototype.hasOwnProperty.call(row, nameField) && row[idField]) {
+                    row[nameField] = employeeName(row[idField]) || row[nameField];
+                }
+            }
+            if (row.employee_id && Object.prototype.hasOwnProperty.call(row, 'employee_position')) {
+                row.employee_position = employeePositionName(row.employee_id) || row.employee_position;
+            }
+            if (row.proposer_id && Object.prototype.hasOwnProperty.call(row, 'proposer_position')) {
+                row.proposer_position = employeePositionName(row.proposer_id) || row.proposer_position;
+            }
+            if (row.proposer_id && Object.prototype.hasOwnProperty.call(row, 'proposer_department')) {
+                row.proposer_department = employeeDepartmentName(row.proposer_id) || row.proposer_department;
+            }
+            if (row.creator_id && Object.prototype.hasOwnProperty.call(row, 'creator_position')) {
+                row.creator_position = employeePositionName(row.creator_id) || row.creator_position;
+            }
+            if (row.creator_id && Object.prototype.hasOwnProperty.call(row, 'creator_department')) {
+                row.creator_department = employeeDepartmentName(row.creator_id) || row.creator_department;
+            }
+            if (row.employee_id && Object.prototype.hasOwnProperty.call(row, 'employee_code')) {
+                row.employee_code = employeeById.get(row.employee_id)?.employee_code || row.employee_code;
+            }
+            if (row.employee_id && Object.prototype.hasOwnProperty.call(row, 'department_name')) {
+                row.department_name = employeeDepartmentName(row.employee_id) || row.department_name;
+            }
+            if (row.decision_by && (row.reward_discipline_id || row.reward_discipline_id === '')) row.decision_by = employeeName('emp-001') || row.decision_by;
+            if (row.signed_by) row.signed_by = employeeName('emp-001') || row.signed_by;
+        }
+    }
 
     return { version: 'v2', asOf: AS_OF, maxDate: MAX_DATE, tables };
 }
