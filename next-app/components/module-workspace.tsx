@@ -555,6 +555,9 @@ function displayValue(value: unknown) {
 
 function displayCell(key: string, value: unknown) {
   if (value === null || value === undefined || value === "") return "-";
+  if (key === "is_outside_headcount") {
+    return Number(value) === 1 ? "Ngoài định biên" : "Thuộc định biên";
+  }
   if (["is_active", "is_foreign", "has_probation"].includes(key))
     return Number(value) ? "Có" : "Không";
   if (["amount", "proposed_amount"].includes(key))
