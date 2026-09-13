@@ -7,6 +7,8 @@ const { authenticateToken, authorizeRole } = require('../middleware/auth');
 
 router.use(authenticateToken);
 
+const scopedRoleNames = ['Trưởng Khối', 'Trưởng Phòng'];
+
 // Seniority Helper
 function computeSeniority(joinDate) {
     if (!joinDate) return 'Mới nhận việc';
@@ -407,15 +409,23 @@ router.post('/users', authorizeRole('Administrator'), async (req, res) => {
         const id = crypto.randomUUID();
         const passwordHash = await bcrypt.hash(password || '123456', 10);
         const finalRole = role_id || 'role-hr';
-        const role = await queryOne(`SELECT role_id FROM Role WHERE role_id = ? AND status = 1`, [finalRole]);
+        const role = await queryOne(`SELECT role_id, role_name FROM Role WHERE role_id = ? AND status = 1`, [finalRole]);
         if (!role) {
             return res.status(400).json({ success: false, message: 'Vai trò tài khoản không hợp lệ.' });
+        }
+        let departmentId = String(department_id || '').trim() || null;
+        if (scopedRoleNames.includes(role.role_name) && !departmentId && employee_id) {
+            const employee = await queryOne(`SELECT department_id FROM Employee WHERE employee_id = ?`, [employee_id]);
+            departmentId = employee?.department_id || null;
+        }
+        if (scopedRoleNames.includes(role.role_name) && !departmentId) {
+            return res.status(400).json({ success: false, message: 'Tài khoản quản lý phải được gán phòng ban để xem đúng phạm vi Dashboard.' });
         }
 
         await run(
             `INSERT INTO User (user_id, username, password_hash, full_name, email, phone, role_id, department_id, employee_id, created_date, last_modified_date, status)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
-            [id, username.trim(), passwordHash, full_name.trim(), email || `${username}@bravo.com.vn`, phone || '', finalRole, department_id || null, employee_id || null, now, now]
+            [id, username.trim(), passwordHash, full_name.trim(), email || `${username}@bravo.com.vn`, phone || '', finalRole, departmentId, employee_id || null, now, now]
         );
 
         res.json({ success: true, message: 'Tạo tài khoản người dùng thành công!' });
@@ -428,6 +438,14 @@ router.put('/users/:id', authorizeRole('Administrator'), async (req, res) => {
     try {
         const { full_name, email, phone, role_id, department_id, status, password } = req.body;
         const now = Date.now();
+
+        const role = await queryOne(`SELECT role_id, role_name FROM Role WHERE role_id = ? AND status = 1`, [role_id]);
+        if (!role) {
+            return res.status(400).json({ success: false, message: 'Vai trò tài khoản không hợp lệ.' });
+        }
+        if (scopedRoleNames.includes(role.role_name) && !String(department_id || '').trim()) {
+            return res.status(400).json({ success: false, message: 'Tài khoản quản lý phải được gán phòng ban để xem đúng phạm vi Dashboard.' });
+        }
 
         if (password) {
             const passwordHash = await bcrypt.hash(password, 10);

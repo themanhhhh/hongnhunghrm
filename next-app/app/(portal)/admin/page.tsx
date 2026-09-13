@@ -190,6 +190,18 @@ export default function AdminPage() {
       setFormError("Mật khẩu phải có ít nhất 6 ký tự.");
       return;
     }
+    const selectedRoleName = roles.find(
+      (role) => String(role.role_id) === form.role_id,
+    )?.role_name;
+    if (
+      ["Trưởng Khối", "Trưởng Phòng"].includes(String(selectedRoleName)) &&
+      !form.department_id.trim()
+    ) {
+      setFormError(
+        "Tài khoản quản lý phải được gán phòng ban để xem đúng phạm vi Dashboard.",
+      );
+      return;
+    }
     createAccountMutation.mutate();
   };
   const openCatalogForm = (
@@ -905,6 +917,13 @@ export default function AdminPage() {
                 <div>
                   <label className="mb-1.5 block text-xs font-bold text-slate-600">
                     Phòng ban
+                    {(["Trưởng Khối", "Trưởng Phòng"].includes(
+                      String(
+                        roles.find(
+                          (role) => String(role.role_id) === form.role_id,
+                        )?.role_name,
+                      ),
+                    ) && " *")}
                   </label>
                   <select
                     className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-sm outline-none focus:border-teal-500 focus:ring-4 focus:ring-teal-500/10"

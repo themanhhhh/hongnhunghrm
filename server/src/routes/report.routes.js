@@ -230,15 +230,26 @@ router.get('/reward-discipline', reportEndpoint(reportService.getRewardDisciplin
 router.get('/dashboard/workforce', authorizeRole('Administrator', 'Ban Giám Đốc', 'Trưởng Khối', 'Trưởng Phòng'), async (req, res) => {
     try {
         const scopedRole = ['Trưởng Khối', 'Trưởng Phòng'].includes(req.user.roleName);
+        let scopeDepartmentId = req.user.deptId;
+        if (scopedRole && !scopeDepartmentId && req.user.employeeId) {
+            const employee = await queryOne(
+                `SELECT department_id FROM Employee WHERE employee_id = ?`,
+                [req.user.employeeId]
+            );
+            scopeDepartmentId = employee?.department_id;
+        }
+        if (scopedRole && !scopeDepartmentId) {
+            return res.status(422).json({ success: false, message: 'Tài khoản quản lý chưa được gán phòng ban. Vui lòng cập nhật lại tài khoản.' });
+        }
         let departmentIds = [];
         if (scopedRole) {
             const departments = await query(
                 `SELECT department_id FROM Department
                  WHERE status = 1 AND (department_id = ? OR parent_department_id = ?)`,
-                [req.user.deptId, req.user.deptId]
+                [scopeDepartmentId, scopeDepartmentId]
             );
             departmentIds = departments.map((item) => item.department_id);
-            if (!departmentIds.length && req.user.deptId) departmentIds.push(req.user.deptId);
+            if (!departmentIds.length && scopeDepartmentId) departmentIds.push(scopeDepartmentId);
             if (!departmentIds.length) departmentIds.push('__NO_DEPARTMENT__');
         }
 

@@ -15,10 +15,14 @@ router.post('/login', async (req, res) => {
         }
 
         const user = await queryOne(
-            `SELECT u.*, r.role_name, d.department_name 
+            `SELECT u.*, r.role_name, d.department_name,
+                    e.department_id as employee_department_id,
+                    ed.department_name as employee_department_name
        FROM User u 
        JOIN Role r ON u.role_id = r.role_id 
        LEFT JOIN Department d ON u.department_id = d.department_id 
+       LEFT JOIN Employee e ON u.employee_id = e.employee_id
+       LEFT JOIN Department ed ON e.department_id = ed.department_id
        WHERE u.username = ? AND u.status = 1`,
             [username]
         );
@@ -39,8 +43,8 @@ router.post('/login', async (req, res) => {
                 fullName: user.full_name,
                 roleId: user.role_id,
                 roleName: user.role_name,
-                deptId: user.department_id,
-                deptName: user.department_name,
+                deptId: user.department_id || user.employee_department_id,
+                deptName: user.department_name || user.employee_department_name,
                 employeeId: user.employee_id
             },
             JWT_SECRET,
@@ -57,8 +61,8 @@ router.post('/login', async (req, res) => {
                 fullName: user.full_name,
                 email: user.email,
                 roleName: user.role_name,
-                deptId: user.department_id,
-                deptName: user.department_name,
+                deptId: user.department_id || user.employee_department_id,
+                deptName: user.department_name || user.employee_department_name,
                 employeeId: user.employee_id,
                 avatarUrl: user.avatar_url
             }
