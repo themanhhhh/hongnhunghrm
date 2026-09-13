@@ -312,7 +312,11 @@ function ReportPaper({
   const position = filters.position === "ALL" ? "Tất cả vị trí" : filters.positionName || filters.position;
 
   return (
-    <div className="legacy-a4-preview-paper">
+    <div
+      className={`legacy-a4-preview-paper ${
+        report.id === "rec_result" ? "legacy-recruitment-paper" : ""
+      }`}
+    >
       {preview && <div className="legacy-watermark-text">BÁO CÁO MẪU</div>}
       <div className="legacy-preview-content">
         <div className="legacy-document-header">
