@@ -109,6 +109,10 @@ export default function AdminPage() {
     queryKey: ["admin-employee-lookup"],
     queryFn: () => api.list("/hr/employees", { resource: "people" }),
   });
+  const { data: positionLookup = [] } = useQuery({
+    queryKey: ["admin-position-lookup"],
+    queryFn: () => api.list("/admin/positions", { resource: "admin" }),
+  });
   const createAccountMutation = useMutation({
     mutationFn: () =>
       api.write("/admin/users", "POST", form, {
@@ -145,6 +149,8 @@ export default function AdminPage() {
       setCatalogError("");
       setSuccessMessage("Lưu danh mục thành công.");
       queryClient.invalidateQueries({ queryKey: ["admin-summary"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-department-lookup"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-position-lookup"] });
     },
   });
   const deleteCatalogMutation = useMutation({
@@ -160,6 +166,8 @@ export default function AdminPage() {
     onSuccess: () => {
       setSuccessMessage("Đã xóa danh mục.");
       queryClient.invalidateQueries({ queryKey: ["admin-summary"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-department-lookup"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-position-lookup"] });
     },
   });
   const roles = data?.rolesList?.length ? data.rolesList : fallbackRoles;
@@ -169,13 +177,16 @@ export default function AdminPage() {
   const employees = data?.employeesList?.length
     ? data.employeesList
     : employeeLookup;
+  const positions = data?.positionsList?.length
+    ? data.positionsList
+    : positionLookup;
   const catalogKind: CatalogKind | null =
     activeTab === "departments" || activeTab === "positions" ? activeTab : null;
   const catalogRows =
-    catalogKind === "departments"
+      catalogKind === "departments"
       ? departments
       : catalogKind === "positions"
-        ? (data?.positionsList ?? [])
+        ? positions
         : [];
   const liveCards = cards.map((card) => ({
     ...card,
