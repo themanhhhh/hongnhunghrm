@@ -377,6 +377,8 @@ const detailLabels: Record<string, string> = {
   details_json: "Chi tiết dữ liệu",
   attachments: "Tài liệu đính kèm",
   attachments_json: "Tài liệu đính kèm",
+  appendix_no: "Số phụ lục",
+  appendix_type: "Loại phụ lục",
   attachment_id: "Mã tài liệu",
   file_name: "Tên tệp",
   file_url: "Đường dẫn tệp",
@@ -7177,25 +7179,6 @@ function OperationalWorkspace({
     },
   });
 
-  const leaveEmployeeId =
-    tab.id === "leave" ? String(formValues.employee_id ?? "") : "";
-  const parsedLeaveYear = Number(String(formValues.start_date ?? "").slice(0, 4));
-  const leaveYear =
-    Number.isInteger(parsedLeaveYear) && parsedLeaveYear > 1900
-      ? parsedLeaveYear
-      : new Date().getFullYear();
-  const leaveBalanceQuery = useQuery({
-    queryKey: ["leave-balance", leaveEmployeeId, leaveYear],
-    enabled: Boolean(session && showForm && leaveEmployeeId),
-    queryFn: async () => {
-      const rows = await api.list(
-        `/hr/employees/${encodeURIComponent(leaveEmployeeId)}/leave-balance?year=${leaveYear}`,
-        { resource },
-      );
-      return rows[0] ?? null;
-    },
-  });
-
   const saveMutation = useMutation({
     mutationFn: async (values: Record<string, string>) => {
       const payload = toPayload(tab, values);
@@ -8698,6 +8681,38 @@ function OperationalWorkspace({
         }));
     return field.options;
   };
+  const inputFieldFor = (field: WorkspaceField) => {
+    const options = fieldOptions(field);
+    const lookupFieldNames = [
+      "department_id",
+      "parent_department_id",
+      "position_id",
+      "requested_by",
+      "recruitment_request_id",
+      "recruitment_plan_id",
+      "candidate_id",
+      "schedule_id",
+      "manager_id",
+      "signer_id",
+      "approver_id",
+      "related_person_id",
+      "proposer_id",
+      "evaluator_id",
+      "employee_id",
+      "contract_id",
+      "proposal_id",
+      "application_id",
+      "target_department_id",
+      "target_position_id",
+    ];
+    return options && options.length > 0 && lookupFieldNames.includes(field.name)
+      ? {
+          ...field,
+          type: "select" as const,
+          options: [{ value: "", label: "-- Chọn --" }, ...options],
+        }
+      : field;
+  };
   const pageTitle =
     workspaceTitles[name][tab.id] ?? `Quản lý ${tab.label.toLowerCase()}`;
 
@@ -9239,8 +9254,7 @@ function OperationalWorkspace({
                     }) as RequestLookups
                    }
                    session={session}
-                   leaveBalance={leaveBalanceQuery.data ?? null}
-                 />
+                  />
               ) : tab.id === "transfer-decisions" ? (
                 <TransferDecisionForm
                   values={formValues}
@@ -9449,41 +9463,7 @@ function OperationalWorkspace({
               ) : (
                 <div className="grid gap-4 md:grid-cols-2">
                   {tab.fields.map((field) => {
-                    const options = fieldOptions(field);
-                    const inputField =
-                      options &&
-                      options.length > 0 &&
-                      [
-                        "department_id",
-                        "parent_department_id",
-                        "position_id",
-                        "requested_by",
-                        "recruitment_request_id",
-                        "recruitment_plan_id",
-                        "candidate_id",
-                        "schedule_id",
-                        "manager_id",
-                        "signer_id",
-                        "approver_id",
-                        "related_person_id",
-                        "proposer_id",
-                        "evaluator_id",
-                        "employee_id",
-                        "contract_id",
-                        "proposal_id",
-                        "application_id",
-                        "target_department_id",
-                        "target_position_id",
-                      ].includes(field.name)
-                        ? {
-                            ...field,
-                            type: "select" as const,
-                            options: [
-                              { value: "", label: "-- Chọn --" },
-                              ...options,
-                            ],
-                          }
-                        : field;
+                    const inputField = inputFieldFor(field);
                     const scopedInputField =
                       tab.id === "leave" &&
                       field.name === "employee_id" &&
@@ -9525,7 +9505,7 @@ function OperationalWorkspace({
       )}
       {showDetail && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/50 p-4 backdrop-blur-sm">
-          <Card className="max-h-[90vh] w-full max-w-3xl overflow-hidden">
+          <Card className="max-h-[92vh] w-full max-w-4xl overflow-hidden">
             <div className="flex items-center justify-between border-b border-slate-100 p-5">
               <div>
                 <div className="font-display text-lg font-bold text-slate-950">
@@ -9543,84 +9523,37 @@ function OperationalWorkspace({
                 <X size={18} />
               </button>
             </div>
-            <div className="max-h-[calc(90vh-105px)] overflow-y-auto p-5">
-              {tab.id === "employees" && (
-                <div className="mb-5">
-                  <EmployeeAvatarUploader
-                    employeeId={rowId(tab, showDetail)}
-                    name={String(showDetail.full_name ?? "Nhân viên")}
-                    avatarUrl={
-                      typeof showDetail.avatar_url === "string"
-                        ? showDetail.avatar_url
-                        : undefined
-                    }
-                    canUpload={canEdit}
-                    onUploaded={(avatarUrl) => {
-                      setShowDetail((current) =>
-                        current
-                          ? { ...current, avatar_url: avatarUrl }
-                          : current,
-                      );
-                       showPopup(
-                         "success",
-                         "Thành công",
-                         "Đã cập nhật ảnh hồ sơ.",
-                       );
-                      queryClient.invalidateQueries({
-                        queryKey: ["workspace", name],
-                      });
-                    }}
-                  />
+            <div className="max-h-[calc(92vh-155px)] overflow-y-auto p-5">
+              {tab.fields.length > 0 ? (
+                <div className="grid gap-4 md:grid-cols-2">
+                  {tab.fields.map((field) => (
+                    <WorkspaceInput
+                      key={field.name}
+                      field={inputFieldFor(field)}
+                      tabId={tab.id}
+                      value={fieldValue(field, showDetail[field.name])}
+                      onChange={() => undefined}
+                      readOnly
+                    />
+                  ))}
                 </div>
-              )}
-              {tab.id === "quota" || tab.id === "quotas" ? (
-                <QuotaDetail row={showDetail} />
-              ) : [
-                  "employees",
-                  "contracts",
-                  "transfer-proposals",
-                  "transfer-decisions",
-                ].includes(tab.id) ||
-                (name === "rewards" &&
-                  [
-                    "criteria",
-                    "evaluations",
-                    "proposals",
-                    "decisions",
-                  ].includes(tab.id)) ||
-                (name === "recruitment" &&
-                  ["screenings", "schedules", "interview-evaluations", "decisions"].includes(
-                    tab.id,
-                  )) ? (
+              ) : (
                 <StructuredDetail
                   name={name}
                   tab={tab}
                   row={showDetail}
                   lookups={lookupData}
                 />
-              ) : (
-                <div className="grid gap-3 sm:grid-cols-2">
-                  {Object.entries(showDetail).map(([key, value]) => (
-                    <div
-                      key={key}
-                      className="rounded-xl border border-slate-100 bg-slate-50/70 p-3"
-                    >
-                      <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                        {detailLabel(tab, key)}
-                      </div>
-                      <div className="mt-1 break-words text-sm text-slate-700">
-                        {isStructuredDetailValue(key, value) ? (
-                          <div className="max-h-80 overflow-auto whitespace-pre-wrap break-words text-sm leading-5">
-                            {displayDetailValue(tab, key, value)}
-                          </div>
-                        ) : (
-                          displayDetailValue(tab, key, value)
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
               )}
+            </div>
+            <div className="flex justify-end border-t border-slate-100 p-5">
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => setShowDetail(null)}
+              >
+                Đóng
+              </Button>
             </div>
           </Card>
         </div>
@@ -9754,6 +9687,7 @@ const jsonListSchemas: Record<string, JsonListSchema> = {
     fields: [
       { key: "name", label: "Tên tài liệu" },
       { key: "url", label: "Đường dẫn tài liệu" },
+      { key: "note", label: "Ghi chú" },
     ],
   },
   "screenings.criteria": {
@@ -9885,7 +9819,12 @@ const jsonListSchemas: Record<string, JsonListSchema> = {
   },
 };
 
-function parseJsonList(value: string) {
+type ParsedJsonList = {
+  items: Array<Record<string, unknown>>;
+  error?: string;
+};
+
+function parseJsonList(value: string): ParsedJsonList {
   if (!value.trim()) return { items: [] as Array<Record<string, unknown>> };
   try {
     const parsed = JSON.parse(value);
@@ -9905,18 +9844,377 @@ function parseJsonList(value: string) {
   }
 }
 
+function parseJsonListForDisplay(
+  value: string,
+  schema: JsonListSchema,
+): ParsedJsonList {
+  if (!value.trim()) return { items: [] as Array<Record<string, unknown>> };
+  try {
+    const parsed = JSON.parse(value);
+    if (Array.isArray(parsed)) {
+      return {
+        items: parsed.filter(
+          (item): item is Record<string, unknown> =>
+            Boolean(item) && typeof item === "object" && !Array.isArray(item),
+        ),
+      };
+    }
+    if (!parsed || typeof parsed !== "object") throw new Error();
+
+    const isBudgetMap =
+      schema.fields.some((field) => field.key === "cost_type") &&
+      schema.fields.some((field) => field.key === "estimated_cost");
+    if (isBudgetMap) {
+      return {
+        items: Object.entries(parsed).map(([costType, estimatedCost]) => ({
+          cost_type: costType,
+          source: "Ngân sách tuyển dụng",
+          estimated_cost: estimatedCost,
+        })),
+      };
+    }
+    return { items: [parsed as Record<string, unknown>] };
+  } catch {
+    return {
+      items: [] as Array<Record<string, unknown>>,
+      error: "Dữ liệu JSON không hợp lệ.",
+    };
+  }
+}
+
+type GenericJsonDisplay = {
+  items: Array<Record<string, unknown>>;
+  columns: string[];
+  error?: string;
+};
+
+function parseGenericJsonForDisplay(value: string): GenericJsonDisplay {
+  if (!value.trim()) return { items: [], columns: [] };
+  try {
+    const parsed = JSON.parse(value);
+    const items: Array<Record<string, unknown>> = Array.isArray(parsed)
+      ? parsed.map((item) =>
+          item && typeof item === "object" && !Array.isArray(item)
+            ? (item as Record<string, unknown>)
+            : { value: item },
+        )
+      : [
+          parsed && typeof parsed === "object"
+            ? (parsed as Record<string, unknown>)
+            : { value: parsed },
+        ];
+    const columns = Array.from(
+      new Set(items.flatMap((item) => Object.keys(item))),
+    );
+    return { items, columns };
+  } catch {
+    return {
+      items: [],
+      columns: [],
+      error: "Dữ liệu JSON không hợp lệ.",
+    };
+  }
+}
+
+function genericJsonColumnLabel(key: string) {
+  if (key === "value") return "Giá trị";
+  if (detailLabels[key]) return detailLabels[key];
+  return key
+    .replace(/([a-z])([A-Z])/g, "$1 $2")
+    .replace(/_/g, " ")
+    .replace(/^./, (value) => value.toUpperCase());
+}
+
+function GenericJsonTableReadOnly({
+  field,
+  value,
+}: {
+  field: WorkspaceField;
+  value: string;
+}) {
+  const { items, columns, error } = parseGenericJsonForDisplay(value);
+  return (
+    <div className={field.span === 2 ? "md:col-span-2" : ""}>
+      <label className="mb-2 block text-xs font-bold text-slate-600">
+        {field.label.replace(/\s+\(JSON\)$/, "")}
+        {field.required ? " *" : ""}
+      </label>
+      {error ? (
+        <>
+          <p className="mb-2 text-xs text-rose-700">{error}</p>
+          <textarea
+            value={value}
+            readOnly
+            rows={6}
+            className="w-full rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 font-mono text-xs text-slate-700 outline-none"
+          />
+        </>
+      ) : (
+        <div className="overflow-x-auto rounded-xl border border-slate-200">
+          <table className="w-full min-w-[760px] text-left text-xs">
+            <thead className="bg-slate-50 text-[10px] uppercase tracking-wider text-slate-400">
+              <tr>
+                <th className="px-3 py-3 font-bold">STT</th>
+                {columns.map((column) => (
+                  <th key={column} className="px-3 py-3 font-bold">
+                    {genericJsonColumnLabel(column)}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {items.length && columns.length ? (
+                items.map((item, index) => (
+                  <tr key={index}>
+                    <td className="px-3 py-3 text-slate-400">
+                      {String(index + 1).padStart(2, "0")}
+                    </td>
+                    {columns.map((column) => (
+                      <td key={column} className="min-w-32 px-3 py-3 align-top">
+                        <div className="min-h-9 whitespace-pre-wrap break-words rounded-lg border border-slate-200 bg-slate-50 px-2 py-2 text-xs text-slate-600">
+                          {displayCell(column, item[column])}
+                        </div>
+                      </td>
+                    ))}
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td
+                    colSpan={columns.length + 1}
+                    className="px-3 py-8 text-center text-slate-400"
+                  >
+                    Chưa có dữ liệu JSON.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function isQuotaDetailsSchema(schema: JsonListSchema) {
+  const fieldNames = new Set(schema.fields.map((field) => field.key));
+  return [
+    "position_id",
+    "target_headcount",
+    "resignation_count",
+    "maternity_count",
+  ].every((fieldName) => fieldNames.has(fieldName));
+}
+
+function QuotaDetailsReadOnly({
+  field,
+  items,
+}: {
+  field: WorkspaceField;
+  items: Array<Record<string, unknown>>;
+}) {
+  return (
+    <div className={field.span === 2 ? "md:col-span-2" : ""}>
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-3">
+        <label className="block text-xs font-bold text-slate-600">
+          {field.label.replace(/\s+\(JSON\)$/, "")} *
+        </label>
+      </div>
+      <div className="overflow-x-auto rounded-xl border border-slate-200">
+        <table className="w-full min-w-[1180px] text-left text-xs">
+          <thead className="bg-slate-50 text-[10px] uppercase tracking-wider text-slate-400">
+            <tr>
+              {[
+                "STT",
+                "Mã vị trí",
+                "Tên vị trí",
+                "Định biên",
+                "Nghỉ việc dự kiến",
+                "Thai sản dự kiến",
+                "Hiện tại",
+                "Cần tuyển",
+                "Ghi chú",
+              ].map((header) => (
+                <th key={header} className="px-3 py-3 font-bold">
+                  {header}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {items.length ? (
+              items.map((item, index) => (
+                <tr key={`${String(item.position_id ?? "position")}-${index}`}>
+                  <td className="px-3 py-3 text-slate-400">
+                    {String(index + 1).padStart(2, "0")}
+                  </td>
+                  <td className="min-w-40 px-3 py-3">
+                    <div className="flex h-9 items-center rounded-lg border border-slate-200 bg-slate-50 px-2 text-xs text-slate-600">
+                      {String(item.position_code ?? item.position_id ?? "-")}
+                    </div>
+                  </td>
+                  <td className="min-w-48 px-3 py-3 font-semibold text-teal-700">
+                    <Input
+                      value={String(item.position_name ?? "")}
+                      disabled
+                      className="h-9 bg-slate-100 text-xs text-slate-500 disabled:opacity-100"
+                    />
+                  </td>
+                  {["target_headcount", "resignation_count", "maternity_count"].map(
+                    (fieldName) => (
+                      <td key={fieldName} className="min-w-32 px-3 py-3">
+                        <Input
+                          type="number"
+                          value={quotaDetailValue(item, fieldName)}
+                          disabled
+                          className="h-9 bg-slate-50 text-center text-xs text-slate-600 disabled:opacity-100"
+                        />
+                      </td>
+                    ),
+                  )}
+                  <td className="px-3 py-3 text-center font-semibold text-emerald-700">
+                    <span className="rounded-full bg-emerald-50 px-2.5 py-1">
+                      {quotaDetailValue(item, "current_headcount")}
+                    </span>
+                  </td>
+                  <td className="px-3 py-3 text-center font-semibold text-blue-700">
+                    <span className="rounded-full bg-blue-50 px-2.5 py-1">
+                      {quotaDetailValue(item, "needed_headcount")}
+                    </span>
+                  </td>
+                  <td className="min-w-44 px-3 py-3">
+                    <Input
+                      value={String(item.note ?? "")}
+                      disabled
+                      className="h-9 bg-slate-50 text-xs text-slate-600 disabled:opacity-100"
+                    />
+                  </td>
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td colSpan={9} className="px-3 py-8 text-center text-slate-400">
+                  Chưa có dữ liệu vị trí chi tiết.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function JsonListTableReadOnly({
+  field,
+  schema,
+  items,
+}: {
+  field: WorkspaceField;
+  schema: JsonListSchema;
+  items: Array<Record<string, unknown>>;
+}) {
+  const itemValue = (item: Record<string, unknown>, itemField: JsonItemField) =>
+    item[itemField.key] ??
+    itemField.aliases
+      ?.map((alias) => item[alias])
+      .find((aliasValue) => aliasValue !== undefined && aliasValue !== null) ??
+    "";
+  const displayValue = (item: Record<string, unknown>, itemField: JsonItemField) => {
+    const value = itemValue(item, itemField);
+    if (value === null || value === undefined || value === "") return "-";
+    if (itemField.type === "checkbox")
+      return value === true || Number(value) === 1 ? "Có" : "Không";
+    if (typeof value === "object") return JSON.stringify(value);
+    return String(value);
+  };
+
+  return (
+    <div className={field.span === 2 ? "md:col-span-2" : ""}>
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-3">
+        <label className="block text-xs font-bold text-slate-600">
+          {field.label.replace(/\s+\(JSON\)$/, "")}
+          {field.required ? " *" : ""}
+        </label>
+      </div>
+      <div className="overflow-x-auto rounded-xl border border-slate-200">
+        <table className="w-full min-w-[1180px] text-left text-xs">
+          <thead className="bg-slate-50 text-[10px] uppercase tracking-wider text-slate-400">
+            <tr>
+              <th className="px-3 py-3 font-bold">STT</th>
+              {schema.fields.map((itemField) => (
+                <th key={itemField.key} className="px-3 py-3 font-bold">
+                  {itemField.label}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {items.length ? (
+              items.map((item, index) => (
+                <tr key={index}>
+                  <td className="px-3 py-3 text-slate-400">
+                    {String(index + 1).padStart(2, "0")}
+                  </td>
+                  {schema.fields.map((itemField) => {
+                    const value = itemValue(item, itemField);
+                    const fileUrl = itemField.urlKey
+                      ? String(item[itemField.urlKey] ?? "")
+                      : "";
+                    return (
+                      <td key={itemField.key} className="min-w-32 px-3 py-3 align-top">
+                        <div className="min-h-9 whitespace-pre-wrap break-words rounded-lg border border-slate-200 bg-slate-50 px-2 py-2 text-xs text-slate-600">
+                          {itemField.type === "file" && fileUrl && value ? (
+                            <a
+                              href={fileUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-teal-700 underline"
+                            >
+                              {displayValue(item, itemField)}
+                            </a>
+                          ) : (
+                            displayValue(item, itemField)
+                          )}
+                        </div>
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td
+                  colSpan={schema.fields.length + 1}
+                  className="px-3 py-8 text-center text-slate-400"
+                >
+                  Chưa có {schema.itemLabel}.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 function JsonListInput({
   field,
   value,
   onChange,
   schema,
+  readOnly = false,
 }: {
   field: WorkspaceField;
   value: string;
   onChange: (value: string) => void;
   schema: JsonListSchema;
+  readOnly?: boolean;
 }) {
-  const { items, error } = parseJsonList(value);
+  const { items, error } = readOnly
+    ? parseJsonListForDisplay(value, schema)
+    : parseJsonList(value);
   const [uploadingKey, setUploadingKey] = useState<string | null>(null);
   const [uploadError, setUploadError] = useState<{
     key: string;
@@ -9929,7 +10227,7 @@ function JsonListInput({
     field.aliases
       ?.map((alias) => item[alias])
       .find((aliasValue) => aliasValue !== undefined && aliasValue !== null) ??
-    "";
+      "";
   const addItem = () =>
     updateItems([
       ...items,
@@ -9945,18 +10243,55 @@ function JsonListInput({
       ),
     ]);
 
+  if (readOnly) {
+    if (error) {
+      return (
+        <div className={field.span === 2 ? "md:col-span-2" : ""}>
+          <label className="mb-2 block text-xs font-bold text-slate-600">
+            {field.label.replace(/\s+\(JSON\)$/, "")}
+          </label>
+          <p className="mb-2 text-xs text-rose-700">Dữ liệu JSON không hợp lệ.</p>
+          <textarea
+            value={value}
+            readOnly
+            rows={6}
+            className="w-full rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 font-mono text-xs text-slate-700 outline-none"
+          />
+        </div>
+      );
+    }
+    if (isQuotaDetailsSchema(schema))
+      return <QuotaDetailsReadOnly field={field} items={items} />;
+    return <JsonListTableReadOnly field={field} schema={schema} items={items} />;
+  }
+
   return (
-    <div className={field.span === 2 ? "md:col-span-2" : ""}>
-      <div className="mb-2 flex items-center justify-between gap-3">
-        <label className="text-xs font-bold text-slate-600">
-          {field.label.replace(/\s+\(JSON\)$/, "")}
-          {field.required ? " *" : ""}
-        </label>
-        <Button type="button" variant="secondary" size="sm" onClick={addItem}>
-          <Plus size={14} /> Thêm {schema.itemLabel}
-        </Button>
-      </div>
-      {error && <p className="mb-2 text-xs text-rose-700">{error}</p>}
+      <div className={field.span === 2 ? "md:col-span-2" : ""}>
+        <div className="mb-2 flex items-center justify-between gap-3">
+          <label className="text-xs font-bold text-slate-600">
+            {field.label.replace(/\s+\(JSON\)$/, "")}
+            {field.required ? " *" : ""}
+          </label>
+          {!readOnly && (
+            <Button type="button" variant="secondary" size="sm" onClick={addItem}>
+              <Plus size={14} /> Thêm {schema.itemLabel}
+            </Button>
+          )}
+        </div>
+      {error && (
+        <p className="mb-2 text-xs text-rose-700">
+          {readOnly ? "Dữ liệu JSON không hợp lệ." : error}
+        </p>
+      )}
+      {readOnly && error ? (
+        <textarea
+          value={value}
+          readOnly
+          rows={6}
+          className="w-full rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 font-mono text-xs text-slate-700 outline-none"
+        />
+      ) : (
+      <>
       <div className="space-y-3">
         {items.map((item, index) => (
           <div
@@ -9969,18 +10304,20 @@ function JsonListInput({
                   schema.itemLabel.slice(1)}{" "}
                 {index + 1}
               </span>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() =>
-                  updateItems(
-                    items.filter((_, itemIndex) => itemIndex !== index),
-                  )
-                }
-              >
-                <Trash2 size={14} /> Xóa
-              </Button>
+              {!readOnly && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() =>
+                    updateItems(
+                      items.filter((_, itemIndex) => itemIndex !== index),
+                    )
+                  }
+                >
+                  <Trash2 size={14} /> Xóa
+                </Button>
+              )}
             </div>
             <div className="grid gap-3 md:grid-cols-2">
               {schema.fields.map((itemField) => (
@@ -9989,10 +10326,11 @@ function JsonListInput({
                   className="block text-xs font-bold text-slate-600"
                 >
                   {itemField.type === "checkbox" ? (
-                    <span className="flex h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 font-medium">
+                    <span className={`flex h-10 items-center gap-2 rounded-xl border border-slate-200 px-3 font-medium ${readOnly ? "bg-slate-50 text-slate-600" : "bg-white"}`}>
                       <input
                         type="checkbox"
                         checked={Boolean(itemValue(item, itemField))}
+                        disabled={readOnly}
                         onChange={(event) => {
                           const nextItems = [...items];
                           nextItems[index] = {
@@ -10005,68 +10343,95 @@ function JsonListInput({
                       {itemField.label}
                     </span>
                   ) : itemField.type === "file" ? (
-                    <>
-                      <span className="mb-1.5 block">{itemField.label}</span>
-                      {(() => {
-                        const uploadKey = `${index}:${itemField.key}`;
-                        return (
-                          <>
-                      <input
-                        type="file"
-                        accept=".pdf,.doc,.docx,.xls,.xlsx,.zip"
-                        disabled={uploadingKey === uploadKey}
-                        onChange={async (event) => {
-                          const file = event.target.files?.[0];
-                          if (!file) return;
-                          setUploadingKey(uploadKey);
-                          setUploadError(null);
-                          try {
-                            const uploaded = await api.uploadInterviewFile(file);
-                            const nextItems = [...items];
-                            const nextItem = {
-                              ...item,
-                              [itemField.key]: uploaded.fileName || file.name,
-                            };
-                            for (const alias of itemField.aliases ?? [])
-                              delete nextItem[alias];
-                            if (itemField.urlKey)
-                              nextItem[itemField.urlKey] = uploaded.fileUrl;
-                            nextItems[index] = nextItem;
-                            updateItems(nextItems);
-                          } catch (error) {
-                            setUploadError({
-                              key: uploadKey,
-                              message:
-                                error instanceof Error
-                                  ? error.message
-                                  : "Không thể tải tệp lên.",
-                            });
-                          } finally {
-                            setUploadingKey(null);
-                          }
-                        }}
-                        className="block h-10 w-full rounded-xl border border-slate-200 bg-white px-2 py-2 text-xs font-normal outline-none file:mr-2 file:rounded-lg file:border-0 file:bg-teal-50 file:px-2 file:py-1 file:text-xs file:font-bold file:text-teal-700 hover:file:bg-teal-100"
-                      />
-                      <span className="mt-1 block truncate text-[11px] font-normal text-slate-500">
-                        {uploadingKey === uploadKey
-                          ? "Đang tải file lên..."
-                          : String(itemValue(item, itemField) || "Chưa chọn file")}
-                      </span>
-                      {uploadError?.key === uploadKey && (
-                        <span className="mt-1 block text-[11px] font-normal text-rose-600">
-                          {uploadError.message}
-                        </span>
-                      )}
-                          </>
-                        );
-                      })()}
-                    </>
+                    readOnly ? (
+                      <>
+                        <span className="mb-1.5 block">{itemField.label}</span>
+                        {(() => {
+                          const fileName = String(itemValue(item, itemField) || "");
+                          const fileUrl = itemField.urlKey
+                            ? String(item[itemField.urlKey] ?? "")
+                            : "";
+                          return fileName && fileUrl ? (
+                            <a
+                              href={fileUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="flex h-10 items-center truncate rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm font-normal text-teal-700 underline"
+                            >
+                              {fileName}
+                            </a>
+                          ) : (
+                            <div className="flex h-10 items-center truncate rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm font-normal text-slate-600">
+                              {fileName || "Chưa có tệp"}
+                            </div>
+                          );
+                        })()}
+                      </>
+                    ) : (
+                      <>
+                        <span className="mb-1.5 block">{itemField.label}</span>
+                        {(() => {
+                          const uploadKey = `${index}:${itemField.key}`;
+                          return (
+                            <>
+                              <input
+                                type="file"
+                                accept=".pdf,.doc,.docx,.xls,.xlsx,.zip"
+                                disabled={uploadingKey === uploadKey}
+                                onChange={async (event) => {
+                                  const file = event.target.files?.[0];
+                                  if (!file) return;
+                                  setUploadingKey(uploadKey);
+                                  setUploadError(null);
+                                  try {
+                                    const uploaded = await api.uploadInterviewFile(file);
+                                    const nextItems = [...items];
+                                    const nextItem = {
+                                      ...item,
+                                      [itemField.key]: uploaded.fileName || file.name,
+                                    };
+                                    for (const alias of itemField.aliases ?? [])
+                                      delete nextItem[alias];
+                                    if (itemField.urlKey)
+                                      nextItem[itemField.urlKey] = uploaded.fileUrl;
+                                    nextItems[index] = nextItem;
+                                    updateItems(nextItems);
+                                  } catch (error) {
+                                    setUploadError({
+                                      key: uploadKey,
+                                      message:
+                                        error instanceof Error
+                                          ? error.message
+                                          : "Không thể tải tệp lên.",
+                                    });
+                                  } finally {
+                                    setUploadingKey(null);
+                                  }
+                                }}
+                                className="block h-10 w-full rounded-xl border border-slate-200 bg-white px-2 py-2 text-xs font-normal outline-none file:mr-2 file:rounded-lg file:border-0 file:bg-teal-50 file:px-2 file:py-1 file:text-xs file:font-bold file:text-teal-700 hover:file:bg-teal-100"
+                              />
+                              <span className="mt-1 block truncate text-[11px] font-normal text-slate-500">
+                                {uploadingKey === uploadKey
+                                  ? "Đang tải file lên..."
+                                  : String(itemValue(item, itemField) || "Chưa chọn file")}
+                              </span>
+                              {uploadError?.key === uploadKey && (
+                                <span className="mt-1 block text-[11px] font-normal text-rose-600">
+                                  {uploadError.message}
+                                </span>
+                              )}
+                            </>
+                          );
+                        })()}
+                      </>
+                    )
                   ) : (
                     <>
                       <span className="mb-1.5 block">{itemField.label}</span>
                       <input
                         type={itemField.type === "number" ? "number" : "text"}
                         value={String(itemValue(item, itemField))}
+                        disabled={readOnly}
                         onChange={(event) => {
                           const nextValue =
                             itemField.type === "number" &&
@@ -10080,7 +10445,7 @@ function JsonListInput({
                           };
                           updateItems(nextItems);
                         }}
-                        className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-normal outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-100"
+                        className={`h-10 w-full rounded-xl border border-slate-200 px-3 text-sm font-normal outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-100 ${readOnly ? "bg-slate-50 text-slate-600 disabled:opacity-100" : "bg-white"}`}
                       />
                     </>
                   )}
@@ -10092,9 +10457,12 @@ function JsonListInput({
       </div>
       {items.length === 0 && (
         <div className="rounded-xl border border-dashed border-slate-200 px-3 py-4 text-center text-xs text-slate-400">
-          Chưa có {schema.itemLabel}. Chọn “Thêm {schema.itemLabel}” để khai
-          báo.
+          {readOnly
+            ? `Chưa có ${schema.itemLabel}.`
+            : `Chưa có ${schema.itemLabel}. Chọn “Thêm ${schema.itemLabel}” để khai báo.`}
         </div>
+      )}
+      </>
       )}
     </div>
   );
@@ -10105,11 +10473,13 @@ function WorkspaceInput({
   tabId,
   value,
   onChange,
+  readOnly = false,
 }: {
   field: WorkspaceField;
   tabId: string;
   value: string;
   onChange: (value: string) => void;
+  readOnly?: boolean;
 }) {
   const jsonSchema = jsonListSchemas[`${tabId}.${field.name}`];
   if (field.type === "json" && jsonSchema)
@@ -10119,8 +10489,49 @@ function WorkspaceInput({
         value={value}
         onChange={onChange}
         schema={jsonSchema}
+        readOnly={readOnly}
       />
     );
+  if (field.type === "json" && readOnly)
+    return <GenericJsonTableReadOnly field={field} value={value} />;
+  const inputType =
+    field.type === "number" ||
+    field.type === "date" ||
+    field.type === "datetime-local"
+      ? field.type
+      : "text";
+  const fieldClass = field.span === 2 ? "md:col-span-2" : "";
+  if (readOnly) {
+    return (
+      <div className={fieldClass}>
+        <label className="mb-1.5 block text-xs font-bold text-slate-600">
+          {field.label}
+          {field.required ? " *" : ""}
+        </label>
+        {field.type === "textarea" || field.type === "json" ? (
+          <textarea
+            value={value}
+            readOnly
+            rows={field.type === "json" ? 5 : 3}
+            className="min-h-0 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600 outline-none"
+          />
+        ) : field.type === "select" ? (
+          <div className="flex h-10 w-full items-center rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm text-slate-600">
+            {field.options?.find((option) => option.value === value)?.label ||
+              value ||
+              "-"}
+          </div>
+        ) : (
+          <Input
+            value={value}
+            disabled
+            type={inputType}
+            className="h-10 bg-slate-50 text-slate-600 disabled:opacity-100"
+          />
+        )}
+      </div>
+    );
+  }
   const onInputChange = (
     event: ChangeEvent<
       HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
@@ -10133,14 +10544,8 @@ function WorkspaceInput({
     placeholder: field.placeholder,
     onChange: onInputChange,
   };
-  const inputType =
-    field.type === "number" ||
-    field.type === "date" ||
-    field.type === "datetime-local"
-      ? field.type
-      : "text";
   return (
-    <div className={field.span === 2 ? "md:col-span-2" : ""}>
+    <div className={fieldClass}>
       <label className="mb-1.5 block text-xs font-bold text-slate-600">
         {field.label}
         {field.required ? " *" : ""}

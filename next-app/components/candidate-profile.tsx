@@ -10,6 +10,7 @@ import { getStoredSession, subscribeToSession } from "@/lib/session";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { normalizeCandidateStatus } from "@/lib/candidate-status";
 import { formatDate } from "@/lib/utils";
 
@@ -49,12 +50,14 @@ function DetailGrid({ items }: { items: Array<[string, unknown, "date"?]> }) {
   return (
     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
       {items.map(([label, value, type]) => (
-        <div key={label} className="rounded-xl border border-slate-100 bg-slate-50/70 p-3">
-          <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{label}</div>
-          <div className="mt-1 break-words text-sm font-medium text-slate-700">
-            {type === "date" ? dateOf(value) : valueOf(value)}
-          </div>
-        </div>
+        <label key={label} className="block text-xs font-bold text-slate-600">
+          {label}
+          <Input
+            value={type === "date" ? dateOf(value) : valueOf(value)}
+            disabled
+            className="mt-1.5 h-10 bg-slate-50 text-sm font-normal text-slate-600 disabled:opacity-100"
+          />
+        </label>
       ))}
     </div>
   );
@@ -82,25 +85,49 @@ function DataTable({
   empty: string;
 }) {
   return (
-    <div className="overflow-x-auto rounded-xl border border-slate-100">
-      <table className="w-full min-w-[720px] text-left text-xs">
+    <div className="overflow-x-auto rounded-xl border border-slate-200">
+      <table className="w-full min-w-[980px] text-left text-xs">
         <thead className="bg-slate-50 text-[10px] uppercase tracking-wider text-slate-400">
-          <tr>{columns.map(([, label]) => <th key={label} className="px-3 py-3 font-bold">{label}</th>)}</tr>
+          <tr>
+            <th className="px-3 py-3 font-bold">STT</th>
+            {columns.map(([, label]) => <th key={label} className="px-3 py-3 font-bold">{label}</th>)}
+          </tr>
         </thead>
         <tbody className="divide-y divide-slate-100">
           {rows.length ? rows.map((row, index) => (
             <tr key={String(row.id ?? row.screening_id ?? row.interview_eval_id ?? row.offer_id ?? index)}>
+              <td className="px-3 py-3 text-slate-400">{String(index + 1).padStart(2, "0")}</td>
               {columns.map(([key, , type]) => (
                 <td key={key} className="px-3 py-3 align-top text-slate-700">
-                  {type === "date" ? dateOf(row[key]) : key === "status" || key.endsWith("result") ? statusOf(row[key]) : valueOf(row[key])}
+                  <div className="min-h-9 whitespace-pre-wrap break-words rounded-lg border border-slate-200 bg-slate-50 px-2 py-2 text-xs text-slate-600">
+                    {type === "date" ? dateOf(row[key]) : key === "status" || key.endsWith("result") ? statusOf(row[key]) : valueOf(row[key])}
+                  </div>
                 </td>
               ))}
             </tr>
-          )) : <tr><td colSpan={columns.length} className="px-3 py-8 text-center text-slate-400">{empty}</td></tr>}
+          )) : <tr><td colSpan={columns.length + 1} className="px-3 py-8 text-center text-slate-400">{empty}</td></tr>}
         </tbody>
       </table>
     </div>
   );
+}
+
+function rowsOf(value: unknown): Row[] {
+  const asRows = (items: unknown[]) =>
+    items.filter(
+      (item): item is Row =>
+        Boolean(item) && typeof item === "object" && !Array.isArray(item),
+    );
+  if (Array.isArray(value)) return asRows(value);
+  if (typeof value === "string") {
+    try {
+      const parsed = JSON.parse(value);
+      return Array.isArray(parsed) ? asRows(parsed) : [];
+    } catch {
+      return [];
+    }
+  }
+  return [];
 }
 
 export function CandidateProfile({ candidateId }: { candidateId: string }) {
@@ -126,7 +153,7 @@ export function CandidateProfile({ candidateId }: { candidateId: string }) {
   });
   const candidate = profileQuery.data?.candidate;
   const fullName = String(candidate?.full_name ?? "Ứng viên");
-  const attachments = Array.isArray(candidate?.attachments_json) ? candidate.attachments_json as Row[] : [];
+  const attachments = rowsOf(candidate?.attachments_json);
   const deleteMutation = useMutation({
     mutationFn: () => api.remove(`/recruitment/candidates/${candidateId}`, { resource: "recruitment", action: "delete" }),
     onSuccess: () => router.push("/recruitment?tab=candidates"),

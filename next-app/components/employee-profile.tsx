@@ -11,6 +11,7 @@ import { getStoredSession, subscribeToSession } from "@/lib/session";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { formatDate } from "@/lib/utils";
 
 type Row = Record<string, unknown>;
@@ -54,7 +55,7 @@ function initials(name: string) {
 }
 
 function InfoGrid({ items }: { items: Array<[string, unknown, ("date" | "money")?]> }) {
-  return <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{items.map(([label, value, type]) => <div key={label} className="rounded-lg border border-slate-100 bg-slate-50/70 px-3 py-2.5"><div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{label}</div><div className="mt-1 break-words text-xs font-medium text-slate-700">{type === "date" ? dateOf(value) : type === "money" ? moneyOf(value) : valueOf(value)}</div></div>)}</div>;
+  return <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{items.map(([label, value, type]) => <label key={label} className="block text-xs font-bold text-slate-600">{label}<Input value={type === "date" ? dateOf(value) : type === "money" ? moneyOf(value) : valueOf(value)} disabled className="mt-1.5 h-10 bg-slate-50 text-sm font-normal text-slate-600 disabled:opacity-100" /></label>)}</div>;
 }
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
@@ -62,7 +63,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 }
 
 function DataTable({ columns, rows, empty }: { columns: Array<[string, string, ("date" | "money")?]>; rows: Row[]; empty: string }) {
-  return <div className="overflow-x-auto rounded-lg border border-slate-100"><table className="w-full min-w-[720px] text-left text-xs"><thead className="bg-slate-50 text-[10px] uppercase tracking-wider text-slate-400"><tr>{columns.map(([key, label]) => <th key={key} className="px-3 py-2.5 font-bold">{label}</th>)}</tr></thead><tbody className="divide-y divide-slate-100">{rows.length ? rows.map((row, index) => <tr key={String(row.id ?? row.contract_id ?? row.work_history_id ?? row.reward_discipline_id ?? index)}>{columns.map(([key, , type]) => <td key={key} className="px-3 py-3 align-top text-slate-700">{cellOf(key, row[key], type)}</td>)}</tr>) : <tr><td colSpan={columns.length} className="px-3 py-8 text-center text-slate-400">{empty}</td></tr>}</tbody></table></div>;
+  return <div className="overflow-x-auto rounded-lg border border-slate-200"><table className="w-full min-w-[980px] text-left text-xs"><thead className="bg-slate-50 text-[10px] uppercase tracking-wider text-slate-400"><tr><th className="px-3 py-2.5 font-bold">STT</th>{columns.map(([key, label]) => <th key={key} className="px-3 py-2.5 font-bold">{label}</th>)}</tr></thead><tbody className="divide-y divide-slate-100">{rows.length ? rows.map((row, index) => <tr key={String(row.id ?? row.contract_id ?? row.work_history_id ?? row.reward_discipline_id ?? index)}><td className="px-3 py-3 text-slate-400">{String(index + 1).padStart(2, "0")}</td>{columns.map(([key, , type]) => <td key={key} className="px-3 py-3 align-top text-slate-700"><div className="min-h-9 whitespace-pre-wrap break-words rounded-lg border border-slate-200 bg-slate-50 px-2 py-2 text-xs text-slate-600">{cellOf(key, row[key], type)}</div></td>)}</tr>) : <tr><td colSpan={columns.length + 1} className="px-3 py-8 text-center text-slate-400">{empty}</td></tr>}</tbody></table></div>;
 }
 
 export function EmployeeProfile({ employeeId }: { employeeId: string }) {
