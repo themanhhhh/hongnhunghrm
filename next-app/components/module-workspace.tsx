@@ -152,6 +152,10 @@ const labels: Record<string, string> = {
   KY_LUAT: "Kỷ luật",
   REWARD: "Khen thưởng",
   DISCIPLINE: "Kỷ luật",
+  ANNUAL: "Nghỉ có phép",
+  SICK: "Nghỉ có phép",
+  MATERNITY: "Nghỉ có phép",
+  UNPAID: "Nghỉ không lương",
   CASH: "Tiền mặt",
   BANK_TRANSFER: "Chuyển khoản",
   NOT_APPLICABLE: "Không áp dụng",
@@ -4121,14 +4125,12 @@ function LeaveForm({
         {input("total_days", "Tổng số ngày", "number", true, true)}
         {input(
           "leave_type",
-          "Loại nghỉ phép",
+           "Loại nghỉ",
           "select",
           true,
           false,
           [
-            { value: "ANNUAL", label: "Nghỉ phép năm" },
-            { value: "SICK", label: "Nghỉ ốm" },
-            { value: "MATERNITY", label: "Nghỉ thai sản" },
+            { value: "ANNUAL", label: "Nghỉ có phép" },
             { value: "UNPAID", label: "Nghỉ không lương" },
           ],
         )}

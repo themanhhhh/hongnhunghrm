@@ -147,8 +147,8 @@ const peopleTabs: WorkspaceTab[] = [
   },
   {
     id: "leave", label: "Đơn xin nghỉ phép", endpoint: "/hr/leave-applications", idField: "leave_id", approve: true,
-    columns: [{ key: "leave_code", label: "Mã đơn" }, { key: "employee_name", label: "Nhân viên" }, { key: "start_date", label: "Từ ngày" }, { key: "end_date", label: "Đến ngày" }, { key: "total_days", label: "Số ngày" }, { key: "status", label: "Trạng thái" }],
-    fields: [text("employee_id", "Mã nhân viên", undefined, true), date("start_date", "Ngày bắt đầu", true), date("end_date", "Ngày kết thúc", true), number("total_days", "Tổng số ngày", true), select("leave_type", "Loại nghỉ phép", [{ value: "ANNUAL", label: "Nghỉ phép năm" }, { value: "SICK", label: "Nghỉ ốm" }, { value: "MATERNITY", label: "Nghỉ thai sản" }, { value: "UNPAID", label: "Nghỉ không lương" }], true), text("approver_id", "Mã người duyệt"), text("related_person_id", "Người liên quan"), area("reason", "Lý do", undefined, 2), json("details_json", "Chi tiết ngày nghỉ (JSON)", '[{"date":"2026-01-01","time_option":"Cả ngày","days":1,"note":""}]')],
+    columns: [{ key: "leave_code", label: "Mã đơn" }, { key: "employee_name", label: "Nhân viên" }, { key: "leave_type", label: "Loại nghỉ" }, { key: "start_date", label: "Từ ngày" }, { key: "end_date", label: "Đến ngày" }, { key: "total_days", label: "Số ngày" }, { key: "status", label: "Trạng thái" }],
+    fields: [text("employee_id", "Mã nhân viên", undefined, true), date("start_date", "Ngày bắt đầu", true), date("end_date", "Ngày kết thúc", true), number("total_days", "Tổng số ngày", true), select("leave_type", "Loại nghỉ", [{ value: "ANNUAL", label: "Nghỉ có phép" }, { value: "UNPAID", label: "Nghỉ không lương" }], true), text("approver_id", "Mã người duyệt"), text("related_person_id", "Người liên quan"), area("reason", "Lý do", undefined, 2), json("details_json", "Chi tiết ngày nghỉ (JSON)", '[{"date":"2026-01-01","time_option":"Cả ngày","days":1,"note":""}]')],
   },
   {
     id: "transfer-proposals", label: "Đề xuất thuyên chuyển, bổ nhiệm", endpoint: "/hr/transfer-proposals", idField: "proposal_id", approve: true,
