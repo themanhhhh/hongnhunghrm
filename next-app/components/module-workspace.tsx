@@ -8434,7 +8434,7 @@ function OperationalWorkspace({
           return;
         }
       }
-      if (tab.id === "decisions") {
+      if (name === "recruitment" && tab.id === "decisions") {
         const missingDecisionField = [
           "candidate_id",
           "interview_eval_id",
