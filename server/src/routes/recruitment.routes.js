@@ -1056,7 +1056,7 @@ router.post('/interview-schedules', async (req, res) => {
 
         await run(
             `INSERT INTO InterviewSchedule (schedule_id, created_date, last_modified_date, schedule_code, recruitment_request_id, round_type, format_type, location, start_time, end_time, note, candidate_note, candidates_json, council_json, tests_json, status)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, N'Đã lên lịch')`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, N'Đã lên lịch')`,
             [id, now, now, finalCode, requestId, round_type || 'Vòng phỏng vấn', format_type || 'Offline', location || '', startTs, endTs, note || '', candidate_note || '', candJson, counJson, testJson]
         );
         await markScheduledCandidates(candidates, now);
