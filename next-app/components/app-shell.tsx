@@ -320,13 +320,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </div>
           </div>
           <div className="flex items-center gap-2 sm:gap-4">
-            <button
-              className="relative rounded-xl p-2.5 text-slate-500 hover:bg-white hover:text-teal-700"
-              aria-label="Thông báo"
-            >
-              <Bell size={19} />
-              <span className="absolute right-2 top-2 size-1.5 rounded-full bg-rose-500" />
-            </button>
+           
             <div className="hidden h-7 w-px bg-slate-200 sm:block" />
             <div className="flex items-center gap-2">
               <div className="grid size-9 place-items-center rounded-full bg-teal-100 text-sm font-bold text-teal-800">
