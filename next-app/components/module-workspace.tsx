@@ -7400,7 +7400,9 @@ function OperationalWorkspace({
       setShowForm(false);
       setEditingRow(null);
       showPopup("success", "Thành công", "Đã lưu dữ liệu thành công.");
-      queryClient.invalidateQueries({ queryKey: ["workspace", name] });
+      await queryClient.invalidateQueries({
+        queryKey: ["workspace", name, tab.id],
+      });
     },
     onError: (error) =>
       showPopup(
