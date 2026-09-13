@@ -1033,9 +1033,14 @@ router.get('/interview-schedules/:id', async (req, res) => {
 
 router.post('/interview-schedules', async (req, res) => {
     try {
-        const { schedule_code, round_type, format_type, location, start_time, end_time, note, candidate_note, candidates, council, tests } = req.body;
+        const { schedule_code, recruitment_request_id, round_type, format_type, location, start_time, end_time, note, candidate_note, candidates, council, tests } = req.body;
         const now = Date.now();
         const id = crypto.randomUUID();
+
+        const requestId = String(recruitment_request_id || '').trim() || null;
+        if (requestId && !(await queryOne('SELECT recruitment_request_id FROM RecruitmentRequest WHERE recruitment_request_id = ?', [requestId]))) {
+            return res.status(400).json({ success: false, message: 'Yêu cầu tuyển dụng không tồn tại.' });
+        }
 
         const yy = String(new Date().getFullYear()).slice(-2);
         const countSch = (await queryOne('SELECT COUNT(*) as cnt FROM InterviewSchedule'))?.cnt || 0;
@@ -1050,9 +1055,9 @@ router.post('/interview-schedules', async (req, res) => {
         const testJson = Array.isArray(tests) ? JSON.stringify(tests) : (typeof tests === 'string' ? tests : '[]');
 
         await run(
-            `INSERT INTO InterviewSchedule (schedule_id, created_date, last_modified_date, schedule_code, round_type, format_type, location, start_time, end_time, note, candidate_note, candidates_json, council_json, tests_json, status)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Đã lên lịch')`,
-            [id, now, now, finalCode, round_type || 'Vòng phỏng vấn', format_type || 'Offline', location || '', startTs, endTs, note || '', candidate_note || '', candJson, counJson, testJson]
+            `INSERT INTO InterviewSchedule (schedule_id, created_date, last_modified_date, schedule_code, recruitment_request_id, round_type, format_type, location, start_time, end_time, note, candidate_note, candidates_json, council_json, tests_json, status)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Đã lên lịch')`,
+            [id, now, now, finalCode, requestId, round_type || 'Vòng phỏng vấn', format_type || 'Offline', location || '', startTs, endTs, note || '', candidate_note || '', candJson, counJson, testJson]
         );
         await markScheduledCandidates(candidates, now);
 
@@ -1064,8 +1069,13 @@ router.post('/interview-schedules', async (req, res) => {
 
 router.put('/interview-schedules/:id', async (req, res) => {
     try {
-        const { schedule_code, round_type, format_type, location, start_time, end_time, note, candidate_note, candidates, council, tests, status } = req.body;
+        const { schedule_code, recruitment_request_id, round_type, format_type, location, start_time, end_time, note, candidate_note, candidates, council, tests, status } = req.body;
         const now = Date.now();
+
+        const requestId = String(recruitment_request_id || '').trim() || null;
+        if (requestId && !(await queryOne('SELECT recruitment_request_id FROM RecruitmentRequest WHERE recruitment_request_id = ?', [requestId]))) {
+            return res.status(400).json({ success: false, message: 'Yêu cầu tuyển dụng không tồn tại.' });
+        }
 
         const startTs = start_time ? (typeof start_time === 'number' ? start_time : new Date(start_time).getTime()) : now;
         const endTs = end_time ? (typeof end_time === 'number' ? end_time : new Date(end_time).getTime()) : startTs + 7200000;
@@ -1076,9 +1086,9 @@ router.put('/interview-schedules/:id', async (req, res) => {
 
         await run(
             `UPDATE InterviewSchedule
-       SET schedule_code = ?, round_type = ?, format_type = ?, location = ?, start_time = ?, end_time = ?, note = ?, candidate_note = ?, candidates_json = ?, council_json = ?, tests_json = ?, status = ?, last_modified_date = ?
+       SET schedule_code = ?, recruitment_request_id = ?, round_type = ?, format_type = ?, location = ?, start_time = ?, end_time = ?, note = ?, candidate_note = ?, candidates_json = ?, council_json = ?, tests_json = ?, status = ?, last_modified_date = ?
        WHERE schedule_id = ?`,
-            [schedule_code, round_type || 'Vòng phỏng vấn', format_type || 'Offline', location || '', startTs, endTs, note || '', candidate_note || '', candJson, counJson, testJson, status || 'Đã lên lịch', now, req.params.id]
+            [schedule_code, requestId, round_type || 'Vòng phỏng vấn', format_type || 'Offline', location || '', startTs, endTs, note || '', candidate_note || '', candJson, counJson, testJson, status || 'Đã lên lịch', now, req.params.id]
         );
         await markScheduledCandidates(candidates, now);
 
