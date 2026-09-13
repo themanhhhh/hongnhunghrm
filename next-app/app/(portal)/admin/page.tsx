@@ -101,6 +101,14 @@ export default function AdminPage() {
     queryKey: ["admin-summary"],
     queryFn: api.admin,
   });
+  const {
+    data: userLookup = [],
+    isLoading: userLookupLoading,
+    error: userLookupError,
+  } = useQuery({
+    queryKey: ["admin-user-list"],
+    queryFn: () => api.list("/admin/users", { resource: "admin" }),
+  });
   const { data: departmentLookup = [] } = useQuery({
     queryKey: ["admin-department-lookup"],
     queryFn: () => api.list("/admin/departments", { resource: "admin" }),
@@ -129,6 +137,7 @@ export default function AdminPage() {
       setFormError("");
       setSuccessMessage("Tạo tài khoản thành công.");
       queryClient.invalidateQueries({ queryKey: ["admin-summary"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-user-list"] });
     },
   });
   const catalogMutation = useMutation({
@@ -206,7 +215,7 @@ export default function AdminPage() {
           ? `${data?.positions ?? 38} vị trí`
           : `${data?.contractTypes ?? 6} loại HĐLĐ`,
   }));
-  const userRows = data?.userRows ?? [];
+  const userRows = userLookup.length ? userLookup : data?.userRows ?? [];
   const updateField = (name: keyof AccountForm, value: string) =>
     setForm((current) => ({ ...current, [name]: value }));
   const submitAccount = (event: React.FormEvent<HTMLFormElement>) => {
@@ -518,10 +527,17 @@ export default function AdminPage() {
                 </p>
               </div>
               <Badge tone="violet">
-                {userRows.length || data?.users || 0} tài khoản
+                {userLookupLoading ? "Đang tải..." : `${userRows.length} tài khoản`}
               </Badge>
             </CardHeader>
             <CardContent>
+              {userLookupError && userRows.length === 0 && (
+                <div className="mb-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+                  {userLookupError instanceof Error
+                    ? userLookupError.message
+                    : "Không thể tải danh sách tài khoản từ database."}
+                </div>
+              )}
               <div className="overflow-x-auto rounded-xl border border-slate-100">
                 <table className="w-full min-w-[760px] text-left text-sm">
                   <thead className="bg-slate-50 text-[10px] uppercase tracking-wider text-slate-400">
@@ -559,7 +575,7 @@ export default function AdminPage() {
                         </td>
                       </tr>
                     ))}
-                    {!userRows.length && (
+                    {!userLookupLoading && !userRows.length && (
                       <tr>
                         <td
                           colSpan={5}

@@ -4260,6 +4260,8 @@ function EmployeeForm({
   values,
   setValues,
   lookups,
+  lookupsLoading = false,
+  lookupsError,
   avatarUrl,
   avatarFile,
   onAvatarChange,
@@ -4270,6 +4272,8 @@ function EmployeeForm({
     updater: (current: Record<string, string>) => Record<string, string>,
   ) => void;
   lookups: EmployeeLookups;
+  lookupsLoading?: boolean;
+  lookupsError?: string;
   avatarUrl?: string;
   avatarFile: File | null;
   onAvatarChange: (file: File | null) => void;
@@ -4371,6 +4375,16 @@ function EmployeeForm({
 
   return (
     <div className="space-y-5">
+      {lookupsLoading && (
+        <div className="rounded-xl border border-sky-100 bg-sky-50 p-3 text-xs text-sky-800">
+          Đang tải danh mục phòng ban, vị trí và ứng viên từ database...
+        </div>
+      )}
+      {lookupsError && (
+        <div className="rounded-xl border border-rose-100 bg-rose-50 p-3 text-xs text-rose-800">
+          Không thể tải danh mục hồ sơ nhân sự từ database: {lookupsError}
+        </div>
+      )}
       <div className="flex items-center gap-4 rounded-xl border border-slate-100 bg-slate-50/70 p-4">
         <EmployeeAvatar
           name={values.full_name || "Nhân viên"}
@@ -7179,6 +7193,20 @@ function OperationalWorkspace({
     },
   });
 
+  const employeeFormLookupQuery = useQuery<EmployeeLookups>({
+    queryKey: ["employee-form-lookups", name],
+    enabled: Boolean(session && name === "people" && tab.id === "employees"),
+    queryFn: async () => {
+      const [departments, positions, employees, candidates] = await Promise.all([
+        api.list("/admin/departments", { resource }),
+        api.list("/admin/positions", { resource }),
+        api.list("/hr/employees", { resource }),
+        api.list("/recruitment/candidates", { resource }),
+      ]);
+      return { departments, positions, employees, quotas: [], candidates };
+    },
+  });
+
   const saveMutation = useMutation({
     mutationFn: async (values: Record<string, string>) => {
       const payload = toPayload(tab, values);
@@ -9333,13 +9361,19 @@ function OperationalWorkspace({
                   values={formValues}
                   setValues={setFormValues}
                   lookups={
-                    (lookupQuery.data ?? {
+                    (employeeFormLookupQuery.data ?? {
                       departments: [],
                       positions: [],
                       employees: [],
                       quotas: [],
                       candidates: [],
                     }) as EmployeeLookups
+                  }
+                  lookupsLoading={employeeFormLookupQuery.isLoading}
+                  lookupsError={
+                    employeeFormLookupQuery.error instanceof Error
+                      ? employeeFormLookupQuery.error.message
+                      : undefined
                   }
                   avatarUrl={
                     typeof editingRow?.avatar_url === "string"
