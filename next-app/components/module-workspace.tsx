@@ -6234,12 +6234,16 @@ function RecruitmentRequestForm({
   values,
   setValues,
   lookups,
+  lookupsLoading = false,
+  lookupsError,
 }: {
   values: Record<string, string>;
   setValues: (
     updater: (current: Record<string, string>) => Record<string, string>,
   ) => void;
   lookups: RequestLookups;
+  lookupsLoading?: boolean;
+  lookupsError?: string;
 }) {
   const departments = lookups.departments;
   const employees = lookups.employees;
@@ -6280,6 +6284,16 @@ function RecruitmentRequestForm({
 
   return (
     <div className="space-y-5">
+      {lookupsLoading && (
+        <div className="rounded-xl border border-teal-100 bg-teal-50/60 p-4 text-xs text-teal-800">
+          Đang tải danh mục phòng ban, vị trí, người lập và phiếu định biên...
+        </div>
+      )}
+      {lookupsError && (
+        <div className="rounded-xl border border-rose-100 bg-rose-50 p-4 text-xs text-rose-700">
+          Không thể tải danh mục từ database: {lookupsError}
+        </div>
+      )}
       <section>
         <h3 className="mb-3 font-display text-sm font-bold text-slate-900">
           1. Thông tin chung
@@ -7207,6 +7221,20 @@ function OperationalWorkspace({
     },
   });
 
+  const recruitmentRequestLookupQuery = useQuery<RequestLookups>({
+    queryKey: ["recruitment-request-form-lookups"],
+    enabled: Boolean(session && name === "recruitment" && tab.id === "requests"),
+    queryFn: async () => {
+      const [departments, positions, employees, quotas] = await Promise.all([
+        api.list("/admin/departments", { resource }),
+        api.list("/admin/positions", { resource }),
+        api.list("/hr/employees", { resource }),
+        api.list("/hr/quotas", { resource }),
+      ]);
+      return { departments, positions, employees, quotas };
+    },
+  });
+
   const saveMutation = useMutation({
     mutationFn: async (values: Record<string, string>) => {
       const payload = toPayload(tab, values);
@@ -7442,6 +7470,13 @@ function OperationalWorkspace({
   });
 
   const lookupData = lookupQuery.data;
+  const requestFormLookups: RequestLookups =
+    recruitmentRequestLookupQuery.data ?? {
+      departments: lookupData?.departments ?? [],
+      positions: lookupData?.positions ?? [],
+      employees: lookupData?.employees ?? [],
+      quotas: lookupData?.quotas ?? [],
+    };
   const openConversionForm = (row: Row) => {
     const candidateId = String(
       row.candidate_id ?? row.candidateId ?? row.id ?? "",
@@ -9389,13 +9424,12 @@ function OperationalWorkspace({
                 <RecruitmentRequestForm
                   values={formValues}
                   setValues={setFormValues}
-                  lookups={
-                    (lookupQuery.data ?? {
-                      departments: [],
-                      positions: [],
-                      employees: [],
-                      quotas: [],
-                    }) as RequestLookups
+                  lookups={requestFormLookups}
+                  lookupsLoading={recruitmentRequestLookupQuery.isLoading}
+                  lookupsError={
+                    recruitmentRequestLookupQuery.error instanceof Error
+                      ? recruitmentRequestLookupQuery.error.message
+                      : undefined
                   }
                 />
               ) : tab.id === "quota" || tab.id === "quotas" ? (
