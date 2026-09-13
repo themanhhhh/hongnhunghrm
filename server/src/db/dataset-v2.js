@@ -1,6 +1,7 @@
 'use strict';
 
 const { annualLeaveEntitlement } = require('../services/leave-policy');
+const { normalizeVietnameseText, shouldNormalizeColumn } = require('./vietnamese');
 
 const AS_OF = '2026-09-12';
 const MAX_DATE = Date.UTC(2026, 8, 12, 23, 59, 59, 999);
@@ -779,7 +780,7 @@ function buildDatasetV2({ passwordHash = 'RUNTIME_BCRYPT_HASH' } = {}) {
         const used = tables.LeaveApplication
             .filter((leave) => leave.employee_id === employee.employee_id && leave.leave_year === 2026 && leave.leave_type === 'ANNUAL' && leave.status === 'APPROVED')
             .reduce((sum, leave) => sum + Number(leave.total_days || 0), 0);
-        const entitled = employee.join_date > date('2026-01-01') ? 4 : 12;
+        const entitled = annualLeaveEntitlement(employee.join_date, 2026);
         return {
             leave_balance_id: `balance-${employee.employee_id}-2026`, employee_id: employee.employee_id, leave_year: 2026, entitled_days: entitled,
             carried_forward_days: 0, used_days: used, remaining_days: Math.max(0, entitled - used), calculation_note: 'So du phep nam tinh den 2026-09-12',
@@ -1077,6 +1078,14 @@ function buildDatasetV2({ passwordHash = 'RUNTIME_BCRYPT_HASH' } = {}) {
             }
             if (row.decision_by && (row.reward_discipline_id || row.reward_discipline_id === '')) row.decision_by = employeeName('emp-001') || row.decision_by;
             if (row.signed_by) row.signed_by = employeeName('emp-001') || row.signed_by;
+        }
+    }
+
+    for (const rows of Object.values(tables)) {
+        for (const row of rows) {
+            for (const [column, value] of Object.entries(row)) {
+                if (shouldNormalizeColumn(column) && typeof value === 'string') row[column] = normalizeVietnameseText(value);
+            }
         }
     }
 

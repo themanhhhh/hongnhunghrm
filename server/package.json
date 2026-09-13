@@ -10,6 +10,7 @@
     "start": "node src/index.js",
     "dev": "node --watch src/index.js",
     "seed": "node src/db/seed-v2.js",
+    "db:normalize": "node src/db/normalize-vietnamese-data.js",
     "seed:legacy": "node src/db/seed.js",
     "validate-dataset-v2": "node src/db/validate-dataset-v2.js"
   },

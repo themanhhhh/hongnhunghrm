@@ -12,6 +12,7 @@ const {
     buildDatasetV2
 } = require('./dataset-v2');
 const { annualLeaveEntitlement } = require('../services/leave-policy');
+const { normalizeVietnameseText, shouldNormalizeColumn } = require('./vietnamese');
 
 const futureDateAllowed = new Set([
     'Employee.citizen_expiry_date',
@@ -58,6 +59,9 @@ function validateDatasetV2(dataset = buildDatasetV2()) {
 
             for (const [column, value] of Object.entries(row)) {
                 if (value === null || value === undefined) errors.push(`${table}[${index}].${column}: null values are not allowed`);
+                if (shouldNormalizeColumn(column) && typeof value === 'string' && normalizeVietnameseText(value) !== value) {
+                    errors.push(`${table}[${index}].${column}: Vietnamese text is not normalized`);
+                }
             }
             if (row.created_date !== undefined && row.last_modified_date !== undefined && row.last_modified_date < row.created_date) {
                 errors.push(`${table}[${index}]: last_modified_date precedes created_date`);
@@ -186,7 +190,7 @@ function validateDatasetV2(dataset = buildDatasetV2()) {
 
     for (const leave of rows('LeaveApplication')) {
         if (leave.end_date < leave.start_date) errors.push(`LeaveApplication.${leave.leave_id}: end_date precedes start_date`);
-        if (leave.remaining_days_after !== null && leave.remaining_days_before !== null && leave.total_days !== null &&
+        if (leave.leave_type === 'ANNUAL' && leave.remaining_days_after !== null && leave.remaining_days_before !== null && leave.total_days !== null &&
             Number(leave.remaining_days_after) !== Number(leave.remaining_days_before) - Number(leave.total_days)) {
             errors.push(`LeaveApplication.${leave.leave_id}: remaining balance does not match total_days`);
         }

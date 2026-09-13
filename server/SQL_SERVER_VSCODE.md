@@ -87,6 +87,8 @@ Lenh `npm run seed` se:
 
 > `npm run seed` la lenh reset du lieu. Khong chay tren database co du lieu can giu lai.
 
+Neu chi can chuan hoa tieng Viet cho database dang co, chay `npm run db:normalize`. Lenh nay cap nhat cac truong van ban trong mot transaction, giu nguyen khoa chinh, ma nghiep vu, trang thai, email va cac gia tri tieng Anh; lenh co the chay lai an toan.
+
 Sau do `npm run dev` chi khoi dong schema va API tai `http://localhost:5000`; backend khong tu dong chay lai seed cu.
 
 Tai khoan SQL `sa` can co quyen `CREATE DATABASE` de backend tu tao database. Neu tai khoan khong co quyen nay, tao database truoc trong VS Code khi dang ket noi `master`:
