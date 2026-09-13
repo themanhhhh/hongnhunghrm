@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const crypto = require('crypto');
 const multer = require('multer');
-const { query, queryOne, run } = require('../db/connection');
+const { query, queryOne, run, withTransaction } = require('../db/connection');
 const { authenticateToken, authorizeRole } = require('../middleware/auth');
 const approvalWorkflow = require('../services/approvalWorkflow');
 const { PinataService } = require('../services/pinata.service');
@@ -18,6 +18,11 @@ const parseDate = (d) => {
 };
 
 const hasOwn = (value, key) => Object.prototype.hasOwnProperty.call(value, key);
+
+const normalizeOptionalId = (value) => {
+    const normalized = String(value ?? '').trim();
+    return normalized || null;
+};
 
 async function updateExtendedEmployeeFields(employeeId, input, now) {
     const dateFields = new Set(['citizen_expiry_date', 'initial_contract_date']);
@@ -1708,6 +1713,17 @@ router.post('/leave-applications', async (req, res) => {
             [subjectEmployeeId]
         );
         if (!subject) return res.status(404).json({ success: false, message: 'Không tìm thấy nhân viên lập đơn nghỉ phép.' });
+        const approverEmployeeId = normalizeOptionalId(approver_id);
+        const relatedEmployeeId = normalizeOptionalId(related_person_id);
+        const applicationDepartmentId = normalizeOptionalId(subject.department_id || department_id);
+        if (approverEmployeeId) {
+            const approver = await queryOne('SELECT employee_id FROM Employee WHERE employee_id = ?', [approverEmployeeId]);
+            if (!approver) return res.status(400).json({ success: false, message: 'Mã người duyệt không tồn tại trong hồ sơ nhân viên.' });
+        }
+        if (relatedEmployeeId) {
+            const relatedEmployee = await queryOne('SELECT employee_id FROM Employee WHERE employee_id = ?', [relatedEmployeeId]);
+            if (!relatedEmployee) return res.status(400).json({ success: false, message: 'Mã người liên quan không tồn tại trong hồ sơ nhân viên.' });
+        }
         const leaveYear = new Date(startTs).getFullYear();
         let entitlement = null;
         let usedDaysBefore = null;
@@ -1727,15 +1743,23 @@ router.post('/leave-applications', async (req, res) => {
                 return res.status(400).json({ success: false, message: `Số ngày phép yêu cầu vượt quá số phép còn lại (${remainingDaysBefore} ngày).` });
             }
         }
-        const initialStatus = subjectEmployeeId
-            ? await approvalWorkflow.initApprovalChain('LeaveApplication', id, subjectEmployeeId)
-            : 'PENDING_LEVEL_1';
+        const { initialStatus } = await withTransaction(async ({ query: txQuery, queryOne: txQueryOne, run: txRun }) => {
+            const initialStatus = subjectEmployeeId
+                ? await approvalWorkflow.initApprovalChain('LeaveApplication', id, subjectEmployeeId, {
+                    query: txQuery,
+                    queryOne: txQueryOne,
+                    run: txRun
+                })
+                : 'PENDING_LEVEL_1';
 
-        await run(
-            `INSERT INTO LeaveApplication (leave_id, created_date, last_modified_date, leave_code, employee_id, employee_code, employee_name, department_id, department_name, approver_id, approver_name, related_person_id, related_person_name, start_date, end_date, total_days, leave_type, leave_year, entitled_days, used_days_before, remaining_days_before, remaining_days_after, reason, details_json, approver_note, status)
+            await txRun(
+                `INSERT INTO LeaveApplication (leave_id, created_date, last_modified_date, leave_code, employee_id, employee_code, employee_name, department_id, department_name, approver_id, approver_name, related_person_id, related_person_name, start_date, end_date, total_days, leave_type, leave_year, entitled_days, used_days_before, remaining_days_before, remaining_days_after, reason, details_json, approver_note, status)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '', ?)`,
-             [id, now, now, finalCode, subjectEmployeeId, subject.employee_code || employee_code || '', subject.full_name || employee_name || '', subject.department_id || department_id || '', subject.department_name || department_name || '', approver_id || '', approver_name || '', related_person_id || '', related_person_name || '', startTs, endTs, requestedDays, leaveType, leaveYear, entitlement, usedDaysBefore, remainingDaysBefore, remainingDaysBefore === null ? null : remainingDaysBefore - requestedDays, reason || '', detailsStr, initialStatus]
-        );
+                [id, now, now, finalCode, subjectEmployeeId, subject.employee_code || employee_code || '', subject.full_name || employee_name || '', applicationDepartmentId, subject.department_name || department_name || '', approverEmployeeId, approverEmployeeId ? (approver_name || '') : null, relatedEmployeeId, relatedEmployeeId ? (related_person_name || '') : null, startTs, endTs, requestedDays, leaveType, leaveYear, entitlement, usedDaysBefore, remainingDaysBefore, remainingDaysBefore === null ? null : remainingDaysBefore - requestedDays, reason || '', detailsStr, initialStatus]
+            );
+
+            return { initialStatus };
+        });
 
         res.json({ success: true, message: 'Tạo Đơn xin nghỉ phép thành công! Đơn đã được gửi tới cấp duyệt đầu tiên.' });
     } catch (error) {
@@ -1764,8 +1788,15 @@ router.put('/leave-applications/:id/approve', authorizeRole('Administrator', 'HR
         const { status, approver_note } = req.body;
         const now = Date.now();
         const decision = status === 'REJECTED' ? 'REJECTED' : 'APPROVED';
+        const linkedUser = !req.user.employeeId && !req.user.employee_id && req.user.id
+            ? await queryOne('SELECT employee_id FROM [User] WHERE user_id = ?', [req.user.id])
+            : null;
+        const approverEmployeeId = req.user.employeeId || req.user.employee_id || linkedUser?.employee_id || null;
+        const approvalUser = req.user.employeeId || req.user.employee_id
+            ? req.user
+            : { ...req.user, employeeId: approverEmployeeId };
 
-        const result = await approvalWorkflow.advanceApproval('LeaveApplication', req.params.id, decision, approver_note, req.user);
+        const result = await approvalWorkflow.advanceApproval('LeaveApplication', req.params.id, decision, approver_note, approvalUser);
 
         if (result.error) {
             return res.status(403).json({ success: false, message: result.error });
@@ -1773,7 +1804,7 @@ router.put('/leave-applications/:id/approve', authorizeRole('Administrator', 'HR
 
         await run(
             `UPDATE LeaveApplication SET status = ?, approver_note = ?, approver_id = ?, approver_name = ?, last_modified_date = ? WHERE leave_id = ?`,
-            [result.newDocumentStatus, approver_note || '', req.user.id, req.user.fullName, now, req.params.id]
+            [result.newDocumentStatus, approver_note || '', approverEmployeeId, req.user.fullName, now, req.params.id]
         );
 
         if (result.newDocumentStatus === 'APPROVED') {

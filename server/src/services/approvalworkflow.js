@@ -1,5 +1,6 @@
 ﻿const crypto = require('crypto');
 const { query, queryOne, run } = require('../db/connection');
+const defaultDb = { query, queryOne, run };
 
 /**
  * XÁC ĐỊNH CHUỖI DUYỆT (APPROVAL CHAIN)
@@ -18,7 +19,7 @@ const { query, queryOne, run } = require('../db/connection');
  * @param {string} requesterDeptId - department_id của người gửi
  * @returns {Array<{level_order, required_role, department_scope}>}
  */
-async function buildApprovalChain(employeeId, requesterRoleName, requesterDeptId) {
+async function buildApprovalChain(employeeId, requesterRoleName, requesterDeptId, db = defaultDb) {
     const chain = [];
 
     if (requesterRoleName === 'Ban Giám Đốc' || requesterRoleName === 'Administrator') {
@@ -34,7 +35,7 @@ async function buildApprovalChain(employeeId, requesterRoleName, requesterDeptId
     }
 
     if (requesterRoleName === 'Trưởng Phòng') {
-        const dept = await queryOne(`SELECT parent_department_id FROM Department WHERE department_id = ?`, [requesterDeptId]);
+        const dept = await db.queryOne(`SELECT parent_department_id FROM Department WHERE department_id = ?`, [requesterDeptId]);
         if (dept && dept.parent_department_id) {
             chain.push({ level_order: 1, required_role: 'Trưởng Khối', department_scope: dept.parent_department_id });
             chain.push({ level_order: 2, required_role: 'Ban Giám Đốc', department_scope: null });
@@ -59,20 +60,20 @@ async function buildApprovalChain(employeeId, requesterRoleName, requesterDeptId
  * Khởi tạo chuỗi duyệt cho 1 tài liệu (đơn/phiếu) cụ thể, ghi vào bảng ApprovalHistory.
  * Trả về status ban đầu để lưu vào bảng tài liệu gốc (VD: LeaveApplication.status).
  */
-async function initApprovalChain(documentType, documentId, employeeId) {
+async function initApprovalChain(documentType, documentId, employeeId, db = defaultDb) {
     const now = Date.now();
-    const emp = await queryOne(`SELECT department_id FROM Employee WHERE employee_id = ?`, [employeeId]);
+    const emp = await db.queryOne(`SELECT department_id FROM Employee WHERE employee_id = ?`, [employeeId]);
     const requesterDeptId = emp ? emp.department_id : null;
-    const requesterRoleName = await inferEmployeeRoleName(employeeId);
+    const requesterRoleName = await inferEmployeeRoleName(employeeId, db);
 
-    const chain = await buildApprovalChain(employeeId, requesterRoleName, requesterDeptId);
+    const chain = await buildApprovalChain(employeeId, requesterRoleName, requesterDeptId, db);
 
     if (chain.length === 0) {
         return 'APPROVED'; // Ban Giám Đốc / Admin tự gửi -> tự động duyệt
     }
 
     for (const [idx, step] of chain.entries()) {
-        await run(
+        await db.run(
             `INSERT INTO ApprovalHistory (approval_id, document_type, document_id, level_order, required_role, department_scope, status, submitted_date, created_date)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
@@ -162,14 +163,14 @@ async function advanceApproval(documentType, documentId, decision, comment, user
  * Ưu tiên 2: suy luận từ tên chức vụ (Position.position_name) - theo đúng gợi ý của yêu cầu nghiệp vụ
  * (dựa vào Position/Management level thay vì hardcode).
  */
-async function inferEmployeeRoleName(employeeId) {
-    const linkedUser = await queryOne(
+async function inferEmployeeRoleName(employeeId, db = defaultDb) {
+    const linkedUser = await db.queryOne(
         `SELECT TOP (1) r.role_name FROM User u JOIN Role r ON u.role_id = r.role_id WHERE u.employee_id = ?`,
         [employeeId]
     );
     if (linkedUser) return linkedUser.role_name;
 
-    const emp = await queryOne(
+    const emp = await db.queryOne(
         `SELECT e.department_id, p.position_name FROM Employee e LEFT JOIN Position p ON e.position_id = p.position_id WHERE e.employee_id = ?`,
         [employeeId]
     );
