@@ -45,8 +45,8 @@ const emptyAccount: AccountForm = {
 const fallbackRoles = [
   { role_id: "role-admin", role_name: "Administrator" },
   { role_id: "role-hr", role_name: "HR Staff" },
-  { role_id: "role-ceo", role_name: "Ban Giám Đốc" },
-  { role_id: "role-khoi", role_name: "Trưởng Khối" },
+  { role_id: "role-bgd", role_name: "Ban Giám Đốc" },
+  { role_id: "role-block", role_name: "Trưởng Khối" },
   { role_id: "role-manager", role_name: "Trưởng Phòng" },
   { role_id: "role-employee", role_name: "Nhân viên" },
 ];
@@ -113,6 +113,10 @@ export default function AdminPage() {
     queryKey: ["admin-position-lookup"],
     queryFn: () => api.list("/admin/positions", { resource: "admin" }),
   });
+  const { data: roleLookup = [] } = useQuery({
+    queryKey: ["admin-role-lookup"],
+    queryFn: () => api.list("/admin/roles", { resource: "admin" }),
+  });
   const createAccountMutation = useMutation({
     mutationFn: () =>
       api.write("/admin/users", "POST", form, {
@@ -170,7 +174,11 @@ export default function AdminPage() {
       queryClient.invalidateQueries({ queryKey: ["admin-position-lookup"] });
     },
   });
-  const roles = data?.rolesList?.length ? data.rolesList : fallbackRoles;
+  const roles = data?.rolesList?.length
+    ? data.rolesList
+    : roleLookup.length
+      ? roleLookup
+      : fallbackRoles;
   const departments = data?.departmentsList?.length
     ? data.departmentsList
     : departmentLookup;

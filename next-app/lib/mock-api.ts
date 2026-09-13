@@ -48,14 +48,14 @@ const initialStore: MockStore = {
   "/admin/roles": [
     { role_id: "role-admin", role_name: "Administrator", description: "Quản trị toàn hệ thống" },
     { role_id: "role-hr", role_name: "HR Staff", description: "Quản lý nghiệp vụ nhân sự" },
-    { role_id: "role-ceo", role_name: "Ban Giám Đốc", description: "Phê duyệt và xem báo cáo cấp cao" },
-    { role_id: "role-khoi", role_name: "Trưởng Khối", description: "Quản lý phạm vi khối" },
+    { role_id: "role-bgd", role_name: "Ban Giám Đốc", description: "Phê duyệt và xem báo cáo cấp cao" },
+    { role_id: "role-block", role_name: "Trưởng Khối", description: "Quản lý phạm vi khối" },
     { role_id: "role-manager", role_name: "Trưởng Phòng", description: "Quản lý phạm vi phòng ban" },
     { role_id: "role-employee", role_name: "Nhân viên", description: "Truy cập không gian cá nhân" },
   ],
   "/admin/users": [
     { user_id: "usr-nhung", username: "admin", full_name: "Nguyễn Hồng Nhung", email: "hongnhung188888@gmail.com", phone: "0988666888", role_id: "role-admin", role_name: "Administrator", department_id: "", department_name: "Toàn hệ thống", status: 1, created_date: "2026-01-01" },
-    { user_id: "usr-ceo", username: "ceo", full_name: "Bùi Xuân Thức", email: "ceo@bravo.com.vn", phone: "0988111222", role_id: "role-ceo", role_name: "Ban Giám Đốc", department_id: "dept-bgd", department_name: "Ban Giám Đốc", status: 1, created_date: "2026-01-02" },
+    { user_id: "usr-ceo", username: "ceo", full_name: "Bùi Xuân Thức", email: "ceo@bravo.com.vn", phone: "0988111222", role_id: "role-bgd", role_name: "Ban Giám Đốc", department_id: "dept-bgd", department_name: "Ban Giám Đốc", status: 1, created_date: "2026-01-02" },
     { user_id: "usr-mgr-kd", username: "mgr_kd", full_name: "Phạm Quốc Tuấn", email: "tuan.pq@bravo.com.vn", phone: "0977222333", role_id: "role-manager", role_name: "Trưởng Phòng", department_id: "dept-kd", department_name: "Phòng Kinh doanh", status: 1, created_date: "2026-01-03" },
     { user_id: "usr-hr", username: "HANT", full_name: "Nguyễn Thùy Linh", email: "linh.nt@bravo.com.vn", phone: "0966123456", role_id: "role-hr", role_name: "HR Staff", department_id: "dept-hr", department_name: "Phòng Nhân sự", status: 1, created_date: "2026-01-04" },
   ],
