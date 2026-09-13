@@ -1088,7 +1088,7 @@ router.post('/transfer-decisions', authorizeRole('Administrator', 'HR Staff'), a
 
         await run(
             `INSERT INTO TransferDecision (decision_id, created_date, last_modified_date, decision_number, proposal_id, employee_id, current_department_id, current_position_id, target_department_id, target_position_id, manager_id, decision_date, effective_date, decision_type, creator_id, creator_name, creator_position, creator_department, signed_by, description, reason, note, detail_items, status)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'EXECUTED')`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'EXECUTED')`,
             [id, now, now, decNo, proposal_id || null, employeeId, currentDepartmentId, currentPositionId, targetDepartmentId, targetPositionId, managerId, decisionDate, effDate, decisionType, creator_id || req.user.employeeId || null, creator_name || req.user.fullName || '', creator_position || '', creator_department || '', signed_by || 'Ban Giám Đốc', description || '', reason || '', note || '', detailJson]
         );
 
