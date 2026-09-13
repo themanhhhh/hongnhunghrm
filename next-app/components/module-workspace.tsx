@@ -7212,8 +7212,10 @@ function OperationalWorkspace({
       const payload = toPayload(tab, values);
       const id = editingRow ? rowId(tab, editingRow) : "";
       const endpoint = id ? `${tab.endpoint}/${id}` : tab.endpoint;
+      const writeResource =
+        name === "people" && tab.id === "leave" ? "leave" : resource;
       const result = await api.write(endpoint, id ? "PUT" : "POST", payload, {
-        resource,
+        resource: writeResource,
         action: id ? "edit" : "create",
       });
       if (tab.id === "contracts" && !id) {
