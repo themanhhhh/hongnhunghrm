@@ -857,7 +857,9 @@ export async function mockApiRequest<T>(path: string, init: RequestInit = {}, se
   }
 
   if (path === "/hr/employees/me" && method === "GET") {
-    const employee = store["/hr/employees"].find((row) => row.employee_id === "emp-kd-02") ?? store["/hr/employees"][0];
+    const employee = store["/hr/employees"].find(
+      (row) => String(row.employee_id) === String(session?.employeeId ?? ""),
+    );
     return envelope(employee ?? null) as T;
   }
 

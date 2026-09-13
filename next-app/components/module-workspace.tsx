@@ -4060,6 +4060,8 @@ function LeaveForm({
   setValues,
   lookups,
   session,
+  lookupsLoading = false,
+  lookupsError,
 }: {
   values: Record<string, string>;
   setValues: (
@@ -4067,11 +4069,16 @@ function LeaveForm({
   ) => void;
   lookups: RequestLookups;
   session: Session | null;
+  lookupsLoading?: boolean;
+  lookupsError?: string;
 }) {
   const details = parseDetailList(values.details_json);
   const employeeOptions = lookups.employees.map((item) => ({
     value: String(item.employee_id ?? ""),
-    label: `${String(item.employee_code ?? item.employee_id ?? "")} - ${String(item.full_name ?? "")}`,
+    label:
+      session?.role === "Nhân viên"
+        ? String(item.full_name ?? item.employee_code ?? item.employee_id ?? "")
+        : `${String(item.employee_code ?? item.employee_id ?? "")} - ${String(item.full_name ?? "")}`,
   }));
   const totalDays = details.reduce((sum, item) => sum + (Number(item.days) || 0), 0);
   const set = (name: string, value: string) =>
@@ -4114,6 +4121,16 @@ function LeaveForm({
 
   return (
     <div className="space-y-5">
+      {lookupsLoading && (
+        <div className="rounded-xl border border-teal-100 bg-teal-50/60 p-4 text-xs text-teal-800">
+          Đang tải hồ sơ nhân viên đang đăng nhập...
+        </div>
+      )}
+      {lookupsError && (
+        <div className="rounded-xl border border-rose-100 bg-rose-50 p-4 text-xs text-rose-700">
+          Không thể tải hồ sơ nhân viên từ database: {lookupsError}
+        </div>
+      )}
       <div className="grid gap-4 md:grid-cols-2">
         {input(
           "employee_id",
@@ -7235,6 +7252,17 @@ function OperationalWorkspace({
     },
   });
 
+  const employeeLeaveLookupQuery = useQuery<Row[]>({
+    queryKey: ["employee-leave-form-lookups", session?.id],
+    enabled: Boolean(
+      session &&
+        name === "people" &&
+        tab.id === "leave" &&
+        session.role === "Nhân viên",
+    ),
+    queryFn: () => api.list("/hr/employees/me", { resource }),
+  });
+
   const saveMutation = useMutation({
     mutationFn: async (values: Record<string, string>) => {
       const payload = toPayload(tab, values);
@@ -7470,6 +7498,16 @@ function OperationalWorkspace({
   });
 
   const lookupData = lookupQuery.data;
+  const leaveFormEmployees =
+    session?.role === "Nhân viên"
+      ? (employeeLeaveLookupQuery.data ?? [])
+      : (lookupData?.employees ?? []);
+  const leaveFormLookups: RequestLookups = {
+    departments: lookupData?.departments ?? [],
+    positions: lookupData?.positions ?? [],
+    employees: leaveFormEmployees,
+    quotas: lookupData?.quotas ?? [],
+  };
   const requestFormLookups: RequestLookups =
     recruitmentRequestLookupQuery.data ?? {
       departments: lookupData?.departments ?? [],
@@ -7930,8 +7968,15 @@ function OperationalWorkspace({
       values.amount = "0";
       values.decision_by = session?.name ?? "";
     }
-    if (name === "people" && tab.id === "leave" && session?.employeeId)
-      values.employee_id = session.employeeId;
+    if (
+      name === "people" &&
+      tab.id === "leave" &&
+      session?.role === "Nhân viên"
+    ) {
+      const currentEmployeeId =
+        employeeLeaveLookupQuery.data?.[0]?.employee_id ?? session.employeeId;
+      if (currentEmployeeId) values.employee_id = String(currentEmployeeId);
+    }
     if (name === "people" && tab.id === "leave") {
       values.leave_type = "ANNUAL";
       values.details_json = JSON.stringify([
@@ -9383,15 +9428,14 @@ function OperationalWorkspace({
                 <LeaveForm
                   values={formValues}
                   setValues={setFormValues}
-                  lookups={
-                    (lookupQuery.data ?? {
-                      departments: [],
-                      positions: [],
-                      employees: [],
-                      quotas: [],
-                    }) as RequestLookups
-                  }
+                  lookups={leaveFormLookups}
                   session={session}
+                  lookupsLoading={employeeLeaveLookupQuery.isLoading}
+                  lookupsError={
+                    employeeLeaveLookupQuery.error instanceof Error
+                      ? employeeLeaveLookupQuery.error.message
+                      : undefined
+                  }
                 />
               ) : tab.id === "employees" ? (
                 <EmployeeForm
