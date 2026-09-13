@@ -3396,6 +3396,7 @@ function EvaluationForm({
   setValues,
   lookups,
   session,
+  lookupsLoading = false,
 }: {
   values: Record<string, string>;
   setValues: (
@@ -3403,6 +3404,7 @@ function EvaluationForm({
   ) => void;
   lookups: EvaluationFormLookups;
   session: Session | null;
+  lookupsLoading?: boolean;
 }) {
   const [activeTab, setActiveTab] = useState<"general" | "detail">("general");
   const details = parseDetailList(values.details);
@@ -3482,6 +3484,11 @@ function EvaluationForm({
 
   return (
     <div className="space-y-5">
+      {lookupsLoading && (
+        <p className="rounded-xl border border-teal-100 bg-teal-50/60 p-3 text-xs text-teal-700">
+          Đang tải danh sách nhân viên và tiêu chí từ database...
+        </p>
+      )}
       <div className="flex gap-1 overflow-x-auto border-b border-slate-200">
         {[
           ["general", "1. Thông tin chung"],
@@ -5376,6 +5383,7 @@ function InterviewEvaluationForm({
   lookups,
   session,
   onViewCandidate,
+  lookupsLoading = false,
 }: {
   values: Record<string, string>;
   setValues: (
@@ -5384,6 +5392,7 @@ function InterviewEvaluationForm({
   lookups: EvaluationLookups;
   session: Session | null;
   onViewCandidate: (candidate: Row) => void;
+  lookupsLoading?: boolean;
 }) {
   const [activeTab, setActiveTab] = useState<
     "general" | "script" | "criteria" | "offer" | "assessment"
@@ -5501,6 +5510,11 @@ function InterviewEvaluationForm({
 
   return (
     <div className="space-y-5">
+      {lookupsLoading && (
+        <p className="rounded-xl border border-teal-100 bg-teal-50/60 p-3 text-xs text-teal-700">
+          Đang tải lịch phỏng vấn, ứng viên và hội đồng từ database...
+        </p>
+      )}
       <div className="flex gap-1 overflow-x-auto border-b border-slate-200">
         {[
           ["general", "1. Thông tin chung"],
@@ -5560,6 +5574,11 @@ function InterviewEvaluationForm({
                 </option>
               ))}
             </select>
+            {!lookups.schedules.length && (
+              <p className="mt-1 text-[11px] text-amber-600">
+                Chưa có lịch phỏng vấn trong database để lựa chọn.
+              </p>
+            )}
           </div>
           <div>
             <label className="mb-1.5 block text-xs font-bold text-slate-600">
@@ -5585,6 +5604,15 @@ function InterviewEvaluationForm({
                 </option>
               ))}
             </select>
+            {!values.schedule_id ? (
+              <p className="mt-1 text-[11px] text-slate-400">
+                Chọn lịch phỏng vấn trước để tải hội đồng.
+              </p>
+            ) : selectedSchedule && !evaluatorOptions.length ? (
+              <p className="mt-1 text-[11px] text-amber-600">
+                Lịch này chưa có thành viên hội đồng hợp lệ.
+              </p>
+            ) : null}
           </div>
           <div>
             <label className="mb-1.5 block text-xs font-bold text-slate-600">
@@ -7759,6 +7787,61 @@ function OperationalWorkspace({
     queryFn: () => api.list("/hr/employees/me", { resource }),
   });
 
+  const interviewEvaluationLookupQuery = useQuery<EvaluationLookups>({
+    queryKey: ["interview-evaluation-form-lookups"],
+    enabled: Boolean(
+      session &&
+        name === "recruitment" &&
+        tab.id === "interview-evaluations",
+    ),
+    queryFn: async () => {
+      const get = (path: string) =>
+        api.list(path, { resource }).catch(() => [] as Row[]);
+      const [schedules, candidates, employees, offers] = await Promise.all([
+        get("/recruitment/interview-schedules"),
+        get("/recruitment/candidates"),
+        get("/hr/employees"),
+        get("/recruitment/offers"),
+      ]);
+      return {
+        departments: [],
+        positions: [],
+        employees,
+        quotas: [],
+        requests: [],
+        plans: [],
+        candidates,
+        screenings: [],
+        decisions: [],
+        schedules,
+        offers,
+      };
+    },
+  });
+
+  const rewardEvaluationLookupQuery = useQuery<EvaluationFormLookups>({
+    queryKey: ["reward-evaluation-form-lookups"],
+    enabled: Boolean(
+      session && name === "rewards" && tab.id === "evaluations",
+    ),
+    queryFn: async () => {
+      const get = (path: string) =>
+        api.list(path, { resource }).catch(() => [] as Row[]);
+      const [employees, criteria] = await Promise.all([
+        get("/hr/employees"),
+        get("/reward-discipline/criteria"),
+      ]);
+      return {
+        departments: [],
+        positions: [],
+        employees,
+        quotas: [],
+        candidates: [],
+        criteria,
+      };
+    },
+  });
+
   const saveMutation = useMutation({
     mutationFn: async (values: Record<string, string>) => {
       const payload = toPayload(tab, values);
@@ -8015,6 +8098,29 @@ function OperationalWorkspace({
   });
 
   const lookupData = lookupQuery.data;
+  const interviewEvaluationLookups = (interviewEvaluationLookupQuery.data ??
+    lookupData ?? {
+      departments: [],
+      positions: [],
+      employees: [],
+      quotas: [],
+      requests: [],
+      plans: [],
+      candidates: [],
+      screenings: [],
+      decisions: [],
+      schedules: [],
+      offers: [],
+    }) as EvaluationLookups;
+  const rewardEvaluationLookups = (rewardEvaluationLookupQuery.data ??
+    lookupData ?? {
+      departments: [],
+      positions: [],
+      employees: [],
+      quotas: [],
+      candidates: [],
+      criteria: [],
+    }) as EvaluationFormLookups;
   const leaveFormEmployees =
     session?.role === "Nhân viên"
       ? (employeeLeaveLookupQuery.data ?? [])
@@ -8462,7 +8568,12 @@ function OperationalWorkspace({
       );
       values.year = String(currentDate.getFullYear());
       values.evaluator_id = session?.employeeId ?? "";
-      const criteria = lookupQuery.data?.criteria ?? [];
+      const criteria =
+        name === "rewards" && tab.id === "evaluations"
+          ? (rewardEvaluationLookupQuery.data?.criteria ??
+            lookupQuery.data?.criteria ??
+            [])
+          : (lookupQuery.data?.criteria ?? []);
       values.details = JSON.stringify(
         criteria.length
           ? criteria.map((item) => ({
@@ -8733,18 +8844,24 @@ function OperationalWorkspace({
     event.preventDefault();
     try {
       toPayload(tab, formValues);
-      const lookups = (lookupQuery.data ?? {
-        departments: [],
-        positions: [],
-        employees: [],
-        quotas: [],
-        requests: [],
-        plans: [],
-        candidates: [],
-        screenings: [],
-        decisions: [],
-        evaluations: [],
-      }) as DecisionLookups;
+      const lookupSource =
+        tab.id === "interview-evaluations"
+          ? interviewEvaluationLookups
+          : name === "rewards" && tab.id === "evaluations"
+            ? rewardEvaluationLookups
+            : (lookupQuery.data ?? {
+                departments: [],
+                positions: [],
+                employees: [],
+                quotas: [],
+                requests: [],
+                plans: [],
+                candidates: [],
+                screenings: [],
+                decisions: [],
+                evaluations: [],
+              });
+      const lookups = lookupSource as DecisionLookups;
       if (tab.id === "requests") {
         const missingRequestField = [
           "created_date",
@@ -9972,16 +10089,9 @@ function OperationalWorkspace({
                 <EvaluationForm
                   values={formValues}
                   setValues={setFormValues}
-                  lookups={
-                    (lookupQuery.data ?? {
-                      departments: [],
-                      positions: [],
-                      employees: [],
-                      quotas: [],
-                      criteria: [],
-                    }) as EvaluationFormLookups
-                  }
+                  lookups={rewardEvaluationLookups}
                   session={session}
+                  lookupsLoading={rewardEvaluationLookupQuery.isLoading}
                 />
               ) : tab.id === "proposals" && name === "rewards" ? (
                 <RewardProposalForm
@@ -10130,22 +10240,9 @@ function OperationalWorkspace({
                 <InterviewEvaluationForm
                   values={formValues}
                   setValues={setFormValues}
-                  lookups={
-                    (lookupQuery.data ?? {
-                      departments: [],
-                      positions: [],
-                      employees: [],
-                      quotas: [],
-                      requests: [],
-                      plans: [],
-                      candidates: [],
-                      screenings: [],
-                      decisions: [],
-                      schedules: [],
-                      offers: [],
-                    }) as EvaluationLookups
-                  }
+                  lookups={interviewEvaluationLookups}
                   session={session}
+                  lookupsLoading={interviewEvaluationLookupQuery.isLoading}
                   onViewCandidate={(candidate) => {
                     setShowForm(false);
                     router.push(`/recruitment/candidates/${String(candidate.candidate_id ?? "")}`);

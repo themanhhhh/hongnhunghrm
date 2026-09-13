@@ -540,7 +540,7 @@ router.get('/dashboard/hr', async (req, res) => {
         const recruitingRequestsCount = (await queryOne(`SELECT COUNT(*) as c FROM RecruitmentRequest WHERE status IN ('APPROVED', 'IN_PROGRESS', 'RECRUITING')`))?.c || 0;
         const totalCandidates = (await queryOne(`SELECT COUNT(*) as c FROM Candidate`))?.c || 0;
         const processingCandidates = (await queryOne(`SELECT COUNT(*) as c FROM Candidate WHERE status NOT IN (N'đi làm', N'đã quyết định loại', 'HIRED', 'REJECTED', 'OFFER_REJECTED')`))?.c || 0;
-        const upcomingInterviewsCount = (await queryOne(`SELECT COUNT(*) as c FROM InterviewSchedule WHERE status = 'Đã lên lịch'`))?.c || 0;
+        const upcomingInterviewsCount = (await queryOne(`SELECT COUNT(*) as c FROM InterviewSchedule WHERE status = N'Đã lên lịch'`))?.c || 0;
         const pendingOffersCount = (await queryOne(`SELECT COUNT(*) as c FROM Offer WHERE offer_status IN ('SENT', 'PENDING')`))?.c || 0;
         const currentEmployees = (await queryOne(`SELECT COUNT(*) as c FROM Employee WHERE is_active = 1 AND employment_status = 'WORKING'`))?.c || 0;
         const headcountTarget = (await queryOne(`SELECT COALESCE(SUM(target_headcount), 0) as c FROM Position WHERE status = 1`))?.c || 0;
@@ -660,7 +660,7 @@ router.get('/dashboard/hr', async (req, res) => {
 
         const upcomingInterviewsList = await query(
              `SELECT TOP (5) schedule_id as id, schedule_code as code, round_type as roundType, format_type as formatType, location, start_time
-              FROM InterviewSchedule WHERE status = 'Đã lên lịch' ORDER BY start_time ASC`
+              FROM InterviewSchedule WHERE status = N'Đã lên lịch' ORDER BY start_time ASC`
         );
 
         const pendingOffersList = await query(
