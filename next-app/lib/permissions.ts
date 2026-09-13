@@ -36,7 +36,7 @@ export const DEMO_USERS: Array<Session & { password: string }> = [
 ];
 
 const resourceRoles: Record<Resource, Role[]> = {
-  dashboard: ["Administrator", "HR Staff", "Ban Giám Đốc", "Trưởng Khối", "Trưởng Phòng", "Nhân viên"],
+  dashboard: ["Administrator", "HR Staff", "Ban Giám Đốc", "Trưởng Khối", "Trưởng Phòng"],
   admin: ["Administrator"],
   recruitment: ["Administrator", "HR Staff", "Ban Giám Đốc", "Trưởng Khối", "Trưởng Phòng"],
   people: ["Administrator", "HR Staff", "Ban Giám Đốc", "Trưởng Khối", "Trưởng Phòng", "Nhân viên"],
@@ -47,7 +47,7 @@ const resourceRoles: Record<Resource, Role[]> = {
 
 export function canAccess(session: Session | null, resource: Resource, action: Action = "view") {
   if (!session || !resourceRoles[resource].includes(session.role)) return false;
-  if (session.role === "Nhân viên") return resource === "dashboard" || resource === "leave" || (resource === "people" && action === "view");
+  if (session.role === "Nhân viên") return resource === "leave" || (resource === "people" && action === "view");
   if (resource === "rewards" && action === "create") {
     return ["Administrator", "HR Staff", "Ban Giám Đốc", "Trưởng Khối", "Trưởng Phòng"].includes(session.role);
   }

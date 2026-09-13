@@ -122,6 +122,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     }, 0);
     return () => window.clearTimeout(redirectTimer);
   }, [router, session]);
+  useEffect(() => {
+    if (session?.role === "Nhân viên" && pathname === "/dashboard") {
+      router.replace("/people?tab=employees");
+    }
+  }, [pathname, router, session]);
   const visibleNav = navItems.filter((item) =>
     canAccess(session, item.resource),
   );
@@ -131,6 +136,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const routeDenied = routeResource && !canAccess(session, routeResource);
   const currentTab = searchParams.get("tab");
   const currentNav = navItems.find((item) => pathname.startsWith(item.href));
+  const homePath = session?.role === "Nhân viên" ? "/people?tab=employees" : "/dashboard";
   const currentSubLabel = currentNav?.subItems?.find(
     (item) => item.id === currentTab,
   )?.label;
@@ -160,7 +166,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       >
         <div className="flex h-[86px] items-center justify-between border-b border-white/10 px-5">
           <Link
-            href="/dashboard"
+            href={homePath}
             className="flex items-center gap-3"
             onClick={() => setMobileOpen(false)}
           >
@@ -357,9 +363,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               </p>
               <Button
                 className="mt-5"
-                onClick={() => router.push("/dashboard")}
+                onClick={() => router.push(homePath)}
               >
-                Về tổng quan
+                Về trang chính
               </Button>
             </div>
           ) : (
