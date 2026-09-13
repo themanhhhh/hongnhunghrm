@@ -1,5 +1,6 @@
 const crypto = require('crypto');
 const { exec, query, queryOne, run } = require('./connection');
+const { annualLeaveEntitlement } = require('../services/leave-policy');
 
 const identifier = (name) => `[${name.replace(/]/g, ']]')}]`;
 
@@ -891,12 +892,10 @@ async function initSchema() {
         const employees = await query(`SELECT employee_id, join_date FROM [Employee] WHERE is_active = 1 AND employment_status = 'WORKING'`);
         for (const employee of employees) {
             const joinedAt = Number(employee.join_date || yearStart);
-            const joinDate = new Date(joinedAt);
-            const monthsEligible = joinDate.getFullYear() > leaveYear ? 0 : joinDate.getFullYear() < leaveYear ? 12 : 12 - joinDate.getMonth();
-            const entitlement = monthsEligible;
+            const entitlement = annualLeaveEntitlement(joinedAt, leaveYear);
             const usage = await queryOne(
                 `SELECT COALESCE(SUM(total_days), 0) AS used_days FROM [LeaveApplication]
-                 WHERE employee_id = ? AND status = 'APPROVED' AND start_date >= ? AND start_date < ?`,
+                 WHERE employee_id = ? AND leave_type = 'ANNUAL' AND status = 'APPROVED' AND start_date >= ? AND start_date < ?`,
                 [employee.employee_id, yearStart, nextYearStart]
             );
             const usedDays = Number(usage?.used_days || 0);
@@ -912,6 +911,69 @@ async function initSchema() {
             }
         }
         await run('INSERT INTO [SchemaMigration] (migration_key, applied_date) VALUES (?, ?)', [leaveBalanceMigrationKey, Date.now()]);
+    }
+
+    const leaveBalancePolicyMigrationKey = 'recalculate-annual-leave-balances-v2';
+    if (!(await queryOne('SELECT migration_key FROM [SchemaMigration] WHERE migration_key = ?', [leaveBalancePolicyMigrationKey]))) {
+        const leaveYear = new Date().getFullYear();
+        const yearStart = new Date(Date.UTC(leaveYear, 0, 1)).getTime();
+        const nextYearStart = new Date(Date.UTC(leaveYear + 1, 0, 1)).getTime();
+        const balances = await query(
+            `SELECT b.leave_balance_id, b.employee_id, b.leave_year, e.join_date
+             FROM [EmployeeLeaveBalance] b
+             INNER JOIN [Employee] e ON e.employee_id = b.employee_id`
+        );
+
+        for (const balance of balances) {
+            const balanceYear = Number(balance.leave_year);
+            const balanceYearStart = new Date(Date.UTC(balanceYear, 0, 1)).getTime();
+            const balanceNextYearStart = new Date(Date.UTC(balanceYear + 1, 0, 1)).getTime();
+            const used = await queryOne(
+                `SELECT COALESCE(SUM(total_days), 0) AS used_days
+                 FROM [LeaveApplication]
+                 WHERE employee_id = ? AND leave_type = 'ANNUAL' AND status = 'APPROVED'
+                   AND (leave_year = ? OR (leave_year IS NULL AND start_date >= ? AND start_date < ?))`,
+                [balance.employee_id, balanceYear, balanceYearStart, balanceNextYearStart]
+            );
+            const entitlement = annualLeaveEntitlement(balance.join_date, balanceYear);
+            const usedDays = Number(used?.used_days || 0);
+            await run(
+                `UPDATE [EmployeeLeaveBalance]
+                 SET entitled_days = ?, carried_forward_days = 0, used_days = ?, remaining_days = ?,
+                     calculation_note = ?, last_calculated_date = ?, last_modified_date = ?
+                 WHERE leave_balance_id = ?`,
+                [entitlement, usedDays, Math.max(0, entitlement - usedDays), '12 ngày/năm, tính theo tháng vào làm và không chuyển phép sang năm sau.', Date.now(), Date.now(), balance.leave_balance_id]
+            );
+        }
+
+        const activeEmployees = await query(
+            `SELECT employee_id, join_date FROM [Employee]
+             WHERE is_active = 1 AND employment_status = 'WORKING'`
+        );
+        for (const employee of activeEmployees) {
+            const exists = await queryOne(
+                'SELECT leave_balance_id FROM [EmployeeLeaveBalance] WHERE employee_id = ? AND leave_year = ?',
+                [employee.employee_id, leaveYear]
+            );
+            if (exists) continue;
+            const entitlement = annualLeaveEntitlement(employee.join_date, leaveYear);
+            const used = await queryOne(
+                `SELECT COALESCE(SUM(total_days), 0) AS used_days
+                 FROM [LeaveApplication]
+                 WHERE employee_id = ? AND leave_type = 'ANNUAL' AND status = 'APPROVED'
+                   AND (leave_year = ? OR (leave_year IS NULL AND start_date >= ? AND start_date < ?))`,
+                [employee.employee_id, leaveYear, yearStart, nextYearStart]
+            );
+            const usedDays = Number(used?.used_days || 0);
+            const now = Date.now();
+            await run(
+                `INSERT INTO [EmployeeLeaveBalance]
+                 (leave_balance_id, employee_id, leave_year, entitled_days, carried_forward_days, used_days, remaining_days, calculation_note, last_calculated_date, created_date, last_modified_date)
+                 VALUES (?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?)`,
+                [crypto.randomUUID(), employee.employee_id, leaveYear, entitlement, usedDays, Math.max(0, entitlement - usedDays), '12 ngày/năm, tính theo tháng vào làm và không chuyển phép sang năm sau.', now, now, now]
+            );
+        }
+        await run('INSERT INTO [SchemaMigration] (migration_key, applied_date) VALUES (?, ?)', [leaveBalancePolicyMigrationKey, Date.now()]);
     }
 
     if (await tableExists('DepartmentQuotaDetail')) {

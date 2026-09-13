@@ -4,6 +4,7 @@ const { run, query, queryOne } = require("./connection");
 const { initSchema } = require("./schema");
 const bcrypt = require("bcryptjs");
 const crypto = require("crypto");
+const { annualLeaveEntitlement } = require("../services/leave-policy");
 
 const seedData = async (forceClear = false) => {
   console.log("Starting BRAVO HRM Comprehensive System Seeding...");
@@ -4658,13 +4659,7 @@ const seedData = async (forceClear = false) => {
       )
     )
       continue;
-    const joined = new Date(Number(employee.join_date || now));
-    const entitlement =
-      joined.getFullYear() < annualLeaveYear
-        ? 12
-        : joined.getFullYear() > annualLeaveYear
-          ? 0
-          : 12 - joined.getMonth();
+    const entitlement = annualLeaveEntitlement(employee.join_date || now, annualLeaveYear);
     const used = await queryOne(
       `SELECT COALESCE(SUM(total_days), 0) AS used_days FROM LeaveApplication WHERE employee_id = ? AND leave_year = ? AND leave_type = 'ANNUAL' AND status = 'APPROVED'`,
       [employee.employee_id, annualLeaveYear],

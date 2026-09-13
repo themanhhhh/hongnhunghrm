@@ -370,10 +370,19 @@ function saveStore(store: MockStore) {
   if (typeof window !== "undefined") window.localStorage.setItem(MOCK_STORE_KEY, JSON.stringify(store));
 }
 
-export function mockUploadEmployeeAvatar(employeeId: string, file: File) {
+function fileAsDataUrl(file: File) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(reader.error ?? new Error("Không thể đọc ảnh hồ sơ."));
+    reader.readAsDataURL(file);
+  });
+}
+
+export async function mockUploadEmployeeAvatar(employeeId: string, file: File) {
   const store = loadStore();
   const employee = store["/hr/employees"].find((item) => String(item.employee_id) === employeeId);
-  const avatarUrl = URL.createObjectURL(file);
+  const avatarUrl = await fileAsDataUrl(file);
   if (employee) {
     employee.avatar_url = avatarUrl;
     saveStore(store);
@@ -679,6 +688,61 @@ function normalized(value: unknown) {
   return String(value ?? "").trim().toLocaleLowerCase();
 }
 
+const ANNUAL_LEAVE_DAYS = 12;
+
+function annualLeaveEntitlement(joinDate: unknown, leaveYear: number) {
+  const raw = String(joinDate ?? "").trim();
+  const numeric = Number(raw);
+  const timestamp = raw && Number.isFinite(numeric) ? numeric : Date.parse(raw);
+  const joined = new Date(timestamp);
+  if (Number.isNaN(joined.getTime())) return ANNUAL_LEAVE_DAYS;
+  if (joined.getUTCFullYear() < leaveYear) return ANNUAL_LEAVE_DAYS;
+  if (joined.getUTCFullYear() > leaveYear) return 0;
+  return ANNUAL_LEAVE_DAYS - joined.getUTCMonth();
+}
+
+function leaveDaysFromInput(totalDays: unknown, details: unknown) {
+  const detailDays = Array.isArray(details)
+    ? details.reduce((sum, item) => sum + (Number((item as MockRow)?.days) || 0), 0)
+    : 0;
+  return detailDays || Number(totalDays) || 1;
+}
+
+function leaveYearFromInput(value: unknown) {
+  const raw = String(value ?? "").trim();
+  const numeric = Number(raw);
+  const timestamp = raw && Number.isFinite(numeric) ? numeric : Date.parse(raw);
+  const date = new Date(timestamp);
+  return Number.isNaN(date.getTime()) ? new Date().getUTCFullYear() : date.getUTCFullYear();
+}
+
+function mockAnnualLeaveBalance(store: MockStore, employeeId: string, leaveYear: number) {
+  const employee = store["/hr/employees"].find(
+    (item) => String(item.employee_id ?? "") === employeeId,
+  );
+  const entitlement = annualLeaveEntitlement(employee?.join_date, leaveYear);
+  const leaves = store["/hr/leave-applications"].filter(
+    (item) =>
+      String(item.employee_id ?? "") === employeeId &&
+      String(item.leave_type ?? "ANNUAL").toUpperCase() === "ANNUAL" &&
+      leaveYearFromInput(item.start_date) === leaveYear,
+  );
+  const usedDays = leaves
+    .filter((item) => String(item.status ?? "").toUpperCase() === "APPROVED")
+    .reduce((sum, item) => sum + Number(item.total_days ?? 0), 0);
+  const reservedDays = leaves
+    .filter((item) => !["REJECTED", "CANCELLED"].includes(String(item.status ?? "").toUpperCase()))
+    .reduce((sum, item) => sum + Number(item.total_days ?? 0), 0);
+  const pendingDays = Math.max(0, reservedDays - usedDays);
+  return {
+    entitledDays: entitlement,
+    usedDays,
+    pendingDays,
+    remainingDays: Math.max(0, entitlement - usedDays),
+    availableDays: Math.max(0, entitlement - reservedDays),
+  };
+}
+
 function duplicateCandidate(
   candidates: MockRow[],
   payload: MockRow,
@@ -762,6 +826,36 @@ export async function mockApiRequest<T>(path: string, init: RequestInit = {}, se
       })
     : rows;
 
+  const leaveBalanceMatch = pathname.match(/^\/hr\/employees\/([^/]+)\/leave-balance$/);
+  if (leaveBalanceMatch && method === "GET") {
+    const employeeId = leaveBalanceMatch[1];
+    const employee = store["/hr/employees"].find(
+      (item) => String(item.employee_id ?? "") === employeeId,
+    );
+    if (!employee) return envelope(null) as T;
+    const privileged = [
+      "Administrator",
+      "HR Staff",
+      "Ban Giám Đốc",
+      "Trưởng Khối",
+      "Trưởng Phòng",
+    ].includes(session?.role ?? "");
+    if (!privileged && String(session?.employeeId ?? "") !== employeeId) {
+      return failure("Bạn không có quyền xem số dư phép của nhân viên khác.") as T;
+    }
+    const leaveYear = Number(queryFilters.year) || new Date().getUTCFullYear();
+    const balance = mockAnnualLeaveBalance(store, employeeId, leaveYear);
+    return envelope({
+      employee_id: employeeId,
+      leave_year: leaveYear,
+      entitled_days: balance.entitledDays,
+      used_days: balance.usedDays,
+      pending_days: balance.pendingDays,
+      remaining_days: balance.remainingDays,
+      available_days: balance.availableDays,
+    }) as T;
+  }
+
   if (path === "/hr/employees/me" && method === "GET") {
     const employee = store["/hr/employees"].find((row) => row.employee_id === "emp-kd-02") ?? store["/hr/employees"][0];
     return envelope(employee ?? null) as T;
@@ -785,6 +879,84 @@ export async function mockApiRequest<T>(path: string, init: RequestInit = {}, se
   }
 
   const payload = payloadFor(init);
+  if (route === "/hr/leave-applications" && method === "POST") {
+    const privileged = ["Administrator", "HR Staff"].includes(session?.role ?? "");
+    const employeeId = privileged
+      ? String(payload.employee_id ?? session?.employeeId ?? "")
+      : String(session?.employeeId ?? payload.employee_id ?? "");
+    const employee = store["/hr/employees"].find(
+      (item) => String(item.employee_id ?? "") === employeeId,
+    );
+    if (!employee) return failure("Không tìm thấy nhân viên lập đơn nghỉ phép.") as T;
+
+    const leaveType = String(payload.leave_type ?? "ANNUAL").toUpperCase();
+    if (!["ANNUAL", "SICK", "MATERNITY", "UNPAID"].includes(leaveType)) {
+      return failure("Loại nghỉ phép không hợp lệ.") as T;
+    }
+    const details = parseDetailList(payload.details_json);
+    const requestedDays = leaveDaysFromInput(payload.total_days, details);
+    const startDate = payload.start_date ?? new Date().toISOString().slice(0, 10);
+    const endDate = payload.end_date ?? startDate;
+    const leaveYear = leaveYearFromInput(startDate);
+    const balance = mockAnnualLeaveBalance(store, employeeId, leaveYear);
+    const reservedBefore = balance.usedDays + balance.pendingDays;
+    if (leaveType === "ANNUAL" && requestedDays > balance.availableDays) {
+      return failure(
+        `Số ngày phép yêu cầu vượt quá số phép còn lại (${balance.availableDays} ngày).`,
+      ) as T;
+    }
+
+    const now = Date.now();
+    const newRow = {
+      ...payload,
+      leave_id: String(payload.leave_id ?? `mock-leave-${now}`),
+      leave_code: String(
+        payload.leave_code ??
+          `DXNP/${String(new Date().getUTCFullYear()).slice(-2)}-${String(rows.length + 1).padStart(3, "0")}`,
+      ),
+      employee_id: employeeId,
+      employee_code: employee.employee_code,
+      employee_name: employee.full_name,
+      department_id: employee.department_id,
+      department_name: employee.department_name,
+      start_date: startDate,
+      end_date: endDate,
+      total_days: requestedDays,
+      leave_type: leaveType,
+      leave_year: leaveYear,
+      entitled_days: leaveType === "ANNUAL" ? balance.entitledDays : null,
+      used_days_before: leaveType === "ANNUAL" ? reservedBefore : null,
+      remaining_days_before: leaveType === "ANNUAL" ? balance.availableDays : null,
+      remaining_days_after: leaveType === "ANNUAL" ? balance.availableDays - requestedDays : null,
+      created_date: now,
+      last_modified_date: now,
+      status: "PENDING",
+    };
+    rows.unshift(newRow);
+    store[route] = rows;
+    saveStore(store);
+    return envelope(newRow) as T;
+  }
+
+  if (route === "/hr/leave-applications" && id && action === "approve" && method === "PUT") {
+    const row = rows.find((item) => String(item[idField]) === id);
+    if (!row) return failure("Không tìm thấy đơn nghỉ phép.") as T;
+    const status = String(payload.status ?? "APPROVED").toUpperCase() === "REJECTED"
+      ? "REJECTED"
+      : "APPROVED";
+    Object.assign(row, payload, { status, last_modified_date: Date.now() });
+    if (status === "APPROVED" && String(row.leave_type ?? "").toUpperCase() === "ANNUAL") {
+      const balance = mockAnnualLeaveBalance(
+        store,
+        String(row.employee_id ?? ""),
+        Number(row.leave_year) || leaveYearFromInput(row.start_date),
+      );
+      row.remaining_days_after = balance.remainingDays;
+    }
+    saveStore(store);
+    return envelope(row) as T;
+  }
+
   if (route === "/recruitment/interview-schedules" && (method === "POST" || method === "PUT")) {
     const candidateIds = parseDetailList(payload.candidates ?? payload.candidates_json)
       .map((item) => String(item.candidate_id ?? item.id ?? ""))

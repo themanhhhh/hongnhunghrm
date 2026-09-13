@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import {
   startTransition,
+  useRef,
   useState,
   useSyncExternalStore,
   useEffect,
@@ -4275,6 +4276,31 @@ function EmployeeForm({
   const [activeTab, setActiveTab] = useState<
     "general" | "contact" | "onboarding" | "additional"
   >("general");
+  const [avatarPreviewUrl, setAvatarPreviewUrl] = useState<string | undefined>(
+    avatarUrl,
+  );
+  const avatarPreviewUrlRef = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    return () => {
+      if (avatarPreviewUrlRef.current) {
+        URL.revokeObjectURL(avatarPreviewUrlRef.current);
+      }
+    };
+  }, []);
+  const handleAvatarChange = (file: File | null) => {
+    if (avatarPreviewUrlRef.current) {
+      URL.revokeObjectURL(avatarPreviewUrlRef.current);
+      avatarPreviewUrlRef.current = undefined;
+    }
+    if (file) {
+      const previewUrl = URL.createObjectURL(file);
+      avatarPreviewUrlRef.current = previewUrl;
+      setAvatarPreviewUrl(previewUrl);
+    } else {
+      setAvatarPreviewUrl(avatarUrl);
+    }
+    onAvatarChange(file);
+  };
   const set = (name: string, value: string) =>
     setValues((current) => ({ ...current, [name]: value }));
   const department = lookups.departments.find(
@@ -4346,7 +4372,7 @@ function EmployeeForm({
       <div className="flex items-center gap-4 rounded-xl border border-slate-100 bg-slate-50/70 p-4">
         <EmployeeAvatar
           name={values.full_name || "Nhân viên"}
-          avatarUrl={avatarUrl}
+          avatarUrl={avatarPreviewUrl}
           className="size-16 text-base"
         />
         <div className="flex-1">
@@ -4359,7 +4385,7 @@ function EmployeeForm({
             accept="image/jpeg,image/png,image/webp"
             className="mt-2 h-9 max-w-sm py-1.5 text-xs"
             onChange={(event) =>
-              onAvatarChange(event.target.files?.[0] ?? null)
+              handleAvatarChange(event.target.files?.[0] ?? null)
             }
           />
           {avatarFile && (
@@ -6922,7 +6948,7 @@ function EmployeeAvatarUploader({
           Ảnh hồ sơ
         </div>
         <p className="mt-1 text-xs leading-5 text-slate-500">
-          JPEG, PNG hoặc WebP, tối đa 5 MB. Ảnh được lưu trên Pinata/IPFS.
+          JPEG, PNG hoặc WebP, tối đa 5 MB. Ảnh sẽ được lưu cùng hồ sơ nhân sự.
         </p>
         {uploadError && (
           <p className="mt-2 text-xs font-medium text-rose-700">
@@ -7148,6 +7174,25 @@ function OperationalWorkspace({
         criteria,
         rewardProposals,
       };
+    },
+  });
+
+  const leaveEmployeeId =
+    tab.id === "leave" ? String(formValues.employee_id ?? "") : "";
+  const parsedLeaveYear = Number(String(formValues.start_date ?? "").slice(0, 4));
+  const leaveYear =
+    Number.isInteger(parsedLeaveYear) && parsedLeaveYear > 1900
+      ? parsedLeaveYear
+      : new Date().getFullYear();
+  const leaveBalanceQuery = useQuery({
+    queryKey: ["leave-balance", leaveEmployeeId, leaveYear],
+    enabled: Boolean(session && showForm && leaveEmployeeId),
+    queryFn: async () => {
+      const rows = await api.list(
+        `/hr/employees/${encodeURIComponent(leaveEmployeeId)}/leave-balance?year=${leaveYear}`,
+        { resource },
+      );
+      return rows[0] ?? null;
     },
   });
 
@@ -9192,9 +9237,10 @@ function OperationalWorkspace({
                       employees: [],
                       quotas: [],
                     }) as RequestLookups
-                  }
-                  session={session}
-                />
+                   }
+                   session={session}
+                   leaveBalance={leaveBalanceQuery.data ?? null}
+                 />
               ) : tab.id === "transfer-decisions" ? (
                 <TransferDecisionForm
                   values={formValues}
@@ -9515,11 +9561,11 @@ function OperationalWorkspace({
                           ? { ...current, avatar_url: avatarUrl }
                           : current,
                       );
-                      showPopup(
-                        "success",
-                        "Thành công",
-                        "Đã cập nhật ảnh hồ sơ trên Pinata.",
-                      );
+                       showPopup(
+                         "success",
+                         "Thành công",
+                         "Đã cập nhật ảnh hồ sơ.",
+                       );
                       queryClient.invalidateQueries({
                         queryKey: ["workspace", name],
                       });

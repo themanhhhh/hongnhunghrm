@@ -1,5 +1,7 @@
 'use strict';
 
+const { annualLeaveEntitlement } = require('../services/leave-policy');
+
 const AS_OF = '2026-09-12';
 const MAX_DATE = Date.UTC(2026, 8, 12, 23, 59, 59, 999);
 
@@ -762,13 +764,14 @@ function buildDatasetV2({ passwordHash = 'RUNTIME_BCRYPT_HASH' } = {}) {
         const leaveType = ['ANNUAL', 'SICK', 'UNPAID', 'MATERNITY'][index % 4];
         const start = date(`2026-0${(index % 8) + 1}-${String((index % 20) + 1).padStart(2, '0')}`);
         const totalDays = index % 3 === 0 ? 2 : 1;
-        const before = 12;
+        const entitlement = annualLeaveEntitlement(employee.join_date, 2026);
+        const before = leaveType === 'ANNUAL' ? entitlement : null;
         return {
             leave_id: `leave-extra-${number}`, ...stamp(`2026-0${(index % 8) + 1}-${String((index % 20) + 1).padStart(2, '0')}`), leave_code: `P-2026-${number}`,
             employee_id: employee.employee_id, employee_code: employee.employee_code, employee_name: employee.full_name, department_id: employee.department_id,
             department_name: 'Phong ban BRAVO', approver_id: 'emp-004', approver_name: 'Le Hoang Nam', related_person_id: null, related_person_name: null,
             start_date: start, end_date: start + (totalDays - 1) * 86400000, total_days: totalDays, leave_type: leaveType, leave_year: 2026,
-            entitled_days: 12, used_days_before: 0, remaining_days_before: before, remaining_days_after: before - totalDays, reason: 'Nghi phep theo ke hoach',
+            entitled_days: leaveType === 'ANNUAL' ? entitlement : null, used_days_before: leaveType === 'ANNUAL' ? 0 : null, remaining_days_before: before, remaining_days_after: before === null ? null : before - totalDays, reason: 'Nghi phep theo ke hoach',
             details_json: json({ handover: 'Da phan cong nguoi thay the' }), approver_note: null, status: ['APPROVED', 'PENDING', 'REJECTED'][index % 3]
         };
     }));

@@ -6,6 +6,7 @@ const { query, queryOne, run } = require('../db/connection');
 const { authenticateToken, authorizeRole } = require('../middleware/auth');
 const approvalWorkflow = require('../services/approvalWorkflow');
 const { PinataService } = require('../services/pinata.service');
+const { annualLeaveEntitlement } = require('../services/leave-policy');
 
 router.use(authenticateToken);
 
@@ -157,6 +158,49 @@ async function getEmployeeDetail(req, res) {
         }
     });
 }
+
+router.get('/employees/:id/leave-balance', async (req, res) => {
+    try {
+        const isPrivileged = ['Administrator', 'HR Staff', 'Ban Giám Đốc', 'Trưởng Khối', 'Trưởng Phòng'].includes(req.user.roleName);
+        if (!isPrivileged && req.params.id !== req.user.employeeId) {
+            return res.status(403).json({ success: false, message: 'Bạn không có quyền xem số dư phép của nhân viên khác.' });
+        }
+
+        const employee = await queryOne('SELECT employee_id FROM Employee WHERE employee_id = ?', [req.params.id]);
+        if (!employee) return res.status(404).json({ success: false, message: 'Không tìm thấy hồ sơ nhân viên.' });
+
+        const requestedYear = Number(req.query.year);
+        const leaveYear = Number.isInteger(requestedYear) && requestedYear > 1900
+            ? requestedYear
+            : new Date().getFullYear();
+        const now = Date.now();
+        const balance = await refreshAnnualLeaveBalance(req.params.id, leaveYear, now);
+        const pending = await queryOne(
+            `SELECT COALESCE(SUM(total_days), 0) AS pending_days
+             FROM LeaveApplication
+             WHERE employee_id = ? AND leave_type = 'ANNUAL' AND status NOT IN ('REJECTED', 'CANCELLED')
+               AND (leave_year = ? OR (leave_year IS NULL AND start_date >= ? AND start_date < ?))`,
+            [req.params.id, leaveYear, new Date(leaveYear, 0, 1).getTime(), new Date(leaveYear + 1, 0, 1).getTime()]
+        );
+        const pendingDays = Number(pending?.pending_days || 0);
+        const entitledDays = Number(balance.entitled_days || 0);
+
+        return res.json({
+            success: true,
+            data: {
+                employee_id: req.params.id,
+                leave_year: leaveYear,
+                entitled_days: entitledDays,
+                used_days: Number(balance.used_days || 0),
+                pending_days: Math.max(0, pendingDays - Number(balance.used_days || 0)),
+                remaining_days: Number(balance.remaining_days || 0),
+                available_days: Math.max(0, entitledDays - pendingDays)
+            }
+        });
+    } catch (error) {
+        return res.status(500).json({ success: false, message: error.message });
+    }
+});
 
 router.post('/employees', authorizeRole('Administrator', 'HR Staff'), async (req, res) => {
     try {
@@ -1565,13 +1609,6 @@ function leaveDaysFromInput(totalDays, details) {
         ? details.reduce((sum, item) => sum + (Number(item?.days) || 0), 0)
         : 0;
     return detailDays || Number(totalDays) || 1;
-}
-
-function annualLeaveEntitlement(joinDate, leaveYear) {
-    const joined = new Date(Number(joinDate));
-    if (Number.isNaN(joined.getTime()) || joined.getFullYear() < leaveYear) return 12;
-    if (joined.getFullYear() > leaveYear) return 0;
-    return 12 - joined.getMonth();
 }
 
 async function ensureAnnualLeaveBalance(employeeId, leaveYear, now) {

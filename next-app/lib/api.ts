@@ -473,14 +473,16 @@ export const api = {
         body: formData,
       });
       const body = await response.json().catch(() => null) as ApiEnvelope<{ avatarUrl: string }> | null;
-      if (response.status >= 500) return { avatarUrl: URL.createObjectURL(file) };
+      if (response.status >= 500) {
+        return mockUploadEmployeeAvatar(employeeId, file);
+      }
       if (!response.ok || !body?.success || !body.data?.avatarUrl) {
         throw new ApiError(body?.message ?? "Không thể tải ảnh hồ sơ.", response.status);
       }
       return body.data;
     } catch (error) {
       if (error instanceof ApiError && error.status < 500) throw error;
-      return { avatarUrl: URL.createObjectURL(file) };
+      return mockUploadEmployeeAvatar(employeeId, file);
     }
   },
   async uploadInterviewFile(file: File) {

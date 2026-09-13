@@ -11,6 +11,7 @@ const {
     CANDIDATE_STATUS_VALUES,
     buildDatasetV2
 } = require('./dataset-v2');
+const { annualLeaveEntitlement } = require('../services/leave-policy');
 
 const futureDateAllowed = new Set([
     'Employee.citizen_expiry_date',
@@ -200,6 +201,10 @@ function validateDatasetV2(dataset = buildDatasetV2()) {
     for (const balance of rows('EmployeeLeaveBalance')) {
         const expected = Number(balance.entitled_days) + Number(balance.carried_forward_days) - Number(balance.used_days);
         if (Number(balance.remaining_days) !== expected) errors.push(`EmployeeLeaveBalance.${balance.leave_balance_id}: remaining_days is inconsistent`);
+        const employee = one('Employee', (row) => row.employee_id === balance.employee_id);
+        if (employee && Number(balance.entitled_days) !== annualLeaveEntitlement(employee.join_date, balance.leave_year)) {
+            errors.push(`EmployeeLeaveBalance.${balance.leave_balance_id}: entitled_days does not match the annual leave policy`);
+        }
     }
 
     for (const approval of rows('ApprovalHistory')) {
