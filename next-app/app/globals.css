@@ -110,6 +110,21 @@
 .legacy-signatures { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-top: 3.5rem; color: #475569; font-size: 0.8rem; text-align: center; }
 .legacy-signatures span { display: block; margin-top: 0.25rem; font-size: 0.725rem; font-style: italic; }
 
+.recruitment-result-table-section { margin-top: 1.5rem; color: #111; }
+.recruitment-result-table-title { margin-bottom: 0.45rem; font-family: "Times New Roman", Times, serif; font-size: 1.1rem; line-height: 1.2; }
+.recruitment-result-table-wrap { overflow-x: auto; }
+.recruitment-result-table { width: 100%; min-width: 980px; border-collapse: collapse; table-layout: fixed; font-family: "Times New Roman", Times, serif; font-size: 1rem; line-height: 1.15; color: #111; }
+.recruitment-result-table col.recruitment-col-stt { width: 8%; }
+.recruitment-result-table col.recruitment-col-position { width: 9%; }
+.recruitment-result-table col.recruitment-col-required { width: 12.5%; }
+.recruitment-result-table col.recruitment-col-rate { width: 11.5%; }
+.recruitment-result-table col.recruitment-col-applied, .recruitment-result-table col.recruitment-col-passed, .recruitment-result-table col.recruitment-col-onboarded { width: 11.5%; }
+.recruitment-result-table th, .recruitment-result-table td { border: 2px solid #111; padding: 0.65rem 0.7rem; text-align: left; vertical-align: top; }
+.recruitment-result-table th { background: #fff; font-weight: 400; }
+.recruitment-result-table td { vertical-align: middle; }
+.recruitment-table-center { text-align: center !important; }
+.recruitment-table-number { text-align: center !important; }
+
 ::selection { background: #99f6e4; color: #0f172a; }
 
 @media print {
@@ -119,6 +134,7 @@
   .legacy-report-toolbar, .legacy-filter-banner { display: none !important; }
   .legacy-report-preview-container { border: 0 !important; padding: 0 !important; }
   .legacy-a4-preview-paper { max-width: none; min-height: 0; box-shadow: none; }
+  .recruitment-result-table { min-width: 0; }
 }
 
 @media (max-width: 700px) {

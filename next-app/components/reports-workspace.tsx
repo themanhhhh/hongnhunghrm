@@ -162,6 +162,134 @@ function escapeHtml(value: unknown) {
     .replaceAll('"', "&quot;");
 }
 
+function recruitmentRate(numerator: unknown, denominator: unknown) {
+  const top = Number(numerator ?? 0);
+  const bottom = Number(denominator ?? 0);
+  if (!Number.isFinite(top) || !Number.isFinite(bottom) || bottom <= 0)
+    return "0.00%";
+  return `${((top / bottom) * 100).toFixed(2)}%`;
+}
+
+function RecruitmentResultTable({
+  rows,
+  page,
+  pageSize,
+  preview = false,
+}: {
+  rows: Array<Record<string, unknown>>;
+  page: number;
+  pageSize: number;
+  preview?: boolean;
+}) {
+  const displayRows = preview ? Array.from({ length: 7 }, () => null) : rows;
+  const cellValue = (row: Record<string, unknown> | null, key: string) =>
+    preview ? "abc" : formatValue(row?.[key], key);
+  const rateValue = (
+    row: Record<string, unknown> | null,
+    numerator: string,
+    denominator: string,
+  ) =>
+    preview
+      ? "abc"
+      : recruitmentRate(row?.[numerator], row?.[denominator]);
+
+  return (
+    <div className="recruitment-result-table-section">
+      <div className="recruitment-result-table-title">- Bảng chi tiết:</div>
+      <div className="recruitment-result-table-wrap">
+        <table className="recruitment-result-table">
+          <colgroup>
+            <col className="recruitment-col-stt" />
+            <col className="recruitment-col-position" />
+            <col className="recruitment-col-required" />
+            <col className="recruitment-col-rate" />
+            <col className="recruitment-col-applied" />
+            <col className="recruitment-col-passed" />
+            <col className="recruitment-col-rate" />
+            <col className="recruitment-col-onboarded" />
+            <col className="recruitment-col-rate" />
+          </colgroup>
+          <thead>
+            <tr>
+              <th rowSpan={3} className="recruitment-table-center">
+                STT
+              </th>
+              <th rowSpan={3}>Vị trí</th>
+              <th rowSpan={3}>
+                Số lượng
+                <br />
+                cần tuyển
+              </th>
+              <th rowSpan={3}>
+                Tỷ lệ đã
+                <br />
+                tuyển
+              </th>
+              <th colSpan={5}>Phân tích KQ tuyển dụng</th>
+            </tr>
+            <tr>
+              <th rowSpan={2}>
+                Ứng
+                <br />
+                tuyển
+              </th>
+              <th colSpan={2}>Trúng tuyển</th>
+              <th colSpan={2}>Đi làm</th>
+            </tr>
+            <tr>
+              <th>Số lượng</th>
+              <th>Tỷ lệ</th>
+              <th>Số lượng</th>
+              <th>Tỷ lệ</th>
+            </tr>
+          </thead>
+          <tbody>
+            {displayRows.length > 0 ? (
+              displayRows.map((row, index) => (
+                <tr key={`recruitment-result-${index}`}>
+                  <td className="recruitment-table-center">
+                    {preview
+                      ? index + 1
+                      : (page - 1) * pageSize + index + 1}
+                  </td>
+                  <td>{cellValue(row, "positionName")}</td>
+                  <td className="recruitment-table-number">
+                    {cellValue(row, "requiredCount")}
+                  </td>
+                  <td className="recruitment-table-number">
+                    {rateValue(row, "onboardedCount", "requiredCount")}
+                  </td>
+                  <td className="recruitment-table-number">
+                    {cellValue(row, "appliedCount")}
+                  </td>
+                  <td className="recruitment-table-number">
+                    {cellValue(row, "passedCount")}
+                  </td>
+                  <td className="recruitment-table-number">
+                    {rateValue(row, "passedCount", "appliedCount")}
+                  </td>
+                  <td className="recruitment-table-number">
+                    {cellValue(row, "onboardedCount")}
+                  </td>
+                  <td className="recruitment-table-number">
+                    {rateValue(row, "onboardedCount", "appliedCount")}
+                  </td>
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td colSpan={9} className="legacy-empty-cell">
+                  Không tìm thấy dữ liệu thống kê phù hợp điều kiện lọc.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 function ReportPaper({
   report,
   filters,
@@ -217,36 +345,45 @@ function ReportPaper({
           )}
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="legacy-preview-table">
-            <thead>
-              <tr>
-                <th className="legacy-index-column">Stt</th>
-                {report.columns.map((column) => <th key={column.key}>{column.label}</th>)}
-              </tr>
-            </thead>
-            <tbody>
-              {displayRows.length > 0 ? displayRows.map((row, index) => (
-                <tr key={`${report.id}-${index}`}>
-                  <td className={preview ? "legacy-preview-index" : "legacy-index-column"}>
-                    {preview ? index + 1 : (page - 1) * pageSize + index + 1}
-                  </td>
-                  {report.columns.map((column) => (
-                    <td key={column.key} className={preview ? "legacy-preview-placeholder" : undefined}>
-                      {preview ? "abc" : formatValue(row?.[column.key], column.key)}
-                    </td>
-                  ))}
-                </tr>
-              )) : (
+        {report.id === "rec_result" ? (
+          <RecruitmentResultTable
+            rows={rows}
+            page={page}
+            pageSize={pageSize}
+            preview={preview}
+          />
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="legacy-preview-table">
+              <thead>
                 <tr>
-                  <td colSpan={report.columns.length + 1} className="legacy-empty-cell">
-                    Không tìm thấy dữ liệu thống kê phù hợp điều kiện lọc.
-                  </td>
+                  <th className="legacy-index-column">Stt</th>
+                  {report.columns.map((column) => <th key={column.key}>{column.label}</th>)}
                 </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {displayRows.length > 0 ? displayRows.map((row, index) => (
+                  <tr key={`${report.id}-${index}`}>
+                    <td className={preview ? "legacy-preview-index" : "legacy-index-column"}>
+                      {preview ? index + 1 : (page - 1) * pageSize + index + 1}
+                    </td>
+                    {report.columns.map((column) => (
+                      <td key={column.key} className={preview ? "legacy-preview-placeholder" : undefined}>
+                        {preview ? "abc" : formatValue(row?.[column.key], column.key)}
+                      </td>
+                    ))}
+                  </tr>
+                )) : (
+                  <tr>
+                    <td colSpan={report.columns.length + 1} className="legacy-empty-cell">
+                      Không tìm thấy dữ liệu thống kê phù hợp điều kiện lọc.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
 
         <div className="legacy-signatures">
           <div><b>NGƯỜI LẬP BÁO CÁO</b><span>(Ký, ghi rõ họ tên)</span></div>
