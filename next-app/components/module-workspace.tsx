@@ -598,6 +598,27 @@ function parseDetailList(value: unknown): Array<Record<string, unknown>> {
   return [];
 }
 
+function leaveDateRange(start: string, end: string) {
+  if (!start || !end) return null;
+  const from = new Date(`${start}T00:00:00`);
+  const to = new Date(`${end}T00:00:00`);
+  if (
+    Number.isNaN(from.getTime()) ||
+    Number.isNaN(to.getTime()) ||
+    to < from
+  ) {
+    return [];
+  }
+
+  const dates: string[] = [];
+  for (const date = new Date(from); date <= to; date.setDate(date.getDate() + 1)) {
+    dates.push(
+      `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`,
+    );
+  }
+  return dates;
+}
+
 function quotaNumber(value: unknown) {
   return Number(value ?? 0).toLocaleString("vi-VN");
 }
@@ -4103,6 +4124,44 @@ function LeaveForm({
     ]);
   const removeDetail = (index: number) =>
     updateDetails(details.filter((_, detailIndex) => detailIndex !== index));
+  const updateDateRange = (name: "start_date" | "end_date", value: string) => {
+    setValues((current) => {
+      const next = { ...current, [name]: value };
+      const dates = leaveDateRange(next.start_date, next.end_date);
+      if (!dates || dates.length === 0) {
+        next.total_days = "";
+        return next;
+      }
+
+      const detailsByDate = new Map(
+        parseDetailList(current.details_json).map((item) => [
+          formatDateValue(item.date),
+          item,
+        ]),
+      );
+      const nextDetails: Array<Record<string, unknown>> = dates.map((date) => ({
+        ...(detailsByDate.get(date) ?? {
+          time_option: "Cả ngày",
+          days: 1,
+          note: "",
+        }),
+        date,
+      }));
+      next.details_json = JSON.stringify(nextDetails);
+      next.total_days = String(
+        nextDetails.reduce((sum, item) => sum + (Number(item.days) || 0), 0),
+      );
+      return next;
+    });
+  };
+  const dateInput = (name: "start_date" | "end_date", label: string) => (
+    <WorkspaceInput
+      field={{ name, label, type: "date", required: true }}
+      tabId="leave"
+      value={values[name] ?? ""}
+      onChange={(value) => updateDateRange(name, value)}
+    />
+  );
   const input = (
     name: string,
     label: string,
@@ -4140,8 +4199,8 @@ function LeaveForm({
           session?.role === "Nhân viên",
           [{ value: "", label: "-- Chọn nhân viên --" }, ...employeeOptions],
         )}
-        {input("start_date", "Ngày bắt đầu", "date", true)}
-        {input("end_date", "Ngày kết thúc", "date", true)}
+        {dateInput("start_date", "Ngày bắt đầu")}
+        {dateInput("end_date", "Ngày kết thúc")}
         {input("total_days", "Tổng số ngày", "number", true, true)}
         {input(
           "leave_type",
@@ -7126,7 +7185,7 @@ function OperationalWorkspace({
   };
 
   const rowsQuery = useQuery({
-    queryKey: ["workspace", name, tab.id],
+    queryKey: ["workspace", name, tab.id, session?.id, session?.employeeId],
     enabled: Boolean(session),
     queryFn: async () => {
       const endpoint =
@@ -7134,8 +7193,19 @@ function OperationalWorkspace({
         tab.id === "employees" &&
         session?.role === "Nhân viên"
           ? "/hr/employees/me"
-          : tab.endpoint;
+           : tab.endpoint;
       const rows = await api.list(endpoint, { resource });
+      if (
+        name === "people" &&
+        tab.id === "leave" &&
+        session?.role === "Nhân viên"
+      ) {
+        return rows.filter(
+          (row) =>
+            String(row.employee_id ?? "") ===
+            String(session.employeeId ?? ""),
+        );
+      }
       return rows;
     },
   });
@@ -7980,9 +8050,9 @@ function OperationalWorkspace({
     if (name === "people" && tab.id === "leave") {
       values.leave_type = "ANNUAL";
       values.details_json = JSON.stringify([
-        { date: "", time_option: "Cả ngày", days: 1, note: "" },
+        { date: "", time_option: "Cả ngày", days: "", note: "" },
       ]);
-      values.total_days = "1";
+      values.total_days = "";
     }
     setFormValues(values);
     setShowForm(true);

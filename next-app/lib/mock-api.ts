@@ -251,6 +251,7 @@ const initialStore: MockStore = {
     { leave_id: "leave-demo-02", leave_code: "DXNP/2026-002", employee_id: "emp-hr-02", employee_name: "Nguyễn Thùy Linh", start_date: "2026-08-29", end_date: "2026-08-29", total_days: 0.5, status: "APPROVED", reason: "Khám sức khỏe" },
     { leave_id: "leave-demo-03", leave_code: "DXNP/2026-003", employee_id: "emp-kd-03", employee_name: "Nguyễn Minh Anh", department_id: "dept-kd", department_name: "Phòng Kinh doanh", start_date: "2026-09-12", end_date: "2026-09-12", total_days: 1, status: "PENDING", reason: "Giải quyết việc gia đình" },
     { leave_id: "leave-demo-04", leave_code: "DXNP/2026-004", employee_id: "emp-kd-04", employee_name: "Lê Hoàng Phúc", department_id: "dept-kd", department_name: "Phòng Kinh doanh", start_date: "2026-08-22", end_date: "2026-08-23", total_days: 2, status: "APPROVED", reason: "Về quê" },
+    { leave_id: "leave-demo-employee", leave_code: "DXNP/2026-005", employee_id: "emp-kd-02", employee_name: "Đặng Đình Hùng", department_id: "dept-kd", department_name: "Phòng Kinh doanh", start_date: "2026-09-18", end_date: "2026-09-18", total_days: 1, leave_type: "ANNUAL", leave_year: 2026, status: "PENDING", reason: "Giải quyết việc cá nhân" },
   ],
   "/hr/transfer-proposals": [
     { proposal_id: "transfer-demo-01", proposal_code: "DXDC/2026-001", employee_id: "emp-cloud-04", employee_name: "Đặng Việt Dũng", current_department_id: "dept-cloud", current_dept_name: "Phòng Cloud và Hạ tầng", current_position_id: "pos-cloud-emp", current_pos_name: "Kỹ sư Cloud và Hạ tầng", target_department_id: "dept-kd", target_dept_name: "Phòng Kinh doanh", target_position_id: "pos-kd-emp", target_pos_name: "Nhân viên Kinh doanh", proposal_date: "2026-09-01", effective_date: "2026-10-01", decision_type: "Thuyên chuyển", proposer_id: "emp-hr-02", proposer_name: "Nguyễn Thùy Linh", proposer_position: "Nhân viên Nhân sự", proposer_department: "Phòng Nhân sự", detail_items: [{ employee_id: "emp-cloud-04", employee_name: "Đặng Việt Dũng", current_department_id: "dept-cloud", current_position_id: "pos-cloud-emp", target_department_id: "dept-kd", target_position_id: "pos-kd-emp", note: "" }], description: "Bổ sung nhân sự kinh doanh theo kế hoạch.", status: "PENDING" },
@@ -877,6 +878,14 @@ export async function mockApiRequest<T>(path: string, init: RequestInit = {}, se
 
   if (method === "GET") {
     if (id) return envelope(readableRows.find((row) => String(row[idField]) === id) ?? null) as T;
+    if (route === "/hr/leave-applications" && session?.role === "Nhân viên") {
+      return envelope(
+        readableRows.filter(
+          (row) =>
+            String(row.employee_id ?? "") === String(session.employeeId ?? ""),
+        ),
+      ) as T;
+    }
     return envelope(readableRows) as T;
   }
 

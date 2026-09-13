@@ -4610,6 +4610,33 @@ const seedData = async (forceClear = false) => {
         "Chưa thể phê duyệt do thiếu nhân sự trực vận hành trong giai đoạn cao điểm.",
       status: "REJECTED",
     },
+    {
+      id: "lv-employee",
+      code: "DXNP/26-004",
+      emp_id: "emp-kd-02",
+      emp_code: "NV-2024-028",
+      emp_name: "Đặng Đình Hùng",
+      dept_id: "dept-kd",
+      dept_name: "Phòng Kinh doanh",
+      approver_id: "emp-kd-01",
+      approver_name: "Phạm Quốc Tuấn",
+      related_person_id: null,
+      related_person_name: null,
+      start_date: now + 6 * 86400000,
+      end_date: now + 6 * 86400000,
+      total_days: 1.0,
+      reason: "Giải quyết việc cá nhân",
+      details: JSON.stringify([
+        {
+          date: new Date(now + 6 * 86400000).toISOString().split("T")[0],
+          time_option: "Cả ngày",
+          days: 1.0,
+          note: "",
+        },
+      ]),
+      approverNote: "",
+      status: "PENDING",
+    },
   ];
 
   for (const lv of leaveApplications) {
