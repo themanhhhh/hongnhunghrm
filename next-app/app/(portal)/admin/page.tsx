@@ -101,6 +101,14 @@ export default function AdminPage() {
     queryKey: ["admin-summary"],
     queryFn: api.admin,
   });
+  const { data: departmentLookup = [] } = useQuery({
+    queryKey: ["admin-department-lookup"],
+    queryFn: () => api.list("/admin/departments", { resource: "admin" }),
+  });
+  const { data: employeeLookup = [] } = useQuery({
+    queryKey: ["admin-employee-lookup"],
+    queryFn: () => api.list("/hr/employees", { resource: "people" }),
+  });
   const createAccountMutation = useMutation({
     mutationFn: () =>
       api.write("/admin/users", "POST", form, {
@@ -155,8 +163,12 @@ export default function AdminPage() {
     },
   });
   const roles = data?.rolesList?.length ? data.rolesList : fallbackRoles;
-  const departments = data?.departmentsList ?? [];
-  const employees = data?.employeesList ?? [];
+  const departments = data?.departmentsList?.length
+    ? data.departmentsList
+    : departmentLookup;
+  const employees = data?.employeesList?.length
+    ? data.employeesList
+    : employeeLookup;
   const catalogKind: CatalogKind | null =
     activeTab === "departments" || activeTab === "positions" ? activeTab : null;
   const catalogRows =

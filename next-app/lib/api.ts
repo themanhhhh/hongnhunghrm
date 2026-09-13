@@ -153,6 +153,10 @@ function readSession(): Session {
   return getStoredSession() ?? defaultSession();
 }
 
+function isDemoSession(session: Session) {
+  return DEMO_USERS.some((user) => user.id === session.id);
+}
+
 type ApiEnvelope<T> = { success: boolean; data?: T; message?: string; token?: string; user?: Record<string, unknown> };
 
 function toSession(user: Record<string, unknown>): Session {
@@ -280,11 +284,13 @@ export const api = {
       });
       if (!response.ok) {
         const body = await response.json().catch(() => null) as ApiEnvelope<unknown> | null;
+      if (response.status === 401 && !token && isDemoSession(session)) return mockApiRequest<T>(path, init, session);
       if (response.status >= 500) return mockApiRequest<T>(path, init, session);
         throw new ApiError(body?.message ?? `API request failed: ${response.status}`, response.status);
       }
       return response.json() as Promise<T>;
     } catch (error) {
+      if (error instanceof ApiError && error.status === 401 && !token && isDemoSession(session)) return mockApiRequest<T>(path, init, session);
       if (error instanceof ApiError && error.status < 500) throw error;
       return mockApiRequest<T>(path, init, session);
     } finally {
@@ -547,8 +553,8 @@ export const api = {
     return moduleData[name];
   },
   async admin() {
-    const getList = async (path: string) => unwrap<Array<Record<string, unknown>>>(await this.request<ApiEnvelope<Array<Record<string, unknown>>>>(path, {}, { resource: "admin" })) ?? [];
-    const [users, departments, positions, contractTypes, roles, employees] = await Promise.all([getList("/admin/users"), getList("/admin/departments"), getList("/admin/positions"), getList("/admin/contract-types"), getList("/admin/roles"), getList("/hr/employees")]);
+    const getList = async (path: string, resource: Resource = "admin") => unwrap<Array<Record<string, unknown>>>(await this.request<ApiEnvelope<Array<Record<string, unknown>>>>(path, {}, { resource })) ?? [];
+    const [users, departments, positions, contractTypes, roles, employees] = await Promise.all([getList("/admin/users"), getList("/admin/departments"), getList("/admin/positions"), getList("/admin/contract-types"), getList("/admin/roles"), getList("/hr/employees", "people")]);
     return { users: users.length ? users.length : 24, departments: departments.length ? departments.length : 14, positions: positions.length ? positions.length : 38, contractTypes: contractTypes.length ? contractTypes.length : 6, userRows: users, departmentsList: departments, positionsList: positions, rolesList: roles, employeesList: employees };
   },
   async list(path: string, permission?: { resource: Resource; action?: Action }) {
