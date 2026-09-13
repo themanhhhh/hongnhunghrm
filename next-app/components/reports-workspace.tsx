@@ -116,7 +116,7 @@ function filtersForPeriod(period: string, current: ReportFilters) {
 
 function filtersForReport(reportId: string) {
   const current = lastWeekFilters();
-  return reportId.startsWith("eval_") || reportId === "rec_candidates_interview"
+  return reportId === "rec_result" || reportId.startsWith("eval_") || reportId === "rec_candidates_interview"
     ? filtersForPeriod("Năm 2026", current)
     : current;
 }
