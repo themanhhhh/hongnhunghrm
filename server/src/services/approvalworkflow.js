@@ -76,7 +76,7 @@ async function initApprovalChain(documentType, documentId, employeeId) {
             `INSERT INTO ApprovalHistory (approval_id, document_type, document_id, level_order, required_role, department_scope, status, submitted_date, created_date)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
-                'appr-' + crypto.randomUUID(),
+                crypto.randomUUID(),
                 documentType,
                 documentId,
                 step.level_order,

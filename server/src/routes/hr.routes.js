@@ -1655,10 +1655,15 @@ async function refreshAnnualLeaveBalance(employeeId, leaveYear, now) {
 router.get('/leave-applications', async (req, res) => {
     try {
         const privileged = ['Administrator', 'HR Staff', 'Ban Giám Đốc', 'Trưởng Khối', 'Trưởng Phòng'].includes(req.user.roleName);
+        const tokenEmployeeId = req.user.employeeId || req.user.employee_id;
+        const linkedUser = !privileged && !tokenEmployeeId && req.user.id
+            ? await queryOne('SELECT employee_id FROM User WHERE user_id = ?', [req.user.id])
+            : null;
+        const employeeId = tokenEmployeeId || linkedUser?.employee_id;
         const apps = privileged
             ? await query(`SELECT * FROM LeaveApplication ORDER BY created_date DESC`)
-            : req.user.employeeId
-                ? await query(`SELECT * FROM LeaveApplication WHERE employee_id = ? ORDER BY created_date DESC`, [req.user.employeeId])
+            : employeeId
+                ? await query(`SELECT * FROM LeaveApplication WHERE employee_id = ? ORDER BY created_date DESC`, [employeeId])
                 : [];
         res.json({ success: true, data: apps });
     } catch (error) {
