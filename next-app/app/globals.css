@@ -112,32 +112,76 @@
 
 .recruitment-result-table-section { margin-top: 1.5rem; color: #111; }
 .legacy-recruitment-paper { max-width: 1500px; }
-.recruitment-result-table-title { margin-bottom: 0.45rem; margin-left: 7%; font-family: "Times New Roman", Times, serif; font-size: 2rem; line-height: 1.1; }
+.recruitment-result-table-title { margin-bottom: 0.45rem; margin-left: 7%; font-family: "Times New Roman", Times, serif; font-size: 1.1rem; line-height: 1.2; }
 .recruitment-result-table-wrap { overflow-x: auto; }
-.recruitment-result-table { width: 100%; min-width: 900px; border-collapse: collapse; table-layout: fixed; font-family: "Times New Roman", Times, serif; font-size: 2rem; line-height: 1.05; color: #111; }
+.recruitment-result-table { width: 100%; min-width: 900px; border-collapse: collapse; table-layout: fixed; font-family: "Times New Roman", Times, serif; font-size: 1rem; line-height: 1.15; color: #111; }
 .recruitment-result-table col.recruitment-col-stt { width: 8%; }
 .recruitment-result-table col.recruitment-col-position { width: 8.75%; }
 .recruitment-result-table col.recruitment-col-required { width: 12.75%; }
 .recruitment-result-table col.recruitment-col-rate { width: 11.7%; }
 .recruitment-result-table col.recruitment-col-applied, .recruitment-result-table col.recruitment-col-passed, .recruitment-result-table col.recruitment-col-onboarded { width: 11.7%; }
-.recruitment-result-table th, .recruitment-result-table td { border: 2px solid #111; padding: 1.35rem 0.8rem; text-align: left; vertical-align: top; }
+.recruitment-result-table th, .recruitment-result-table td { border: 2px solid #111; padding: 0.65rem 0.7rem; text-align: left; vertical-align: top; }
 .recruitment-result-table th { background: #00bcd4; color: #fff; font-weight: 400; }
 .recruitment-result-table td { vertical-align: middle; }
-.recruitment-result-table thead tr:nth-child(1) { height: 96px; }
-.recruitment-result-table thead tr:nth-child(2), .recruitment-result-table thead tr:nth-child(3) { height: 80px; }
+.recruitment-result-table thead tr:nth-child(1) { height: 56px; }
+.recruitment-result-table thead tr:nth-child(2), .recruitment-result-table thead tr:nth-child(3) { height: 48px; }
 .recruitment-table-center { text-align: center !important; }
 .recruitment-table-number { text-align: center !important; }
+.legacy-recruitment-paper { page: recruitment-result; }
 
 ::selection { background: #99f6e4; color: #0f172a; }
+
+@page recruitment-result {
+  size: A4 landscape;
+  margin: 10mm;
+}
 
 @media print {
   body * { visibility: hidden !important; }
   .report-print-sheet, .report-print-sheet * { visibility: visible !important; }
   .report-print-sheet { position: absolute; inset: 0; width: 100%; border: 0 !important; box-shadow: none !important; }
   .legacy-report-toolbar, .legacy-filter-banner { display: none !important; }
+  .legacy-print-analytics { display: none !important; }
   .legacy-report-preview-container { border: 0 !important; padding: 0 !important; }
   .legacy-a4-preview-paper { max-width: none; min-height: 0; box-shadow: none; }
   .recruitment-result-table { min-width: 0; }
+  .legacy-recruitment-paper {
+    width: 100%;
+    max-width: none;
+    min-height: 0;
+    overflow: visible;
+    padding: 0;
+    box-shadow: none;
+  }
+  .legacy-recruitment-paper .legacy-document-header {
+    margin-bottom: 0.5rem;
+    padding-bottom: 0.35rem;
+  }
+  .legacy-recruitment-paper .legacy-report-title { margin: 0.75rem 0; }
+  .legacy-recruitment-paper .legacy-report-meta {
+    margin-bottom: 0.75rem;
+    padding: 0.5rem;
+  }
+  .legacy-recruitment-paper .recruitment-result-table-section { margin-top: 0.75rem; }
+  .legacy-recruitment-paper .recruitment-result-table-title {
+    margin-left: 0;
+    margin-bottom: 0.25rem;
+    font-size: 12pt;
+  }
+  .legacy-recruitment-paper .recruitment-result-table-wrap { overflow: visible; }
+  .legacy-recruitment-paper .recruitment-result-table {
+    width: 100%;
+    min-width: 0;
+    font-size: 9pt;
+    line-height: 1.1;
+    break-inside: avoid;
+  }
+  .legacy-recruitment-paper .recruitment-result-table th,
+  .legacy-recruitment-paper .recruitment-result-table td { padding: 4px 5px; }
+  .legacy-recruitment-paper .recruitment-result-table thead tr:nth-child(1) { height: 42px; }
+  .legacy-recruitment-paper .recruitment-result-table thead tr:nth-child(2),
+  .legacy-recruitment-paper .recruitment-result-table thead tr:nth-child(3) { height: 34px; }
+  .legacy-recruitment-paper .legacy-signatures { margin-top: 1.25rem; }
 }
 
 @media (max-width: 700px) {

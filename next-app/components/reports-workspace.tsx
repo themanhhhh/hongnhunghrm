@@ -170,6 +170,77 @@ function recruitmentRate(numerator: unknown, denominator: unknown) {
   return `${((top / bottom) * 100).toFixed(2)}%`;
 }
 
+const recruitmentResultColumnLabels = [
+  "STT",
+  "Vị trí",
+  "Số lượng cần tuyển",
+  "Tỷ lệ đã tuyển",
+  "Ứng tuyển",
+  "Trúng tuyển - Số lượng",
+  "Trúng tuyển - Tỷ lệ",
+  "Đi làm - Số lượng",
+  "Đi làm - Tỷ lệ",
+];
+
+function recruitmentResultExportCells(
+  row: Record<string, unknown>,
+  index: number,
+) {
+  return [
+    String(index + 1),
+    formatValue(row.positionName, "positionName"),
+    formatValue(row.requiredCount, "requiredCount"),
+    recruitmentRate(row.onboardedCount, row.requiredCount),
+    formatValue(row.appliedCount, "appliedCount"),
+    formatValue(row.passedCount, "passedCount"),
+    recruitmentRate(row.passedCount, row.appliedCount),
+    formatValue(row.onboardedCount, "onboardedCount"),
+    recruitmentRate(row.onboardedCount, row.appliedCount),
+  ];
+}
+
+function recruitmentResultExcelTable(rows: Array<Record<string, unknown>>) {
+  const body = rows.length
+    ? rows
+        .map((row, index) => {
+          const cells = recruitmentResultExportCells(row, index);
+          return `<tr>${cells
+            .map(
+              (value, cellIndex) =>
+                `<td class="${cellIndex === 1 ? "" : "center"}">${escapeHtml(value)}</td>`,
+            )
+            .join("")}</tr>`;
+        })
+        .join("")
+    : '<tr><td colspan="9" class="empty">Không tìm thấy dữ liệu thống kê phù hợp điều kiện lọc.</td></tr>';
+
+  return `<h3 class="recruitment-excel-section-title">- Bảng chi tiết:</h3>
+    <table class="recruitment-excel-table">
+      <colgroup>
+        <col class="col-stt"><col class="col-position"><col class="col-required"><col class="col-rate">
+        <col class="col-count"><col class="col-count"><col class="col-rate"><col class="col-count"><col class="col-rate">
+      </colgroup>
+      <thead>
+        <tr>
+          <th rowspan="3" class="center">STT</th>
+          <th rowspan="3">Vị trí</th>
+          <th rowspan="3">Số lượng<br>cần tuyển</th>
+          <th rowspan="3">Tỷ lệ đã<br>tuyển</th>
+          <th colspan="5">Phân tích KQ tuyển dụng</th>
+        </tr>
+        <tr>
+          <th rowspan="2">Ứng<br>tuyển</th>
+          <th colspan="2">Trúng tuyển</th>
+          <th colspan="2">Đi làm</th>
+        </tr>
+        <tr>
+          <th>Số lượng</th><th>Tỷ lệ</th><th>Số lượng</th><th>Tỷ lệ</th>
+        </tr>
+      </thead>
+      <tbody>${body}</tbody>
+    </table>`;
+}
+
 function RecruitmentResultTable({
   rows,
   page,
@@ -601,15 +672,22 @@ export function ReportsWorkspace() {
 
   const exportCsv = () => {
     if (!reportData?.data) return;
-    const header = selectedReport.columns
-      .map((column) => csvValue(column.label))
+    const isRecruitmentResult = selectedReport.id === "rec_result";
+    const header = (isRecruitmentResult
+      ? recruitmentResultColumnLabels
+      : selectedReport.columns.map((column) => column.label)
+    )
+      .map(csvValue)
       .join(",");
     const body = reportData.data
-      .map((row) =>
-        selectedReport.columns
-          .map((column) => csvValue(formatValue(row[column.key], column.key)))
-          .join(","),
-      )
+      .map((row, index) => {
+        const values = isRecruitmentResult
+          ? recruitmentResultExportCells(row, index)
+          : selectedReport.columns.map((column) =>
+              formatValue(row[column.key], column.key),
+            );
+        return values.map(csvValue).join(",");
+      })
       .join("\n");
     const blob = new Blob([`\uFEFF${header}\n${body}`], {
       type: "text/csv;charset=utf-8",
@@ -624,16 +702,31 @@ export function ReportsWorkspace() {
 
   const exportExcel = () => {
     if (!reportData?.data) return;
-    const headers = selectedReport.columns
-      .map((column) => `<th>${escapeHtml(column.label)}</th>`)
-      .join("");
-    const rows = reportData.data
-      .map(
-        (row) =>
-          `<tr>${selectedReport.columns.map((column) => `<td>${escapeHtml(formatValue(row[column.key], column.key))}</td>`).join("")}</tr>`,
-      )
-      .join("");
-     const html = `<html><head><meta charset="utf-8"></head><body><h2>${escapeHtml(selectedReport.title)}</h2><p>${escapeHtml(filters.startDate)} - ${escapeHtml(filters.endDate)} | ${escapeHtml(filters.department === "ALL" ? "Toàn công ty" : filters.departmentName)}</p><table border="1"><thead><tr>${headers}</tr></thead><tbody>${rows}</tbody></table></body></html>`;
+    const table = selectedReport.id === "rec_result"
+      ? recruitmentResultExcelTable(reportData.data)
+      : `<table border="1"><thead><tr>${selectedReport.columns
+          .map((column) => `<th>${escapeHtml(column.label)}</th>`)
+          .join("")}</tr></thead><tbody>${reportData.data
+          .map(
+            (row) =>
+              `<tr>${selectedReport.columns.map((column) => `<td>${escapeHtml(formatValue(row[column.key], column.key))}</td>`).join("")}</tr>`,
+          )
+          .join("")}</tbody></table>`;
+    const html = `<html><head><meta charset="utf-8"><style>
+      body { font-family: "Times New Roman", Times, serif; color: #111; }
+      table { border-collapse: collapse; width: 100%; }
+      th, td { border: 1px solid #111; padding: 6px 8px; }
+      .recruitment-excel-table { table-layout: fixed; font-size: 14px; }
+      .recruitment-excel-table th { background: #00bcd4; color: #fff; font-weight: 400; text-align: left; vertical-align: top; }
+      .recruitment-excel-table td.center, .recruitment-excel-table th.center { text-align: center; }
+      .recruitment-excel-table .col-stt { width: 8%; }
+      .recruitment-excel-table .col-position { width: 9%; }
+      .recruitment-excel-table .col-required { width: 12.5%; }
+      .recruitment-excel-table .col-rate { width: 11.7%; }
+      .recruitment-excel-table .col-count { width: 11.7%; }
+      .recruitment-excel-section-title { margin: 18px 0 6px 7%; font-weight: 400; }
+      .recruitment-excel-table .empty { text-align: center; }
+    </style></head><body><h2>${escapeHtml(selectedReport.title)}</h2><p>${escapeHtml(filters.startDate)} - ${escapeHtml(filters.endDate)} | ${escapeHtml(filters.department === "ALL" ? "Toàn công ty" : filters.departmentName)}</p>${table}</body></html>`;
     const blob = new Blob(["\uFEFF", html], {
       type: "application/vnd.ms-excel;charset=utf-8",
     });
@@ -991,8 +1084,16 @@ export function ReportsWorkspace() {
                    {filterEnabled(selectedReport, "type") && <span> <b>Loại:</b> {filters.type === "ALL" ? "Tất cả" : filters.type === "REWARD" ? "Khen thưởng" : "Kỷ luật"}</span>}
                    <span> <b>Số bản ghi:</b> {reportData?.totalItems ?? reportData?.data?.length ?? 0} kết quả</span>
                  </div>
-                 {reportData && <ReportSummary report={selectedReport} result={reportData} />}
-                 {reportData && <ReportChart report={selectedReport} result={reportData} />}
+                  {reportData && (
+                    <div className="legacy-print-analytics">
+                      <ReportSummary report={selectedReport} result={reportData} />
+                    </div>
+                  )}
+                  {reportData && (
+                    <div className="legacy-print-analytics">
+                      <ReportChart report={selectedReport} result={reportData} />
+                    </div>
+                  )}
                  <ReportPaper
                    report={selectedReport}
                    filters={filters}
