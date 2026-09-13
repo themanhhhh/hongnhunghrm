@@ -494,30 +494,7 @@ export default function AdminPage() {
         </Card>
       ) : (
         <>
-          <div className="grid gap-4 md:grid-cols-2">
-            {liveCards.map(({ title, desc, icon: Icon, count, tone }) => (
-              <Card
-                key={title}
-                className="group cursor-pointer transition hover:-translate-y-0.5 hover:border-teal-300"
-              >
-                <CardHeader>
-                  <div className="flex items-start justify-between">
-                    <div className="grid size-11 place-items-center rounded-xl bg-slate-100 text-slate-700 group-hover:bg-teal-50 group-hover:text-teal-700">
-                      <Icon size={20} />
-                    </div>
-                    <Badge tone={tone}>{count}</Badge>
-                  </div>
-                  <CardTitle className="mt-5">{title}</CardTitle>
-                  <p className="mt-1 text-sm text-slate-500">{desc}</p>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex items-center gap-1 text-xs font-bold text-teal-700">
-                    Mở danh mục <span>→</span>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+         
           <Card>
             <CardHeader className="flex flex-row items-center justify-between gap-4">
               <div>
