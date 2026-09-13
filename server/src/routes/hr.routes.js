@@ -1086,36 +1086,44 @@ router.post('/transfer-decisions', authorizeRole('Administrator', 'HR Staff'), a
         const decisionDate = decision_date ? (typeof decision_date === 'number' ? decision_date : new Date(decision_date).getTime()) : now;
         const detailJson = JSON.stringify([{ ...firstDetail, employee_id: employeeId, current_department_id: currentDepartmentId, current_position_id: currentPositionId, target_department_id: targetDepartmentId, target_position_id: targetPositionId, manager_id: managerId }]);
 
-        await run(
-            `INSERT INTO TransferDecision (decision_id, created_date, last_modified_date, decision_number, proposal_id, employee_id, current_department_id, current_position_id, target_department_id, target_position_id, manager_id, decision_date, effective_date, decision_type, creator_id, creator_name, creator_position, creator_department, signed_by, description, reason, note, detail_items, status)
+        await withTransaction(async ({ run: txRun }) => {
+            await txRun(
+                `INSERT INTO TransferDecision (decision_id, created_date, last_modified_date, decision_number, proposal_id, employee_id, current_department_id, current_position_id, target_department_id, target_position_id, manager_id, decision_date, effective_date, decision_type, creator_id, creator_name, creator_position, creator_department, signed_by, description, reason, note, detail_items, status)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'EXECUTED')`,
-            [id, now, now, decNo, proposal_id || null, employeeId, currentDepartmentId, currentPositionId, targetDepartmentId, targetPositionId, managerId, decisionDate, effDate, decisionType, creator_id || req.user.employeeId || null, creator_name || req.user.fullName || '', creator_position || '', creator_department || '', signed_by || 'Ban Giám Đốc', description || '', reason || '', note || '', detailJson]
-        );
+                [id, now, now, decNo, proposal_id || null, employeeId, currentDepartmentId, currentPositionId, targetDepartmentId, targetPositionId, managerId, decisionDate, effDate, decisionType, creator_id || req.user.employeeId || null, creator_name || req.user.fullName || '', creator_position || '', creator_department || '', signed_by || 'Ban Giám Đốc', description || '', reason || '', note || '', detailJson]
+            );
 
-        await run(
-            `INSERT INTO TransferDecisionDetail (detail_id, decision_id, employee_id, current_department_id, current_position_id, target_department_id, target_position_id, manager_id, note, created_date)
+            await txRun(
+                `INSERT INTO TransferDecisionDetail (detail_id, decision_id, employee_id, current_department_id, current_position_id, target_department_id, target_position_id, manager_id, note, created_date)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [crypto.randomUUID(), id, employeeId, currentDepartmentId, currentPositionId, targetDepartmentId, targetPositionId, managerId, firstDetail.note || note || '', now]
-        );
+                [crypto.randomUUID(), id, employeeId, currentDepartmentId, currentPositionId, targetDepartmentId, targetPositionId, managerId, firstDetail.note || note || '', now]
+            );
 
-        // Quyết định hoàn thiện đồng bộ bộ phận, vị trí và quản lý trực tiếp vào hồ sơ nhân sự.
-        if (targetDepartmentId || targetPositionId || managerId || decisionType === 'Miễn nhiệm') {
-            const updates = [];
-            const params = [];
-            if (targetDepartmentId) { updates.push('department_id = ?'); params.push(targetDepartmentId); }
-            if (targetPositionId) { updates.push('position_id = ?'); params.push(targetPositionId); }
-            else if (decisionType === 'Miễn nhiệm') updates.push('position_id = NULL');
-            if (managerId) { updates.push('manager_id = ?'); params.push(managerId); }
-            else if (decisionType === 'Miễn nhiệm') updates.push('manager_id = NULL');
-            updates.push('last_modified_date = ?'); params.push(now);
-            params.push(employee_id);
+            await txRun(
+                `INSERT INTO WorkHistory (work_history_id, created_date, last_modified_date, employee_id, department_id, position_id, decision_type, effective_date, reason, note)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                [crypto.randomUUID(), now, now, employeeId, targetDepartmentId || currentDepartmentId, targetPositionId, decisionType, effDate, reason || '', note || '']
+            );
 
-            await run(`UPDATE Employee SET ${updates.join(', ')} WHERE employee_id = ?`, [...params.slice(0, -1), employeeId]);
-        }
+            // Quyết định hoàn thiện đồng bộ bộ phận, vị trí và quản lý trực tiếp vào hồ sơ nhân sự.
+            if (targetDepartmentId || targetPositionId || managerId || decisionType === 'Miễn nhiệm') {
+                const updates = [];
+                const params = [];
+                if (targetDepartmentId) { updates.push('department_id = ?'); params.push(targetDepartmentId); }
+                if (targetPositionId) { updates.push('position_id = ?'); params.push(targetPositionId); }
+                else if (decisionType === 'Miễn nhiệm') updates.push('position_id = NULL');
+                if (managerId) { updates.push('manager_id = ?'); params.push(managerId); }
+                else if (decisionType === 'Miễn nhiệm') updates.push('manager_id = NULL');
+                updates.push('last_modified_date = ?');
+                params.push(now, employeeId);
 
-        if (proposal_id) {
-            await run(`UPDATE TransferProposal SET status = 'APPROVED' WHERE proposal_id = ?`, [proposal_id]);
-        }
+                await txRun(`UPDATE Employee SET ${updates.join(', ')} WHERE employee_id = ?`, params);
+            }
+
+            if (proposal_id) {
+                await txRun(`UPDATE TransferProposal SET status = 'APPROVED' WHERE proposal_id = ?`, [proposal_id]);
+            }
+        });
 
         res.json({ success: true, data: { decision_id: id, decision_number: decNo }, message: 'Ban hành Quyết định Thuyên chuyển/Bổ nhiệm/Miễn nhiệm và đã cập nhật hồ sơ nhân sự!' });
     } catch (error) {

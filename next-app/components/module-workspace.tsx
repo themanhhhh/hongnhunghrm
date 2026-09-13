@@ -7387,7 +7387,7 @@ function OperationalWorkspace({
       }
       return result;
     },
-    onSuccess: async (response) => {
+    onSuccess: async (response, variables) => {
       if (tab.id === "employees" && pendingAvatar) {
         const responseData =
           response && typeof response === "object" && "data" in response
@@ -7421,6 +7421,22 @@ function OperationalWorkspace({
       await queryClient.invalidateQueries({
         queryKey: ["workspace", name, tab.id],
       });
+      if (tab.id === "transfer-decisions") {
+        const detail = parseDetailList(variables.detail_items)[0] ?? {};
+        const employeeId = String(
+          variables.employee_id ?? detail.employee_id ?? "",
+        );
+        await Promise.all([
+          queryClient.invalidateQueries({
+            queryKey: ["workspace", "people", "employees"],
+          }),
+          employeeId
+            ? queryClient.invalidateQueries({
+                queryKey: ["employee-profile", employeeId],
+              })
+            : Promise.resolve(),
+        ]);
+      }
     },
     onError: (error) =>
       showPopup(
