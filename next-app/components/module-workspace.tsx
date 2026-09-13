@@ -6276,12 +6276,13 @@ function CandidateForm({
 function quotaCheck(values: Record<string, string>, lookups: RequestLookups) {
   const departmentId = values.department_id;
   const positionId = values.position_id;
-  const quotas = lookups.quotas.filter(
-    (quota) => String(quota.department_id ?? "") === departmentId,
-  );
   const quota =
-    quotas.find((item) => String(item.quota_id ?? "") === values.quota_id) ??
-    quotas[0];
+    lookups.quotas.find(
+      (item) => String(item.quota_id ?? "") === values.quota_id,
+    ) ??
+    lookups.quotas.find(
+      (item) => String(item.department_id ?? "") === departmentId,
+    );
   if (!quota || !positionId) return null;
   const details = parseDetailList(quota.details);
   const detail = details.find(
@@ -6323,15 +6324,10 @@ function RecruitmentRequestForm({
 }) {
   const departments = lookups.departments;
   const employees = lookups.employees;
-  const department = departments.find(
-    (item) => String(item.department_id ?? "") === values.department_id,
-  );
   const positions = lookups.positions.filter(
     (item) => String(item.department_id ?? "") === values.department_id,
   );
-  const quotas = lookups.quotas.filter(
-    (item) => String(item.department_id ?? "") === values.department_id,
-  );
+  const quotas = lookups.quotas;
   const selectedPosition = positions.find(
     (item) => String(item.position_id ?? "") === values.position_id,
   );
@@ -6340,14 +6336,26 @@ function RecruitmentRequestForm({
   const set = (name: string, value: string) =>
     setValues((current) => ({ ...current, [name]: value }));
   const setRequester = (employeeId: string) => {
-    const employee = employees.find(
-      (item) => String(item.employee_id ?? "") === employeeId,
-    );
     setValues((current) => ({
       ...current,
       requested_by: employeeId,
-      department_id: String(employee?.department_id ?? ""),
+    }));
+  };
+  const setDepartment = (departmentId: string) =>
+    setValues((current) => ({
+      ...current,
+      department_id: departmentId,
       quota_id: "",
+      position_id: "",
+    }));
+  const setQuota = (quotaId: string) => {
+    const quota = quotas.find(
+      (item) => String(item.quota_id ?? "") === quotaId,
+    );
+    setValues((current) => ({
+      ...current,
+      quota_id: quotaId,
+      department_id: String(quota?.department_id ?? current.department_id ?? ""),
       position_id: "",
     }));
   };
@@ -6414,7 +6422,7 @@ function RecruitmentRequestForm({
               value={values.quota_id ?? ""}
               disabled={outside}
               required={!outside}
-              onChange={(event) => set("quota_id", event.target.value)}
+              onChange={(event) => setQuota(event.target.value)}
             >
               <option value="">-- Chọn phiếu định biên --</option>
               {quotas.map((quota) => (
@@ -6422,12 +6430,15 @@ function RecruitmentRequestForm({
                   key={String(quota.quota_id)}
                   value={String(quota.quota_id)}
                 >
-                  {String(
-                    quota.department_name ?? department?.department_name ?? "",
-                  )}
+                  {`${String(quota.quota_code ?? quota.quota_id ?? "")} - ${String(quota.department_name ?? "")}${quota.status ? ` (${String(quota.status)})` : ""}`}
                 </option>
               ))}
             </select>
+            {!outside && values.department_id && quotas.length === 0 && (
+              <p className="mt-1 text-[11px] text-amber-700">
+                Bộ phận này chưa có phiếu định biên trong database.
+              </p>
+            )}
             {outside && (
               <p className="mt-1 text-[11px] text-slate-400">
                 Phiếu ngoài định biên không được nhập phiếu định biên.
@@ -6457,17 +6468,24 @@ function RecruitmentRequestForm({
           </div>
           <div>
             <label className="mb-1.5 block text-xs font-bold text-slate-600">
-              Bộ phận
+              Bộ phận tuyển dụng *
             </label>
-            <Input
-              value={
-                  department
-                   ? String(department.department_name ?? "")
-                  : "Tự động theo người lập"
-              }
-              disabled
-              className="h-10 bg-slate-100 text-slate-500"
-            />
+            <select
+              className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm"
+              value={values.department_id ?? ""}
+              required
+              onChange={(event) => setDepartment(event.target.value)}
+            >
+              <option value="">-- Chọn bộ phận tuyển dụng --</option>
+              {departments.map((item) => (
+                <option
+                  key={String(item.department_id)}
+                  value={String(item.department_id)}
+                >
+                  {String(item.department_name ?? item.department_id ?? "")}
+                </option>
+              ))}
+            </select>
           </div>
           <div className="md:col-span-2">
             <WorkspaceInput
