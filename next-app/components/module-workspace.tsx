@@ -4727,6 +4727,11 @@ function dateAfterMonths(value: string, months: number) {
   return formatDateValue(date.getTime());
 }
 
+function hasConversionValue(value: unknown) {
+  const text = String(value ?? "").trim();
+  return text !== "" && text !== "-";
+}
+
 function EmployeeConversionForm({
   candidate,
   employeeValues,
@@ -8235,9 +8240,15 @@ function OperationalWorkspace({
       (item) => String(item.position_id ?? "") === String(candidate.position_id ?? ""),
     );
     const departmentId = String(
-      candidate.department_id ?? candidate.req_dept_id ?? position?.department_id ?? "",
+      candidate.department_id ??
+        candidate.apply_department_id ??
+        candidate.req_dept_id ??
+        position?.department_id ??
+        "",
     );
-    const positionId = String(candidate.position_id ?? candidate.req_pos_id ?? "");
+    const positionId = String(
+      candidate.position_id ?? candidate.apply_position_id ?? candidate.req_pos_id ?? "",
+    );
     const positionName = String(
       candidate.apply_position_name ?? candidate.position_name ?? position?.position_name ?? "",
     );
@@ -8249,8 +8260,11 @@ function OperationalWorkspace({
     const probationSalary = String(
       offer?.probation_salary ?? (officialSalary ? Math.round(Number(officialSalary) * 0.85) : ""),
     );
-    const probationRate = officialSalary && Number(officialSalary)
-      ? String(Number(((Number(probationSalary) / Number(officialSalary)) * 100).toFixed(2)))
+    const defaultOfficialSalary = officialSalary || "15000000";
+    const defaultProbationSalary =
+      probationSalary || String(Math.round(Number(defaultOfficialSalary) * 0.85));
+    const probationRate = defaultOfficialSalary && Number(defaultOfficialSalary)
+      ? String(Number(((Number(defaultProbationSalary) / Number(defaultOfficialSalary)) * 100).toFixed(2)))
       : "85";
     const employeeTab = getWorkspaceTab("people", "employees");
     const contractTab = getWorkspaceTab("people", "contracts");
@@ -8292,9 +8306,9 @@ function OperationalWorkspace({
       probation_from_date: contractStartDate,
       probation_to_date: probationToDate,
       probation_salary_rate: probationRate,
-      base_salary: probationSalary,
-      social_insurance_salary: officialSalary,
-      salary: officialSalary,
+      base_salary: defaultProbationSalary,
+      social_insurance_salary: officialSalary || "0",
+      salary: defaultOfficialSalary,
       signer_id: session?.employeeId ?? "",
       signer_name: session?.name ?? "",
       status: "ACTIVE",
@@ -8310,28 +8324,29 @@ function OperationalWorkspace({
   const submitConversion = () => {
     if (!conversionForm) return;
     const { employee, contract } = conversionForm;
-    const requiredValues = [
-      employee.full_name,
-      employee.department_id,
-      employee.position_id,
-      employee.join_date,
-      contract.contract_type,
-      contract.start_date,
-      contract.base_salary,
-      contract.social_insurance_salary,
-      contract.salary,
+    const requiredFields: Array<[string, unknown]> = [
+      ["Họ tên", employee.full_name],
+      ["Bộ phận", employee.department_id],
+      ["Vị trí", employee.position_id],
+      ["Ngày vào làm", employee.join_date],
+      ["Loại hợp đồng", contract.contract_type],
+      ["Ngày bắt đầu hợp đồng", contract.start_date],
     ];
-    if (
-      requiredValues.some((value) => !String(value ?? "").trim()) ||
-      (contract.has_probation === "1" &&
-        (!contract.probation_from_date ||
-          !contract.probation_to_date ||
-          !contract.probation_salary_rate))
-    ) {
+    if (contract.has_probation === "1") {
+      requiredFields.push(
+        ["Ngày bắt đầu thử việc", contract.probation_from_date],
+        ["Ngày kết thúc thử việc", contract.probation_to_date],
+        ["Tỷ lệ lương thử việc", contract.probation_salary_rate],
+      );
+    }
+    const missingFields = requiredFields
+      .filter(([, value]) => !hasConversionValue(value))
+      .map(([label]) => label);
+    if (missingFields.length) {
       showPopup(
         "warning",
         "Chưa đủ thông tin",
-        "Vui lòng hoàn thiện các trường bắt buộc trong hồ sơ nhân viên và hợp đồng.",
+        `Vui lòng hoàn thiện: ${missingFields.join(", ")}.`,
       );
       return;
     }
