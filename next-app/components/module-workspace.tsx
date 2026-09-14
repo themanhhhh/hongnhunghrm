@@ -5381,18 +5381,20 @@ function InterviewEvaluationForm({
   values,
   setValues,
   lookups,
-  session,
   onViewCandidate,
   lookupsLoading = false,
+  lookupsError,
+  onRetryLookups,
 }: {
   values: Record<string, string>;
   setValues: (
     updater: (current: Record<string, string>) => Record<string, string>,
   ) => void;
   lookups: EvaluationLookups;
-  session: Session | null;
   onViewCandidate: (candidate: Row) => void;
   lookupsLoading?: boolean;
+  lookupsError?: unknown;
+  onRetryLookups?: () => void;
 }) {
   const [activeTab, setActiveTab] = useState<
     "general" | "script" | "criteria" | "offer" | "assessment"
@@ -5437,7 +5439,7 @@ function InterviewEvaluationForm({
     try {
       const parsed = JSON.parse(values.offer || "{}");
       return parsed && typeof parsed === "object" && !Array.isArray(parsed)
-        ? (parsed as Row)
+        ? { ...(existingOffer ?? {}), ...(parsed as Row) }
         : (existingOffer ?? {});
     } catch {
       return existingOffer ?? {};
@@ -5473,23 +5475,28 @@ function InterviewEvaluationForm({
       return { ...current, offer: JSON.stringify({ ...base, [key]: value }) };
     });
   const selectSchedule = (scheduleId: string) => {
-    const schedule = lookups.schedules.find(
-      (item) => String(item.schedule_id ?? "") === scheduleId,
-    );
-    const panel = parseDetailList(schedule?.council ?? schedule?.council_json);
-    const decisionMaker = panel.find(
-      (item) =>
-        Number(item.is_decision_maker) === 1 || item.is_decision_maker === true,
-    );
     setValues((current) => ({
       ...current,
       schedule_id: scheduleId,
       candidate_id: "",
-      evaluator_id: String(
-        decisionMaker?.employee_id ?? session?.employeeId ?? "",
-      ),
+      evaluator_id: "",
+      offer: "{}",
     }));
   };
+  const selectCandidate = (candidateId: string) => {
+    const offer = lookups.offers.find(
+      (item) => String(item.candidate_id ?? "") === candidateId,
+    );
+    setValues((current) => ({
+      ...current,
+      candidate_id: candidateId,
+      offer: JSON.stringify(offer ?? {}),
+    }));
+  };
+  const lookupErrorMessage =
+    lookupsError instanceof Error
+      ? lookupsError.message
+      : "Không thể tải dữ liệu danh mục từ database.";
   const addScript = () =>
     updateList("script", [
       ...scripts,
@@ -5514,6 +5521,18 @@ function InterviewEvaluationForm({
         <p className="rounded-xl border border-teal-100 bg-teal-50/60 p-3 text-xs text-teal-700">
           Đang tải lịch phỏng vấn, ứng viên và hội đồng từ database...
         </p>
+      )}
+      {Boolean(lookupsError) && !lookupsLoading && (
+        <div className="flex items-center justify-between gap-3 rounded-xl border border-rose-100 bg-rose-50 p-3 text-xs text-rose-700">
+          <span>
+            Không thể tải lịch phỏng vấn, ứng viên, hội đồng và offer: {lookupErrorMessage}
+          </span>
+          {onRetryLookups && (
+            <Button type="button" variant="secondary" size="sm" onClick={onRetryLookups}>
+              Thử lại
+            </Button>
+          )}
+        </div>
       )}
       <div className="flex gap-1 overflow-x-auto border-b border-slate-200">
         {[
@@ -5561,6 +5580,7 @@ function InterviewEvaluationForm({
               className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm"
               value={values.schedule_id ?? ""}
               required
+              disabled={lookupsLoading || Boolean(lookupsError)}
               onChange={(event) => selectSchedule(event.target.value)}
             >
               <option value="">-- Chọn lịch phỏng vấn --</option>
@@ -5574,7 +5594,7 @@ function InterviewEvaluationForm({
                 </option>
               ))}
             </select>
-            {!lookups.schedules.length && (
+            {!lookups.schedules.length && !lookupsLoading && !lookupsError && (
               <p className="mt-1 text-[11px] text-amber-600">
                 Chưa có lịch phỏng vấn trong database để lựa chọn.
               </p>
@@ -5588,6 +5608,7 @@ function InterviewEvaluationForm({
               className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm"
               value={values.evaluator_id ?? ""}
               required
+              disabled={lookupsLoading || Boolean(lookupsError)}
               onChange={(event) => set("evaluator_id", event.target.value)}
             >
               <option value="">-- Chọn người đánh giá --</option>
@@ -5608,7 +5629,7 @@ function InterviewEvaluationForm({
               <p className="mt-1 text-[11px] text-slate-400">
                 Chọn lịch phỏng vấn trước để tải hội đồng.
               </p>
-            ) : selectedSchedule && !evaluatorOptions.length ? (
+            ) : selectedSchedule && !evaluatorOptions.length && !lookupsError ? (
               <p className="mt-1 text-[11px] text-amber-600">
                 Lịch này chưa có thành viên hội đồng hợp lệ.
               </p>
@@ -5622,7 +5643,8 @@ function InterviewEvaluationForm({
               className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm"
               value={values.candidate_id ?? ""}
               required
-              onChange={(event) => set("candidate_id", event.target.value)}
+              disabled={lookupsLoading || Boolean(lookupsError)}
+              onChange={(event) => selectCandidate(event.target.value)}
             >
               <option value="">-- Chọn ứng viên --</option>
               {candidates.map((item) => (
@@ -5635,7 +5657,7 @@ function InterviewEvaluationForm({
                 </option>
               ))}
             </select>
-            {selectedSchedule && !candidates.length && (
+            {selectedSchedule && !candidates.length && !lookupsLoading && !lookupsError && (
               <p className="mt-1 text-[11px] text-amber-600">
                 Lịch này chưa có ứng viên được khai báo.
               </p>
@@ -7648,7 +7670,10 @@ function OperationalWorkspace({
         session?.role === "Nhân viên"
           ? "/hr/employees/me"
            : tab.endpoint;
-      const rows = await api.list(endpoint, { resource });
+      const rows = await api.list(endpoint, {
+        resource,
+        fallbackToMock: !(name === "recruitment" && tab.id === "interview-evaluations"),
+      });
       if (
         name === "people" &&
         tab.id === "leave" &&
@@ -7788,7 +7813,7 @@ function OperationalWorkspace({
   });
 
   const interviewEvaluationLookupQuery = useQuery<EvaluationLookups>({
-    queryKey: ["interview-evaluation-form-lookups"],
+    queryKey: ["interview-evaluation-form-lookups", session?.id],
     enabled: Boolean(
       session &&
         name === "recruitment" &&
@@ -7796,7 +7821,7 @@ function OperationalWorkspace({
     ),
     queryFn: async () => {
       const get = (path: string) =>
-        api.list(path, { resource }).catch(() => [] as Row[]);
+        api.list(path, { resource, fallbackToMock: false });
       const [schedules, candidates, employees, offers] = await Promise.all([
         get("/recruitment/interview-schedules"),
         get("/recruitment/candidates"),
@@ -8535,7 +8560,7 @@ function OperationalWorkspace({
     }
     if (tab.id === "interview-evaluations") {
       values.evaluation_date = new Date().toISOString().slice(0, 10);
-      values.evaluator_id = session?.employeeId ?? "";
+      values.evaluator_id = "";
       values.duration_minutes = "30";
       values.level_score = "3";
       values.overall_result = "ĐẠT";
@@ -10241,8 +10266,11 @@ function OperationalWorkspace({
                   values={formValues}
                   setValues={setFormValues}
                   lookups={interviewEvaluationLookups}
-                  session={session}
-                  lookupsLoading={interviewEvaluationLookupQuery.isLoading}
+                  lookupsLoading={interviewEvaluationLookupQuery.isLoading || interviewEvaluationLookupQuery.isFetching}
+                  lookupsError={interviewEvaluationLookupQuery.error}
+                  onRetryLookups={() => {
+                    void interviewEvaluationLookupQuery.refetch();
+                  }}
                   onViewCandidate={(candidate) => {
                     setShowForm(false);
                     router.push(`/recruitment/candidates/${String(candidate.candidate_id ?? "")}`);

@@ -135,29 +135,29 @@ async function findDuplicateCandidate({ citizen_id, phone, email }, excludeCandi
 async function resolveCandidatePlan({ recruitment_plan_id, recruitment_request_id, fallbackPlanId }) {
     if (recruitment_plan_id) {
         return queryOne(
-            `SELECT TOP 1 plan.recruitment_plan_id, request.recruitment_request_id, request.department_id
-             FROM RecruitmentPlan plan
-             JOIN RecruitmentRequest request ON request.recruitment_request_id = plan.recruitment_request_id
-             WHERE plan.recruitment_plan_id = ?`,
+            `SELECT TOP 1 rp.recruitment_plan_id, rr.recruitment_request_id, rr.department_id
+             FROM RecruitmentPlan rp
+             JOIN RecruitmentRequest rr ON rr.recruitment_request_id = rp.recruitment_request_id
+             WHERE rp.recruitment_plan_id = ?`,
             [recruitment_plan_id]
         );
     }
     if (recruitment_request_id) {
         return queryOne(
-            `SELECT TOP 1 plan.recruitment_plan_id, request.recruitment_request_id, request.department_id
-             FROM RecruitmentPlan plan
-             JOIN RecruitmentRequest request ON request.recruitment_request_id = plan.recruitment_request_id
-             WHERE request.recruitment_request_id = ?
-             ORDER BY plan.created_date DESC`,
+            `SELECT TOP 1 rp.recruitment_plan_id, rr.recruitment_request_id, rr.department_id
+             FROM RecruitmentPlan rp
+             JOIN RecruitmentRequest rr ON rr.recruitment_request_id = rp.recruitment_request_id
+             WHERE rr.recruitment_request_id = ?
+             ORDER BY rp.created_date DESC`,
             [recruitment_request_id]
         );
     }
     if (fallbackPlanId) {
         return queryOne(
-            `SELECT TOP 1 plan.recruitment_plan_id, request.recruitment_request_id, request.department_id
-             FROM RecruitmentPlan plan
-             JOIN RecruitmentRequest request ON request.recruitment_request_id = plan.recruitment_request_id
-             WHERE plan.recruitment_plan_id = ?`,
+            `SELECT TOP 1 rp.recruitment_plan_id, rr.recruitment_request_id, rr.department_id
+             FROM RecruitmentPlan rp
+             JOIN RecruitmentRequest rr ON rr.recruitment_request_id = rp.recruitment_request_id
+             WHERE rp.recruitment_plan_id = ?`,
             [fallbackPlanId]
         );
     }

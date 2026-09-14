@@ -158,6 +158,7 @@ function isDemoSession(session: Session) {
 }
 
 type ApiEnvelope<T> = { success: boolean; data?: T; message?: string; token?: string; user?: Record<string, unknown> };
+type ApiPermission = { resource: Resource; action?: Action; fallbackToMock?: boolean };
 
 function toSession(user: Record<string, unknown>): Session {
   return {
@@ -259,8 +260,9 @@ function fallbackDashboard(role: Role): DashboardData {
 }
 
 export const api = {
-  async request<T>(path: string, init: RequestInit = {}, permission?: { resource: Resource; action?: Action }): Promise<T> {
+  async request<T>(path: string, init: RequestInit = {}, permission?: ApiPermission): Promise<T> {
     const session = readSession();
+    const allowMockFallback = permission?.fallbackToMock !== false;
     if (permission && !canAccess(session, permission.resource, permission.action)) {
       throw new ApiError("Bạn không có quyền thực hiện thao tác này.", 403);
     }
@@ -284,15 +286,16 @@ export const api = {
       });
       if (!response.ok) {
         const body = await response.json().catch(() => null) as ApiEnvelope<unknown> | null;
-      if (response.status === 401 && !token && isDemoSession(session)) return mockApiRequest<T>(path, init, session);
-      if (response.status >= 500) return mockApiRequest<T>(path, init, session);
+      if (allowMockFallback && response.status === 401 && !token && isDemoSession(session)) return mockApiRequest<T>(path, init, session);
+      if (allowMockFallback && response.status >= 500) return mockApiRequest<T>(path, init, session);
         throw new ApiError(body?.message ?? `API request failed: ${response.status}`, response.status);
       }
       return response.json() as Promise<T>;
     } catch (error) {
-      if (error instanceof ApiError && error.status === 401 && !token && isDemoSession(session)) return mockApiRequest<T>(path, init, session);
+      if (allowMockFallback && error instanceof ApiError && error.status === 401 && !token && isDemoSession(session)) return mockApiRequest<T>(path, init, session);
       if (error instanceof ApiError && error.status < 500) throw error;
-      return mockApiRequest<T>(path, init, session);
+      if (allowMockFallback) return mockApiRequest<T>(path, init, session);
+      throw error;
     } finally {
       if (timeoutId) clearTimeout(timeoutId);
     }
@@ -559,20 +562,20 @@ export const api = {
     const [users, departments, positions, contractTypes, roles, employees] = await Promise.all([getList("/admin/users"), getList("/admin/departments"), getList("/admin/positions"), getList("/admin/contract-types"), getList("/admin/roles"), getList("/hr/employees", "people")]);
     return { users: users.length ? users.length : 24, departments: departments.length ? departments.length : 14, positions: positions.length ? positions.length : 38, contractTypes: contractTypes.length ? contractTypes.length : 6, userRows: users, departmentsList: departments, positionsList: positions, rolesList: roles, employeesList: employees };
   },
-  async list(path: string, permission?: { resource: Resource; action?: Action }) {
+  async list(path: string, permission?: ApiPermission) {
     const response = await this.request<ApiEnvelope<unknown>>(path, {}, permission);
     const value = unwrap<unknown>(response);
     if (Array.isArray(value)) return value as Array<Record<string, unknown>>;
     return value && typeof value === "object" ? [value as Record<string, unknown>] : [];
   },
-  async write(path: string, method: "POST" | "PUT", payload: Record<string, unknown>, permission?: { resource: Resource; action?: Action }) {
+  async write(path: string, method: "POST" | "PUT", payload: Record<string, unknown>, permission?: ApiPermission) {
     const response = await this.request<ApiEnvelope<unknown>>(path, { method, body: JSON.stringify(payload) }, permission);
     if (response && typeof response === "object" && "success" in response && !(response as ApiEnvelope<unknown>).success) {
       throw new ApiError((response as ApiEnvelope<unknown>).message ?? "Không thể lưu dữ liệu.", 400);
     }
     return response;
   },
-  async remove(path: string, permission?: { resource: Resource; action?: Action }) {
+  async remove(path: string, permission?: ApiPermission) {
     return this.request<ApiEnvelope<unknown>>(path, { method: "DELETE" }, permission);
   },
   create(name: keyof typeof moduleData, payload: Record<string, string>) {

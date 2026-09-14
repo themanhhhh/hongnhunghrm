@@ -625,12 +625,12 @@ router.get('/dashboard/hr', async (req, res) => {
               FROM RecruitmentDecision decision
               JOIN Candidate candidate ON candidate.candidate_id = decision.candidate_id
               LEFT JOIN Employee employee ON employee.candidate_id = candidate.candidate_id
-              LEFT JOIN RecruitmentPlan plan ON plan.recruitment_plan_id = candidate.recruitment_plan_id
-              LEFT JOIN RecruitmentRequest request ON request.recruitment_request_id = COALESCE(candidate.recruitment_request_id, plan.recruitment_request_id)
+              LEFT JOIN RecruitmentPlan rp ON rp.recruitment_plan_id = candidate.recruitment_plan_id
+              LEFT JOIN RecruitmentRequest rr ON rr.recruitment_request_id = COALESCE(candidate.recruitment_request_id, rp.recruitment_request_id)
               LEFT JOIN Position candidate_position ON candidate_position.position_id = candidate.position_id
-              LEFT JOIN Position request_position ON request_position.position_id = request.position_id
+              LEFT JOIN Position request_position ON request_position.position_id = rr.position_id
               LEFT JOIN Department candidate_department ON candidate_department.department_id = candidate.department_id
-              LEFT JOIN Department request_department ON request_department.department_id = request.department_id
+              LEFT JOIN Department request_department ON request_department.department_id = rr.department_id
               WHERE decision.result IN (N'ĐẠT', 'PASSED') AND decision.status <> 'CANCELLED'
               ORDER BY decision.decision_date DESC, decision.created_date DESC`
         );
@@ -647,10 +647,10 @@ router.get('/dashboard/hr', async (req, res) => {
                      END as current_stage,
                      COALESCE(candidate.last_modified_date, candidate.eval_date, candidate.received_date, candidate.created_date) as updated_date
               FROM Candidate candidate
-              LEFT JOIN RecruitmentPlan plan ON plan.recruitment_plan_id = candidate.recruitment_plan_id
-              LEFT JOIN RecruitmentRequest request ON request.recruitment_request_id = COALESCE(candidate.recruitment_request_id, plan.recruitment_request_id)
+              LEFT JOIN RecruitmentPlan rp ON rp.recruitment_plan_id = candidate.recruitment_plan_id
+              LEFT JOIN RecruitmentRequest rr ON rr.recruitment_request_id = COALESCE(candidate.recruitment_request_id, rp.recruitment_request_id)
               LEFT JOIN Position candidate_position ON candidate_position.position_id = candidate.position_id
-              LEFT JOIN Position request_position ON request_position.position_id = request.position_id
+              LEFT JOIN Position request_position ON request_position.position_id = rr.position_id
               WHERE candidate.status NOT IN (
                   N'đi làm', N'đã quyết định loại', N'đã quyết định tuyển',
                   N'S5: Trúng tuyển', N'S7: Loại', 'HIRED', 'REJECTED', 'OFFER_REJECTED', 'PASSED', 'OFFER_ACCEPTED'
