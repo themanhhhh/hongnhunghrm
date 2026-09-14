@@ -7855,12 +7855,23 @@ function OperationalWorkspace({
     queryFn: async () => {
       const get = (path: string) =>
         api.list(path, { resource, fallbackToMock: false });
-      const [schedules, candidates, employees, offers] = await Promise.all([
+      const results = await Promise.allSettled([
         get("/recruitment/interview-schedules"),
         get("/recruitment/candidates"),
         get("/hr/employees"),
         get("/recruitment/offers"),
       ]);
+      const [schedulesResult, candidatesResult, employeesResult, offersResult] =
+        results;
+      if (schedulesResult.status === "rejected") {
+        throw schedulesResult.reason;
+      }
+      const fulfilledRows = (result: (typeof results)[number]) =>
+        result.status === "fulfilled" ? result.value : [];
+      const schedules = fulfilledRows(schedulesResult);
+      const candidates = fulfilledRows(candidatesResult);
+      const employees = fulfilledRows(employeesResult);
+      const offers = fulfilledRows(offersResult);
       return {
         departments: [],
         positions: [],
