@@ -160,6 +160,21 @@ function isDemoSession(session: Session) {
 type ApiEnvelope<T> = { success: boolean; data?: T; message?: string; token?: string; user?: Record<string, unknown> };
 type ApiPermission = { resource: Resource; action?: Action; fallbackToMock?: boolean };
 
+function apiErrorMessage(value: unknown, fallback: string) {
+  if (typeof value !== "string") return fallback;
+  const text = value.trim();
+  if (!text) return fallback;
+  try {
+    const parsed = JSON.parse(text) as { message?: unknown };
+    if (typeof parsed.message === "string" && parsed.message.trim()) {
+      return parsed.message.trim();
+    }
+  } catch {
+    // The API normally returns plain text here.
+  }
+  return text;
+}
+
 function toSession(user: Record<string, unknown>): Session {
   return {
     id: String(user.id ?? user.user_id ?? "backend-user"),
@@ -288,7 +303,10 @@ export const api = {
         const body = await response.json().catch(() => null) as ApiEnvelope<unknown> | null;
       if (allowMockFallback && response.status === 401 && !token && isDemoSession(session)) return mockApiRequest<T>(path, init, session);
       if (allowMockFallback && response.status >= 500) return mockApiRequest<T>(path, init, session);
-        throw new ApiError(body?.message ?? `API request failed: ${response.status}`, response.status);
+        throw new ApiError(
+          apiErrorMessage(body?.message, `API request failed: ${response.status}`),
+          response.status,
+        );
       }
       return response.json() as Promise<T>;
     } catch (error) {
@@ -571,7 +589,13 @@ export const api = {
   async write(path: string, method: "POST" | "PUT", payload: Record<string, unknown>, permission?: ApiPermission) {
     const response = await this.request<ApiEnvelope<unknown>>(path, { method, body: JSON.stringify(payload) }, permission);
     if (response && typeof response === "object" && "success" in response && !(response as ApiEnvelope<unknown>).success) {
-      throw new ApiError((response as ApiEnvelope<unknown>).message ?? "Không thể lưu dữ liệu.", 400);
+      throw new ApiError(
+        apiErrorMessage(
+          (response as ApiEnvelope<unknown>).message,
+          "Không thể lưu dữ liệu.",
+        ),
+        400,
+      );
     }
     return response;
   },
