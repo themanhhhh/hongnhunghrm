@@ -5400,38 +5400,67 @@ function InterviewEvaluationForm({
     "general" | "script" | "criteria" | "offer" | "assessment"
   >("general");
   const selectedSchedule = lookups.schedules.find(
-    (item) => String(item.schedule_id ?? "") === values.schedule_id,
+    (item) => String(item.schedule_id ?? item.id ?? "") === values.schedule_id,
   );
   const scheduleCandidateRows = parseDetailList(
     selectedSchedule?.candidates ?? selectedSchedule?.candidates_json,
   );
-  const scheduleCandidateIds = scheduleCandidateRows
-    .map((item) => String(item.candidate_id ?? item.id ?? ""))
-    .filter(Boolean);
-  const candidates = scheduleCandidateIds.length
-    ? lookups.candidates.filter((item) =>
-        scheduleCandidateIds.includes(String(item.candidate_id ?? "")),
-      )
-    : [];
-  const candidate = lookups.candidates.find(
-    (item) => String(item.candidate_id ?? "") === values.candidate_id,
+  const candidates = scheduleCandidateRows.reduce<Row[]>((options, item) => {
+    const candidateId = String(
+      item.candidate_id ?? item.candidateId ?? item.id ?? "",
+    ).trim();
+    if (
+      !candidateId ||
+      options.some((option) => String(option.candidate_id) === candidateId)
+    ) {
+      return options;
+    }
+    const candidate = lookups.candidates.find(
+      (option) => String(option.candidate_id ?? option.id ?? "") === candidateId,
+    );
+    options.push(
+      candidate ?? {
+        candidate_id: candidateId,
+        candidate_code: item.candidate_code ?? item.candidateCode ?? candidateId,
+        full_name: item.full_name ?? item.candidate_name ?? candidateId,
+      },
+    );
+    return options;
+  }, []);
+  const candidate = candidates.find(
+    (item) => String(item.candidate_id ?? item.id ?? "") === values.candidate_id,
   );
   const panelRows = parseDetailList(
     selectedSchedule?.council ?? selectedSchedule?.council_json,
   );
-  const panelIds = panelRows
-    .map((item) => String(item.employee_id ?? item.id ?? ""))
-    .filter(Boolean);
-  const panelEmployees = lookups.employees.filter((item) =>
-    panelIds.includes(String(item.employee_id ?? "")),
-  );
+  const evaluatorOptions = panelRows.reduce<Row[]>((options, item) => {
+    const employeeId = String(
+      item.employee_id ?? item.employeeId ?? item.id ?? "",
+    ).trim();
+    if (
+      !employeeId ||
+      options.some((option) => String(option.employee_id) === employeeId)
+    ) {
+      return options;
+    }
+    const employee = lookups.employees.find(
+      (option) => String(option.employee_id ?? option.id ?? "") === employeeId,
+    );
+    options.push(
+      employee ?? {
+        employee_id: employeeId,
+        employee_code: item.employee_code ?? item.employeeCode ?? employeeId,
+        full_name: item.full_name ?? item.employee_name ?? employeeId,
+      },
+    );
+    return options;
+  }, []);
   const decisionMakerIds = panelRows
     .filter(
       (item) =>
         Number(item.is_decision_maker) === 1 || item.is_decision_maker === true,
     )
-    .map((item) => String(item.employee_id ?? item.id ?? ""));
-  const evaluatorOptions = panelEmployees;
+    .map((item) => String(item.employee_id ?? item.employeeId ?? item.id ?? ""));
   const existingOffer = lookups.offers.find(
     (item) => String(item.candidate_id ?? "") === values.candidate_id,
   );
@@ -5485,7 +5514,7 @@ function InterviewEvaluationForm({
   };
   const selectCandidate = (candidateId: string) => {
     const offer = lookups.offers.find(
-      (item) => String(item.candidate_id ?? "") === candidateId,
+      (item) => String(item.candidate_id ?? item.id ?? "") === candidateId,
     );
     setValues((current) => ({
       ...current,
@@ -5586,8 +5615,8 @@ function InterviewEvaluationForm({
               <option value="">-- Chọn lịch phỏng vấn --</option>
               {lookups.schedules.map((item) => (
                 <option
-                  key={String(item.schedule_id)}
-                  value={String(item.schedule_id)}
+                  key={String(item.schedule_id ?? item.id)}
+                  value={String(item.schedule_id ?? item.id ?? "")}
                 >
                   {String(item.schedule_code ?? item.schedule_id)} -{" "}
                   {String(item.round_type ?? "")}

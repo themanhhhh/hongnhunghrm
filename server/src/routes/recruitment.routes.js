@@ -740,7 +740,7 @@ function parseJsonArray(value) {
 
 async function markScheduledCandidates(rawCandidates, now) {
     for (const candidate of parseJsonArray(rawCandidates)) {
-        const candidateId = candidate?.candidate_id || candidate?.id;
+        const candidateId = candidate?.candidate_id || candidate?.candidateId || candidate?.id;
         if (candidateId) {
             await run(`UPDATE Candidate SET status = ?, last_modified_date = ? WHERE candidate_id = ?`, [CANDIDATE_STATUS.SCHEDULED, now, candidateId]);
         }
@@ -763,7 +763,7 @@ async function checkInterviewPanelAccess(req, candidate_id, schedule_id, evaluat
 
     const candidatesArr = parseJsonArray(schedule.candidates_json);
     const council = parseJsonArray(schedule.council_json);
-    const candidateInSchedule = candidatesArr.some(c => String(c?.candidate_id || c?.id || '') === candidateId);
+    const candidateInSchedule = candidatesArr.some(c => String(c?.candidate_id || c?.candidateId || c?.id || '') === candidateId);
     if (!candidateInSchedule) return 'Ứng viên không thuộc lịch phỏng vấn đã chọn.';
 
     if (req.user.roleName === 'Administrator') return null;
@@ -774,10 +774,10 @@ async function checkInterviewPanelAccess(req, candidate_id, schedule_id, evaluat
 
     const currentEmployeeId = String(req.user.employeeId);
     const evaluatorId = String(evaluator_id || currentEmployeeId);
-    if (!council.some(m => String(m?.employee_id || m?.id || '') === currentEmployeeId)) {
+    if (!council.some(m => String(m?.employee_id || m?.employeeId || m?.id || '') === currentEmployeeId)) {
         return 'Bạn không thuộc Hội đồng phỏng vấn của ứng viên này, không có quyền đánh giá.';
     }
-    if (!council.some(m => String(m?.employee_id || m?.id || '') === evaluatorId)) return 'Người đánh giá phải thuộc Hội đồng của lịch phỏng vấn.';
+    if (!council.some(m => String(m?.employee_id || m?.employeeId || m?.id || '') === evaluatorId)) return 'Người đánh giá phải thuộc Hội đồng của lịch phỏng vấn.';
     return null;
 }
 
@@ -993,7 +993,15 @@ router.delete('/interview-evaluations/:id', authorizeRole('Administrator', 'HR S
 router.get('/interview-schedules', async (req, res) => {
     try {
         const schedules = await query(`SELECT * FROM InterviewSchedule ORDER BY created_date DESC`);
-        res.json({ success: true, data: schedules });
+        res.json({
+            success: true,
+            data: schedules.map(schedule => ({
+                ...schedule,
+                candidates: parseJsonArray(schedule.candidates_json),
+                council: parseJsonArray(schedule.council_json),
+                tests: parseJsonArray(schedule.tests_json)
+            }))
+        });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }
