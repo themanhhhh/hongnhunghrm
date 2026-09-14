@@ -625,7 +625,7 @@ function buildDatasetV2({ passwordHash = 'RUNTIME_BCRYPT_HASH' } = {}) {
     add('InterviewSchedulePanel', Array.from({ length: 8 }, (_, index) => {
         const number = String(index + 5).padStart(3, '0');
         return {
-            panel_member_id: `panel-extra-${number}`, schedule_id: `schedule-extra-${number}`, employee_id: `emp-extra-${String(index + 10).padStart(3, '0')}`,
+            panel_member_id: `panel-extra-${number}`, schedule_id: `schedule-extra-${number}`, employee_id: `emp-extra-${String(index + 9).padStart(3, '0')}`,
             is_decision_maker: index % 2, note: 'Thanh vien hoi dong tuyen dung', created_date: date(`2026-0${(index % 8) + 1}-${String((index % 8) + 1).padStart(2, '0')}`)
         };
     }));
