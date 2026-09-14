@@ -8152,20 +8152,42 @@ function OperationalWorkspace({
   });
 
   const lookupData = lookupQuery.data;
-  const interviewEvaluationLookups = (interviewEvaluationLookupQuery.data ??
-    lookupData ?? {
-      departments: [],
-      positions: [],
-      employees: [],
-      quotas: [],
-      requests: [],
-      plans: [],
-      candidates: [],
-      screenings: [],
-      decisions: [],
-      schedules: [],
-      offers: [],
-    }) as EvaluationLookups;
+  const evaluationLookupData = interviewEvaluationLookupQuery.data;
+  const evaluationLookupFallback = lookupData ?? {
+    departments: [],
+    positions: [],
+    employees: [],
+    quotas: [],
+    requests: [],
+    plans: [],
+    candidates: [],
+    screenings: [],
+    decisions: [],
+    schedules: [],
+    offers: [],
+  };
+  const rowsOrFallback = (rows: Row[] | undefined, fallback: Row[]) =>
+    rows?.length ? rows : fallback;
+  const interviewEvaluationLookups = {
+    ...evaluationLookupFallback,
+    ...(evaluationLookupData ?? {}),
+    employees: rowsOrFallback(
+      evaluationLookupData?.employees,
+      evaluationLookupFallback.employees,
+    ),
+    candidates: rowsOrFallback(
+      evaluationLookupData?.candidates,
+      evaluationLookupFallback.candidates,
+    ),
+    schedules: rowsOrFallback(
+      evaluationLookupData?.schedules,
+      evaluationLookupFallback.schedules,
+    ),
+    offers: rowsOrFallback(
+      evaluationLookupData?.offers,
+      evaluationLookupFallback.offers,
+    ),
+  } as EvaluationLookups;
   const rewardEvaluationLookups = (rewardEvaluationLookupQuery.data ??
     lookupData ?? {
       departments: [],
@@ -10295,8 +10317,14 @@ function OperationalWorkspace({
                   values={formValues}
                   setValues={setFormValues}
                   lookups={interviewEvaluationLookups}
-                  lookupsLoading={interviewEvaluationLookupQuery.isLoading || interviewEvaluationLookupQuery.isFetching}
-                  lookupsError={interviewEvaluationLookupQuery.error}
+                  lookupsLoading={
+                    (interviewEvaluationLookupQuery.isLoading ||
+                      interviewEvaluationLookupQuery.isFetching) &&
+                    !lookupData
+                  }
+                  lookupsError={
+                    lookupData ? undefined : interviewEvaluationLookupQuery.error
+                  }
                   onRetryLookups={() => {
                     void interviewEvaluationLookupQuery.refetch();
                   }}
