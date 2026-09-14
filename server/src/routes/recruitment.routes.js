@@ -1485,6 +1485,29 @@ router.post('/convert-to-employee', authorizeRole('Administrator', 'HR Staff'), 
             const graduationYear = parseNumber(employeeInput.graduation_year);
             const gpa = parseNumber(employeeInput.gpa);
 
+            const employeeValues = [
+                empId, now, now, empCode, String(employeeInput.short_name || empCode), fullName,
+                employeeInput.gender || candidate.gender || 'Nam',
+                toDateTimestamp(employeeInput.date_of_birth, candidate.date_of_birth || null),
+                employeeInput.place_of_birth || null, Number(employeeInput.is_foreign) === 1 ? 1 : 0,
+                employeeInput.hometown || null, employeeInput.nationality || 'Việt Nam', employeeInput.ethnicity || 'Kinh',
+                employeeInput.religion || 'Không', employeeInput.blood_type || null, employeeInput.marital_status || 'Độc thân',
+                employeeInput.tax_code || null, employeeInput.citizen_id || candidate.citizen_id || null,
+                toDateTimestamp(employeeInput.citizen_issue_date), employeeInput.citizen_issue_place || null,
+                toDateTimestamp(employeeInput.citizen_expiry_date), employeeInput.phone || candidate.phone || null,
+                employeeInput.email || candidate.email || null, employeeInput.personal_email || employeeInput.email || candidate.email || null,
+                employeeInput.company_email || employeeInput.email || candidate.email || null,
+                employeeInput.emergency_contact_name || null, employeeInput.emergency_contact_relationship || null,
+                employeeInput.emergency_contact_phone || null, employeeInput.address || candidate.address || '', employeeInput.permanent_address || null,
+                employeeInput.bank_account_number || null, employeeInput.bank_account_holder || null, employeeInput.bank_name || null,
+                employeeInput.bank_branch || null, employeeInput.culture_level || candidate.culture_level || null,
+                employeeInput.education_level || candidate.education_level || null, employeeInput.education_school || candidate.education_school || null,
+                employeeInput.major || candidate.major || null, gpa, graduationYear, candidateId, departmentId, positionId,
+                employeeInput.manager_id || null, employeeInput.level || 'Nhân viên', joinDate,
+                toDateTimestamp(employeeInput.initial_contract_date, contractDate), toDateTimestamp(employeeInput.official_date),
+                toDateTimestamp(employeeInput.resignation_date), employeeInput.employment_status || 'WORKING', employeeInput.note || ''
+            ];
+
             await txRun(
                 `INSERT INTO Employee (
                     employee_id, created_date, last_modified_date, employee_code, short_name, full_name, gender, date_of_birth, place_of_birth,
@@ -1494,29 +1517,8 @@ router.post('/convert-to-employee', authorizeRole('Administrator', 'HR Staff'), 
                     bank_account_number, bank_account_holder, bank_name, bank_branch, culture_level, education_level, education_school, major,
                     gpa, graduation_year, candidate_id, department_id, position_id, manager_id, level, join_date, initial_contract_date,
                     official_date, resignation_date, employment_status, note, is_active
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
-                [
-                    empId, now, now, empCode, String(employeeInput.short_name || empCode), fullName,
-                    employeeInput.gender || candidate.gender || 'Nam',
-                    toDateTimestamp(employeeInput.date_of_birth, candidate.date_of_birth || null),
-                    employeeInput.place_of_birth || null, Number(employeeInput.is_foreign) === 1 ? 1 : 0,
-                    employeeInput.hometown || null, employeeInput.nationality || 'Việt Nam', employeeInput.ethnicity || 'Kinh',
-                    employeeInput.religion || 'Không', employeeInput.blood_type || null, employeeInput.marital_status || 'Độc thân',
-                    employeeInput.tax_code || null, employeeInput.citizen_id || candidate.citizen_id || null,
-                    toDateTimestamp(employeeInput.citizen_issue_date), employeeInput.citizen_issue_place || null,
-                    toDateTimestamp(employeeInput.citizen_expiry_date), employeeInput.phone || candidate.phone || null,
-                    employeeInput.email || candidate.email || null, employeeInput.personal_email || employeeInput.email || candidate.email || null,
-                    employeeInput.company_email || employeeInput.email || candidate.email || null,
-                    employeeInput.emergency_contact_name || null, employeeInput.emergency_contact_relationship || null,
-                    employeeInput.emergency_contact_phone || null, employeeInput.address || candidate.address || '', employeeInput.permanent_address || null,
-                    employeeInput.bank_account_number || null, employeeInput.bank_account_holder || null, employeeInput.bank_name || null,
-                    employeeInput.bank_branch || null, employeeInput.culture_level || candidate.culture_level || null,
-                    employeeInput.education_level || candidate.education_level || null, employeeInput.education_school || candidate.education_school || null,
-                    employeeInput.major || candidate.major || null, gpa, graduationYear, candidateId, departmentId, positionId,
-                    employeeInput.manager_id || null, employeeInput.level || 'Nhân viên', joinDate,
-                    toDateTimestamp(employeeInput.initial_contract_date, contractDate), toDateTimestamp(employeeInput.official_date),
-                    toDateTimestamp(employeeInput.resignation_date), employeeInput.employment_status || 'WORKING', employeeInput.note || ''
-                ]
+                ) VALUES (${employeeValues.map(() => '?').join(', ')}, 1)`,
+                employeeValues
             );
 
             const contractId = crypto.randomUUID();
