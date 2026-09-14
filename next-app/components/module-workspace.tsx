@@ -7970,9 +7970,17 @@ function OperationalWorkspace({
       setShowForm(false);
       setEditingRow(null);
       showPopup("success", "Thành công", "Đã lưu dữ liệu thành công.");
-      await queryClient.invalidateQueries({
-        queryKey: ["workspace", name, tab.id],
-      });
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: ["workspace", name, tab.id],
+        }),
+        queryClient.invalidateQueries({
+          queryKey: ["workspace-lookups", name],
+        }),
+        queryClient.invalidateQueries({
+          queryKey: ["interview-evaluation-form-lookups", session?.id],
+        }),
+      ]);
       if (tab.id === "transfer-decisions") {
         const detail = parseDetailList(variables.detail_items)[0] ?? {};
         const employeeId = String(
@@ -8007,6 +8015,10 @@ function OperationalWorkspace({
     onSuccess: () => {
       showPopup("success", "Thành công", "Đã xóa bản ghi.");
       queryClient.invalidateQueries({ queryKey: ["workspace", name] });
+      queryClient.invalidateQueries({ queryKey: ["workspace-lookups", name] });
+      queryClient.invalidateQueries({
+        queryKey: ["interview-evaluation-form-lookups", session?.id],
+      });
     },
     onError: (error) =>
       showPopup(
@@ -8521,6 +8533,9 @@ function OperationalWorkspace({
   const openCreate = () => {
     setEditingRow(null);
     setPendingAvatar(null);
+    if (tab.id === "interview-evaluations") {
+      void interviewEvaluationLookupQuery.refetch();
+    }
     const values = defaultForm(tab);
     if (tab.id === "requests") {
       values.created_date = new Date().toISOString().slice(0, 10);
