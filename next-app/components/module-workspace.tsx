@@ -8180,41 +8180,20 @@ function OperationalWorkspace({
 
   const lookupData = lookupQuery.data;
   const evaluationLookupData = interviewEvaluationLookupQuery.data;
-  const evaluationLookupFallback = lookupData ?? {
-    departments: [],
-    positions: [],
-    employees: [],
-    quotas: [],
-    requests: [],
-    plans: [],
-    candidates: [],
-    screenings: [],
-    decisions: [],
-    schedules: [],
-    offers: [],
-  };
-  const rowsOrFallback = (rows: Row[] | undefined, fallback: Row[]) =>
-    rows?.length ? rows : fallback;
-  const interviewEvaluationLookups = {
-    ...evaluationLookupFallback,
-    ...(evaluationLookupData ?? {}),
-    employees: rowsOrFallback(
-      evaluationLookupData?.employees,
-      evaluationLookupFallback.employees,
-    ),
-    candidates: rowsOrFallback(
-      evaluationLookupData?.candidates,
-      evaluationLookupFallback.candidates,
-    ),
-    schedules: rowsOrFallback(
-      evaluationLookupData?.schedules,
-      evaluationLookupFallback.schedules,
-    ),
-    offers: rowsOrFallback(
-      evaluationLookupData?.offers,
-      evaluationLookupFallback.offers,
-    ),
-  } as EvaluationLookups;
+  const interviewEvaluationLookups: EvaluationLookups =
+    evaluationLookupData ?? {
+      departments: [],
+      positions: [],
+      employees: [],
+      quotas: [],
+      requests: [],
+      plans: [],
+      candidates: [],
+      screenings: [],
+      decisions: [],
+      schedules: [],
+      offers: [],
+    };
   const rewardEvaluationLookups = (rewardEvaluationLookupQuery.data ??
     lookupData ?? {
       departments: [],
@@ -8391,7 +8370,14 @@ function OperationalWorkspace({
   const sourceRows = (rowsQuery.data ?? []).map((row) =>
     name === "recruitment" &&
     ["screenings", "interview-evaluations", "decisions"].includes(tab.id)
-      ? enrichCandidateReference(row, lookupData?.candidates ?? [])
+      ? enrichCandidateReference(
+          row,
+          tab.id === "interview-evaluations"
+            ? evaluationLookupData?.candidates?.length
+              ? evaluationLookupData.candidates
+              : lookupData?.candidates ?? []
+            : lookupData?.candidates ?? [],
+        )
       : row,
   );
   const rows = sourceRows.filter((row) => {
@@ -10348,13 +10334,10 @@ function OperationalWorkspace({
                   setValues={setFormValues}
                   lookups={interviewEvaluationLookups}
                   lookupsLoading={
-                    (interviewEvaluationLookupQuery.isLoading ||
-                      interviewEvaluationLookupQuery.isFetching) &&
-                    !lookupData
+                    interviewEvaluationLookupQuery.isLoading ||
+                    interviewEvaluationLookupQuery.isFetching
                   }
-                  lookupsError={
-                    lookupData ? undefined : interviewEvaluationLookupQuery.error
-                  }
+                  lookupsError={interviewEvaluationLookupQuery.error}
                   onRetryLookups={() => {
                     void interviewEvaluationLookupQuery.refetch();
                   }}
